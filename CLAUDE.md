@@ -4,9 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Golem is a comprehensive AIML2 (Artificial Intelligence Markup Language) engine written in Go. It provides both a library for building conversational AI applications and a CLI tool for interactive development. The project implements ~85% of the AIML2 specification with a revolutionary tree-based processing system using Abstract Syntax Trees (AST).
-
-**Key Innovation**: Tree-based AST processing is now **enabled by default**, eliminating tag-in-tag bugs common in regex-based AIML processors. Achieves 95% tag coverage with significant performance improvements (50-70% faster) and correct AIML spec compliance.
+My-Golem is a comprehensive AIML2 (Artificial Intelligence Markup Language) engine written in Go. It provides both a library for building conversational AI applications and a CLI tool for interactive development. The project implements ~85% of the AIML2 specification with a revolutionary tree-based processing system using Abstract Syntax Trees (AST).
 
 ## Development Commands
 
@@ -29,7 +27,7 @@ make install
 # Run all tests
 make test
 # or
-go test ./...
+go test ./pkg/golem
 
 # Run with verbose output
 go test ./pkg/golem -v
