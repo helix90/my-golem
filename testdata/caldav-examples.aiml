@@ -142,12 +142,61 @@
         </template>
     </category>
 
+    <!-- Calendar Management -->
+    <category>
+        <pattern>USE CALENDAR *</pattern>
+        <template>
+            <think>
+                <set name="calendar"><star/></set>
+            </think>
+            Switched to calendar: <get name="calendar"/>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SWITCH TO CALENDAR *</pattern>
+        <template>
+            <srai>USE CALENDAR <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SET MY CALENDAR TO *</pattern>
+        <template>
+            <srai>USE CALENDAR <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>WHAT CALENDAR AM I USING</pattern>
+        <template>
+            <condition name="calendar">
+                <li value="">You are using the default calendar.</li>
+                <li>You are currently using the <get name="calendar"/> calendar.</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>WHICH CALENDAR</pattern>
+        <template>
+            <srai>WHAT CALENDAR AM I USING</srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>MY CALENDAR</pattern>
+        <template>
+            <srai>WHAT CALENDAR AM I USING</srai>
+        </template>
+    </category>
+
     <!-- Calendar Status -->
     <category>
         <pattern>IS CALDAV ENABLED</pattern>
         <template>
             <condition name="bot.caldav.enabled">
-                <li value="true">Yes, CalDAV integration is enabled. You're connected to <bot name="caldav.server"/> using the <bot name="caldav.default.calendar"/> calendar.</li>
+                <li value="true">Yes, CalDAV integration is enabled. You're connected to <bot name="caldav.server"/>. <srai>WHAT CALENDAR AM I USING</srai></li>
                 <li>CalDAV integration is not currently enabled.</li>
             </condition>
         </template>
@@ -169,6 +218,8 @@
             - "Show my upcoming events"
             - "Create event called Meeting on tomorrow at 2pm"
             - "Delete event [event-id]"
+            - "Use calendar [name]" - Switch to a different calendar
+            - "What calendar am I using" - Show current calendar
             - "Calendar status"
         </template>
     </category>

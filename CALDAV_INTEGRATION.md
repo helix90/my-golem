@@ -110,6 +110,40 @@ fmt.Println(response)
 
 ## Usage
 
+### Multiple Calendars
+
+Each user session can have its own calendar. The system supports switching between multiple calendars per user.
+
+#### Calendar Selection
+
+```
+User: Use calendar work
+Bot:  Switched to calendar: work
+
+User: Use calendar personal
+Bot:  Switched to calendar: personal
+
+User: What calendar am I using?
+Bot:  You are currently using the personal calendar.
+```
+
+#### How It Works
+
+- **Session Variable**: Each session stores its calendar selection in the `calendar` session variable
+- **Fallback Chain**: Session calendar → `RADICALE_CALENDAR` environment variable → Default ("personal")
+- **Per-User State**: Different users can use different calendars simultaneously
+- **Persistence**: Calendar selection persists throughout the session
+
+#### Setting Up Multiple Calendars
+
+1. Create multiple calendars in Radicale (e.g., "personal", "work", "family")
+2. Users can switch between them using natural language:
+   - "Use calendar work"
+   - "Switch to calendar personal"
+   - "Set my calendar to family"
+
+All calendar operations (list, create, delete) use the currently selected calendar.
+
 ### List Today's Events
 
 ```
@@ -160,6 +194,19 @@ User: Cancel event meeting-456
 Bot:  Event deleted successfully
 ```
 
+### Calendar Management
+
+```
+User: Use calendar work
+Bot:  Switched to calendar: work
+
+User: What calendar am I using?
+Bot:  You are currently using the work calendar.
+
+User: Switch to calendar personal
+Bot:  Switched to calendar: personal
+```
+
 ### Get Help
 
 ```
@@ -167,7 +214,11 @@ User: Calendar help
 Bot:  I can help you manage your calendar. Try these commands:
       - "What is on my calendar today"
       - "Show my upcoming events"
-      ...
+      - "Create event called Meeting on tomorrow at 2pm"
+      - "Delete event [event-id]"
+      - "Use calendar [name]" - Switch to a different calendar
+      - "What calendar am I using" - Show current calendar
+      - "Calendar status"
 ```
 
 ## Architecture
@@ -207,6 +258,12 @@ The `caldav-examples.aiml` file contains patterns for natural language calendar 
 ### CalDAVHelper Methods
 
 ```go
+// Calendar management
+GetSessionCalendar(session *ChatSession) string
+GetDefaultCalendar() string
+BuildCalendarURL(calendarName string) string
+BuildEventURL(calendarName, eventUID string) string
+
 // Create calendar queries
 BuildCalendarQuery(startTime, endTime time.Time) string
 BuildTodayCalendarQuery() string
@@ -381,13 +438,41 @@ summary, start, end, err := helper.ParseEventDetails("Team standup every Monday 
 // Implement recurring event logic
 ```
 
-### Multiple Calendars
+### Multi-Calendar Usage
 
-Configure multiple calendar services:
+The CalDAV integration supports multiple calendars per user through session-based calendar selection:
 
-```properties
-["sraix.caldav_work.urltemplate", "${RADICALE_URL}/${RADICALE_USER}/work/"]
-["sraix.caldav_personal.urltemplate", "${RADICALE_URL}/${RADICALE_USER}/personal/"]
+```go
+// In your bot implementation
+session := g.CreateSession("user123")
+
+// User switches to work calendar
+g.ProcessInput("use calendar work", session)
+// Calendar stored in session.Variables["calendar"]
+
+// All subsequent calendar operations use the work calendar
+g.ProcessInput("what is on my calendar today", session)
+g.ProcessInput("create event Team Meeting", session)
+
+// User switches to personal calendar
+g.ProcessInput("use calendar personal", session)
+// Now all operations use the personal calendar
+```
+
+The `GetSessionCalendar()` helper method manages the calendar selection:
+
+```go
+helper := golem.NewCalDAVHelper()
+
+// With a session that has calendar set to "work"
+calendar := helper.GetSessionCalendar(session) // Returns "work"
+
+// With a session that has no calendar set
+calendar := helper.GetSessionCalendar(session) // Returns RADICALE_CALENDAR env var or "personal"
+
+// Build URLs for specific calendars
+workURL := helper.BuildCalendarURL("work")
+personalURL := helper.BuildCalendarURL("personal")
 ```
 
 ### Custom Response Formatting

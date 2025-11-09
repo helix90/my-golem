@@ -17,6 +17,60 @@ func NewCalDAVHelper() *CalDAVHelper {
 	return &CalDAVHelper{}
 }
 
+// GetSessionCalendar gets the calendar name for a session, or default if not set
+func (ch *CalDAVHelper) GetSessionCalendar(session *ChatSession) string {
+	if session == nil {
+		return ch.GetDefaultCalendar()
+	}
+
+	// Check if session has a calendar set
+	if calName, exists := session.Variables["calendar"]; exists && calName != "" {
+		return calName
+	}
+
+	// Fall back to default
+	return ch.GetDefaultCalendar()
+}
+
+// GetDefaultCalendar returns the default calendar from environment or config
+func (ch *CalDAVHelper) GetDefaultCalendar() string {
+	calendar := os.Getenv("RADICALE_CALENDAR")
+	if calendar == "" {
+		calendar = "personal" // Default fallback
+	}
+	return calendar
+}
+
+// BuildCalendarURL constructs the full calendar URL for a specific calendar
+func (ch *CalDAVHelper) BuildCalendarURL(calendarName string) string {
+	baseURL := os.Getenv("RADICALE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:5232"
+	}
+
+	user := os.Getenv("RADICALE_USER")
+	if user == "" {
+		user = "user"
+	}
+
+	if calendarName == "" {
+		calendarName = ch.GetDefaultCalendar()
+	}
+
+	// Ensure trailing slash
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+
+	return fmt.Sprintf("%s%s/%s/", baseURL, user, calendarName)
+}
+
+// BuildEventURL constructs the URL for a specific event in a calendar
+func (ch *CalDAVHelper) BuildEventURL(calendarName, eventUID string) string {
+	calURL := ch.BuildCalendarURL(calendarName)
+	return fmt.Sprintf("%s%s.ics", calURL, eventUID)
+}
+
 // BuildCalendarQuery creates a REPORT XML payload for calendar queries
 func (ch *CalDAVHelper) BuildCalendarQuery(startTime, endTime time.Time) string {
 	return fmt.Sprintf(`<?xml version="1.0" encoding="utf-8" ?>

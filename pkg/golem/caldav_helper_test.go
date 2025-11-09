@@ -1,6 +1,7 @@
 package golem
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -299,5 +300,143 @@ END:VCALENDAR</C:calendar-data>
 	}
 	if event["summary"] != "Test Event 1" {
 		t.Errorf("Expected summary=Test Event 1, got %q", event["summary"])
+	}
+}
+
+func TestCalDAVHelper_GetDefaultCalendar(t *testing.T) {
+	ch := NewCalDAVHelper()
+
+	// Save original env var
+	origCal := os.Getenv("RADICALE_CALENDAR")
+	defer os.Setenv("RADICALE_CALENDAR", origCal)
+
+	// Test with env var set
+	os.Setenv("RADICALE_CALENDAR", "testcal")
+	cal := ch.GetDefaultCalendar()
+	if cal != "testcal" {
+		t.Errorf("Expected 'testcal', got %q", cal)
+	}
+
+	// Test with env var empty - should use default
+	os.Setenv("RADICALE_CALENDAR", "")
+	cal = ch.GetDefaultCalendar()
+	if cal != "personal" {
+		t.Errorf("Expected 'personal' as default, got %q", cal)
+	}
+}
+
+func TestCalDAVHelper_GetSessionCalendar(t *testing.T) {
+	ch := NewCalDAVHelper()
+
+	// Save original env var
+	origCal := os.Getenv("RADICALE_CALENDAR")
+	defer os.Setenv("RADICALE_CALENDAR", origCal)
+	os.Setenv("RADICALE_CALENDAR", "default_cal")
+
+	tests := []struct {
+		name             string
+		session          *ChatSession
+		expectedCalendar string
+	}{
+		{
+			name:             "Nil session uses default",
+			session:          nil,
+			expectedCalendar: "default_cal",
+		},
+		{
+			name:             "Session without calendar variable uses default",
+			session:          &ChatSession{Variables: make(map[string]string)},
+			expectedCalendar: "default_cal",
+		},
+		{
+			name: "Session with calendar variable",
+			session: &ChatSession{
+				Variables: map[string]string{"calendar": "work"},
+			},
+			expectedCalendar: "work",
+		},
+		{
+			name: "Session with empty calendar variable uses default",
+			session: &ChatSession{
+				Variables: map[string]string{"calendar": ""},
+			},
+			expectedCalendar: "default_cal",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cal := ch.GetSessionCalendar(tt.session)
+			if cal != tt.expectedCalendar {
+				t.Errorf("Expected %q, got %q", tt.expectedCalendar, cal)
+			}
+		})
+	}
+}
+
+func TestCalDAVHelper_BuildCalendarURL(t *testing.T) {
+	ch := NewCalDAVHelper()
+
+	// Save original env vars
+	origURL := os.Getenv("RADICALE_URL")
+	origUser := os.Getenv("RADICALE_USER")
+	defer func() {
+		os.Setenv("RADICALE_URL", origURL)
+		os.Setenv("RADICALE_USER", origUser)
+	}()
+
+	os.Setenv("RADICALE_URL", "http://localhost:5232")
+	os.Setenv("RADICALE_USER", "testuser")
+
+	tests := []struct {
+		name         string
+		calendarName string
+		expectedURL  string
+	}{
+		{
+			name:         "Personal calendar",
+			calendarName: "personal",
+			expectedURL:  "http://localhost:5232/testuser/personal/",
+		},
+		{
+			name:         "Work calendar",
+			calendarName: "work",
+			expectedURL:  "http://localhost:5232/testuser/work/",
+		},
+		{
+			name:         "Empty calendar name uses default",
+			calendarName: "",
+			expectedURL:  "http://localhost:5232/testuser/personal/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := ch.BuildCalendarURL(tt.calendarName)
+			if url != tt.expectedURL {
+				t.Errorf("Expected %q, got %q", tt.expectedURL, url)
+			}
+		})
+	}
+}
+
+func TestCalDAVHelper_BuildEventURL(t *testing.T) {
+	ch := NewCalDAVHelper()
+
+	// Save original env vars
+	origURL := os.Getenv("RADICALE_URL")
+	origUser := os.Getenv("RADICALE_USER")
+	defer func() {
+		os.Setenv("RADICALE_URL", origURL)
+		os.Setenv("RADICALE_USER", origUser)
+	}()
+
+	os.Setenv("RADICALE_URL", "http://localhost:5232")
+	os.Setenv("RADICALE_USER", "testuser")
+
+	url := ch.BuildEventURL("work", "event-123")
+	expected := "http://localhost:5232/testuser/work/event-123.ics"
+	if url != expected {
+		t.Errorf("Expected %q, got %q", expected, url)
 	}
 }
