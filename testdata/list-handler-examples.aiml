@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+    <!-- List Handler API Integration Examples -->
+
+    <!-- Authentication -->
+    <category>
+        <pattern>LIST LOGIN * *</pattern>
+        <template>
+            <think>
+                <set name="list_username"><star index="1"/></set>
+                <set name="temp_password"><star index="2"/></set>
+                <set name="list_access_token"><sraix service="list_login">username=<star index="1"/>&amp;password=<star index="2"/></sraix></set>
+            </think>
+            <condition name="list_access_token">
+                <li value="Login failed. Please check your credentials.">Unable to login. Please check your username and password.</li>
+                <li>
+                    <think>
+                        <!-- For now, assume user_id is 1 or derived from username -->
+                        <!-- This would ideally come from the login response -->
+                        <set name="list_user_id">1</set>
+                    </think>
+                    Logged in successfully as <get name="list_username"/>. You can now manage your lists.
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST LOGOUT</pattern>
+        <template>
+            <think>
+                <set name="list_username"></set>
+                <set name="list_access_token"></set>
+                <set name="list_user_id"></set>
+            </think>
+            Logged out successfully.
+        </template>
+    </category>
+
+    <!-- Check Login Status -->
+    <category>
+        <pattern>LIST STATUS</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">You are not logged in. Use 'list login username password' to authenticate.</li>
+                <li>You are logged in as <get name="list_username"/> (User ID: <get name="list_user_id"/>)</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST WHO AM I</pattern>
+        <template>
+            <srai>LIST STATUS</srai>
+        </template>
+    </category>
+
+    <!-- Create List -->
+    <category>
+        <pattern>LIST CREATE *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="list_name"><star/></set>
+                        <set name="create_response"><sraix service="list_create">{"name":"<star/>","description":""}</sraix></set>
+                    </think>
+                    <condition name="create_response">
+                        <li value="Failed to create list">Unable to create list '<get name="list_name"/>'.</li>
+                        <li>Created list '<get name="list_name"/>' successfully (ID: <get name="create_response"/>)</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST NEW *</pattern>
+        <template>
+            <srai>LIST CREATE <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>CREATE LIST *</pattern>
+        <template>
+            <srai>LIST CREATE <star/></srai>
+        </template>
+    </category>
+
+    <!-- Create List with Description -->
+    <category>
+        <pattern>LIST CREATE * DESCRIPTION *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="list_name"><star index="1"/></set>
+                        <set name="list_description"><star index="2"/></set>
+                        <set name="create_response"><sraix service="list_create">{"name":"<star index="1"/>","description":"<star index="2"/>"}</sraix></set>
+                    </think>
+                    <condition name="create_response">
+                        <li value="Failed to create list">Unable to create list '<get name="list_name"/>'.</li>
+                        <li>Created list '<get name="list_name"/>' with description successfully (ID: <get name="create_response"/>)</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <!-- Get All Lists -->
+    <category>
+        <pattern>LIST SHOW ALL</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="lists_response"><sraix service="list_get_all"></sraix></set>
+                    </think>
+                    <condition name="lists_response">
+                        <li value="Unable to retrieve lists">Unable to retrieve your lists.</li>
+                        <li>Your lists: <get name="lists_response"/></li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST ALL</pattern>
+        <template>
+            <srai>LIST SHOW ALL</srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SHOW MY LISTS</pattern>
+        <template>
+            <srai>LIST SHOW ALL</srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>WHAT LISTS DO I HAVE</pattern>
+        <template>
+            <srai>LIST SHOW ALL</srai>
+        </template>
+    </category>
+
+    <!-- Get Specific List with Items -->
+    <category>
+        <pattern>LIST SHOW *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star/></set>
+                        <set name="list_response"><sraix service="list_get"><star/></sraix></set>
+                    </think>
+                    <condition name="list_response">
+                        <li value="List not found">List ID <get name="target_list_id"/> not found.</li>
+                        <li>List details: <get name="list_response"/></li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SHOW LIST *</pattern>
+        <template>
+            <srai>LIST SHOW <star/></srai>
+        </template>
+    </category>
+
+    <!-- Delete List -->
+    <category>
+        <pattern>LIST DELETE *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="delete_list_id"><star/></set>
+                        <set name="delete_response"><sraix service="list_delete"><star/></sraix></set>
+                    </think>
+                    <condition name="delete_response">
+                        <li value="Failed to delete list">Unable to delete list <get name="delete_list_id"/>.</li>
+                        <li>List <get name="delete_list_id"/> deleted successfully.</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>DELETE LIST *</pattern>
+        <template>
+            <srai>LIST DELETE <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>REMOVE LIST *</pattern>
+        <template>
+            <srai>LIST DELETE <star/></srai>
+        </template>
+    </category>
+
+    <!-- Add Item to List -->
+    <category>
+        <pattern>LIST * ADD *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="item_content"><star index="2"/></set>
+                        <set name="add_response"><sraix service="list_item_add">list_id=<star index="1"/>&amp;content=<star index="2"/></sraix></set>
+                    </think>
+                    <condition name="add_response">
+                        <li value="Failed to add item">Unable to add item to list <get name="target_list_id"/>.</li>
+                        <li>Added '<get name="item_content"/>' to list <get name="target_list_id"/> (Item ID: <get name="add_response"/>)</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>ADD * TO LIST *</pattern>
+        <template>
+            <srai>LIST <star index="2"/> ADD <star index="1"/></srai>
+        </template>
+    </category>
+
+    <!-- Get Items in List -->
+    <category>
+        <pattern>LIST * ITEMS</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star/></set>
+                        <set name="items_response"><sraix service="list_item_get"><star/></sraix></set>
+                    </think>
+                    <condition name="items_response">
+                        <li value="Unable to retrieve items">Unable to retrieve items for list <get name="target_list_id"/>.</li>
+                        <li>Items in list <get name="target_list_id"/>: <get name="items_response"/></li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SHOW ITEMS IN LIST *</pattern>
+        <template>
+            <srai>LIST <star/> ITEMS</srai>
+        </template>
+    </category>
+
+    <!-- Delete Item from List -->
+    <category>
+        <pattern>LIST * DELETE ITEM *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="target_item_id"><star index="2"/></set>
+                        <set name="delete_item_response"><sraix service="list_item_delete">list_id=<star index="1"/>&amp;item_id=<star index="2"/></sraix></set>
+                    </think>
+                    <condition name="delete_item_response">
+                        <li value="Failed to delete item">Unable to delete item <get name="target_item_id"/> from list <get name="target_list_id"/>.</li>
+                        <li>Deleted item <get name="target_item_id"/> from list <get name="target_list_id"/>.</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>DELETE ITEM * FROM LIST *</pattern>
+        <template>
+            <srai>LIST <star index="2"/> DELETE ITEM <star index="1"/></srai>
+        </template>
+    </category>
+
+    <!-- Toggle Item Completion -->
+    <category>
+        <pattern>LIST * TOGGLE ITEM *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="target_item_id"><star index="2"/></set>
+                        <set name="toggle_response"><sraix service="list_item_toggle">list_id=<star index="1"/>&amp;item_id=<star index="2"/></sraix></set>
+                    </think>
+                    <condition name="toggle_response">
+                        <li value="Failed to toggle item">Unable to toggle item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li>
+                        <li>Toggled completion status for item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>TOGGLE ITEM * IN LIST *</pattern>
+        <template>
+            <srai>LIST <star index="2"/> TOGGLE ITEM <star index="1"/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST * COMPLETE ITEM *</pattern>
+        <template>
+            <srai>LIST <star index="1"/> TOGGLE ITEM <star index="2"/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST * MARK ITEM * DONE</pattern>
+        <template>
+            <srai>LIST <star index="1"/> TOGGLE ITEM <star index="2"/></srai>
+        </template>
+    </category>
+
+    <!-- Update Item Content -->
+    <category>
+        <pattern>LIST * UPDATE ITEM * TO *</pattern>
+        <template>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="target_item_id"><star index="2"/></set>
+                        <set name="new_content"><star index="3"/></set>
+                        <set name="update_response"><sraix service="list_item_update">list_id=<star index="1"/>&amp;item_id=<star index="2"/>&amp;content=<star index="3"/></sraix></set>
+                    </think>
+                    <condition name="update_response">
+                        <li value="Failed to update item">Unable to update item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li>
+                        <li>Updated item <get name="target_item_id"/> in list <get name="target_list_id"/> to '<get name="new_content"/>'.</li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <!-- Help -->
+    <category>
+        <pattern>LIST HELP</pattern>
+        <template>
+            List Handler Commands:
+
+            Authentication:
+            - 'list login username password' - Login to list handler
+            - 'list logout' - Logout
+            - 'list status' - Check login status
+
+            List Management:
+            - 'list create [name]' - Create a new list
+            - 'list create [name] description [desc]' - Create list with description
+            - 'list show all' / 'show my lists' - Show all your lists
+            - 'list show [id]' - Show specific list with items
+            - 'list delete [id]' - Delete a list
+
+            Item Management:
+            - 'list [id] add [content]' - Add item to list
+            - 'list [id] items' - Show all items in list
+            - 'list [id] delete item [item_id]' - Delete item from list
+            - 'list [id] toggle item [item_id]' - Toggle item completion
+            - 'list [id] update item [item_id] to [content]' - Update item content
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST HANDLER HELP</pattern>
+        <template>
+            <srai>LIST HELP</srai>
+        </template>
+    </category>
+
+    <!-- Status Check -->
+    <category>
+        <pattern>IS LIST HANDLER ENABLED</pattern>
+        <template>
+            <condition name="bot.listhandler.enabled">
+                <li value="true">Yes, List Handler integration is enabled. Server: <bot name="listhandler.server"/>. <srai>LIST STATUS</srai></li>
+                <li>List Handler integration is not currently enabled.</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST HANDLER STATUS</pattern>
+        <template>
+            <srai>IS LIST HANDLER ENABLED</srai>
+        </template>
+    </category>
+
+</aiml>
