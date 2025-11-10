@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // TelegramBot represents a Telegram bot integrated with Golem AIML engine

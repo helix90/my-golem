@@ -3,7 +3,7 @@
 package golem
 
 import (
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // New creates a new Golem instance with the specified verbosity level.

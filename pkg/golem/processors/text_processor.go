@@ -3,7 +3,7 @@ package processors
 import (
 	"strings"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // TextProcessor handles all text-related processing (person, gender, sentence, word)

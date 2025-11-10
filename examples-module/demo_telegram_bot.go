@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // DemoTelegramBot simulates a Telegram bot for testing purposes

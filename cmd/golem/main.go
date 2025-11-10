@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // CRITICAL ARCHITECTURAL NOTE:

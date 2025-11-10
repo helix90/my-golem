@@ -3,7 +3,7 @@ package processors
 import (
 	"strings"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // RecursiveProcessor handles recursive processing (SRAI, SRAIX)

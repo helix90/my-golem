@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 func main() {

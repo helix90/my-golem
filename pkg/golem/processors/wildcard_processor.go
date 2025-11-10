@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // WildcardProcessor handles wildcard replacement in templates

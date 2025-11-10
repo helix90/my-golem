@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/helix90/golem/pkg/golem"
+	"github.com/helix90/my-golem/pkg/golem"
 )
 
 // TestTelegramIntegration demonstrates how to use Golem with Telegram bot
