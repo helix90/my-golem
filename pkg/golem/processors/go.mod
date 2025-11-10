@@ -1,7 +1,7 @@
-module github.com/helix90/golem/pkg/golem/processors
+module github.com/helix90/my-golem/pkg/golem/processors
 
 go 1.21
 
-require github.com/helix90/golem v0.0.0-00010101000000-000000000000
+require github.com/helix90/my-golem v0.0.0-00010101000000-000000000000
 
-replace github.com/helix90/golem => ../../
+replace github.com/helix90/my-golem => ../../../
