@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+    <!-- CalDAV/Radicale Calendar Integration Examples -->
+
+    <!-- List Today's Events -->
+    <category>
+        <pattern>WHAT IS ON MY CALENDAR TODAY</pattern>
+        <template>
+            <think>
+                <set name="calendar_response"><sraix service="caldav_today">LIST_TODAY</sraix></set>
+            </think>
+            <condition name="calendar_response">
+                <li value="No events scheduled for today">You have no events scheduled for today.</li>
+                <li>Here are your events for today: <get name="calendar_response"/></li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SHOW MY CALENDAR</pattern>
+        <template>
+            <srai>WHAT IS ON MY CALENDAR TODAY</srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>WHAT DO I HAVE TODAY</pattern>
+        <template>
+            <srai>WHAT IS ON MY CALENDAR TODAY</srai>
+        </template>
+    </category>
+
+    <!-- List Upcoming Events -->
+    <category>
+        <pattern>WHAT IS ON MY CALENDAR</pattern>
+        <template>
+            <think>
+                <set name="calendar_response"><sraix service="caldav_list">LIST_UPCOMING</sraix></set>
+            </think>
+            <condition name="calendar_response">
+                <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
+                <li>Here are your upcoming events: <get name="calendar_response"/></li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SHOW MY UPCOMING EVENTS</pattern>
+        <template>
+            <srai>WHAT IS ON MY CALENDAR</srai>
+        </template>
+    </category>
+
+    <!-- Create New Event -->
+    <category>
+        <pattern>CREATE EVENT *</pattern>
+        <template>
+            <think>
+                <set name="event_details"><star/></set>
+                <set name="create_response"><sraix service="caldav_create"><star/></sraix></set>
+            </think>
+            <condition name="create_response">
+                <li value="Failed to create calendar event">I was unable to create that event. Please try again.</li>
+                <li>Event created successfully: <get name="event_details"/></li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>ADD EVENT *</pattern>
+        <template>
+            <srai>CREATE EVENT <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SCHEDULE *</pattern>
+        <template>
+            <srai>CREATE EVENT <star/></srai>
+        </template>
+    </category>
+
+    <!-- Create Event with Specific Details -->
+    <category>
+        <pattern>CREATE EVENT CALLED * ON * AT *</pattern>
+        <template>
+            <think>
+                <set name="event_title"><star index="1"/></set>
+                <set name="event_date"><star index="2"/></set>
+                <set name="event_time"><star index="3"/></set>
+                <set name="event_string"><star index="1"/> on <star index="2"/> at <star index="3"/></set>
+                <set name="create_response"><sraix service="caldav_create"><get name="event_string"/></sraix></set>
+            </think>
+            <condition name="create_response">
+                <li value="Failed to create calendar event">I couldn't create the event "<get name="event_title"/>" for <get name="event_date"/> at <get name="event_time"/>.</li>
+                <li>Created event: "<get name="event_title"/>" scheduled for <get name="event_date"/> at <get name="event_time"/>.</li>
+            </condition>
+        </template>
+    </category>
+
+    <!-- Get Specific Event -->
+    <category>
+        <pattern>GET EVENT *</pattern>
+        <template>
+            <think>
+                <set name="event_uid"><star/></set>
+                <set name="event_response"><sraix service="caldav_get"><star/></sraix></set>
+            </think>
+            <condition name="event_response">
+                <li value="Event not found">I couldn't find an event with that ID.</li>
+                <li>Event details: <get name="event_response"/></li>
+            </condition>
+        </template>
+    </category>
+
+    <!-- Delete Event -->
+    <category>
+        <pattern>DELETE EVENT *</pattern>
+        <template>
+            <think>
+                <set name="event_uid"><star/></set>
+                <set name="delete_response"><sraix service="caldav_delete"><star/></sraix></set>
+            </think>
+            <condition name="delete_response">
+                <li value="Failed to delete event">I was unable to delete that event.</li>
+                <li>Event deleted successfully.</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>REMOVE EVENT *</pattern>
+        <template>
+            <srai>DELETE EVENT <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>CANCEL EVENT *</pattern>
+        <template>
+            <srai>DELETE EVENT <star/></srai>
+        </template>
+    </category>
+
+    <!-- Calendar Management -->
+    <category>
+        <pattern>USE CALENDAR *</pattern>
+        <template>
+            <think>
+                <set name="calendar"><star/></set>
+            </think>
+            Switched to calendar: <get name="calendar"/>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SWITCH TO CALENDAR *</pattern>
+        <template>
+            <srai>USE CALENDAR <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>SET MY CALENDAR TO *</pattern>
+        <template>
+            <srai>USE CALENDAR <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>WHAT CALENDAR AM I USING</pattern>
+        <template>
+            <condition name="calendar">
+                <li value="">You are using the default calendar.</li>
+                <li>You are currently using the <get name="calendar"/> calendar.</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>WHICH CALENDAR</pattern>
+        <template>
+            <srai>WHAT CALENDAR AM I USING</srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>MY CALENDAR</pattern>
+        <template>
+            <srai>WHAT CALENDAR AM I USING</srai>
+        </template>
+    </category>
+
+    <!-- Calendar Status -->
+    <category>
+        <pattern>IS CALDAV ENABLED</pattern>
+        <template>
+            <condition name="bot.caldav.enabled">
+                <li value="true">Yes, CalDAV integration is enabled. You're connected to <bot name="caldav.server"/>. <srai>WHAT CALENDAR AM I USING</srai></li>
+                <li>CalDAV integration is not currently enabled.</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>CALENDAR STATUS</pattern>
+        <template>
+            <srai>IS CALDAV ENABLED</srai>
+        </template>
+    </category>
+
+    <!-- Help -->
+    <category>
+        <pattern>CALENDAR HELP</pattern>
+        <template>
+            I can help you manage your calendar. Try these commands:
+            - "What is on my calendar today"
+            - "Show my upcoming events"
+            - "Create event called Meeting on tomorrow at 2pm"
+            - "Delete event [event-id]"
+            - "Use calendar [name]" - Switch to a different calendar
+            - "What calendar am I using" - Show current calendar
+            - "Calendar status"
+        </template>
+    </category>
+
+    <category>
+        <pattern>CALDAV HELP</pattern>
+        <template>
+            <srai>CALENDAR HELP</srai>
+        </template>
+    </category>
+
+</aiml>
