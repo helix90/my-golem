@@ -203,7 +203,24 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 
 	// Make the request
 	if sm.verbose {
-		sm.logger.Printf("SRAIX request to %s: %s %s", serviceName, config.Method, url)
+		sm.logger.Printf("=== SRAIX Request to %s ===", serviceName)
+		sm.logger.Printf("Method: %s", config.Method)
+		sm.logger.Printf("URL: %s", url)
+		sm.logger.Printf("Headers:")
+		for key, values := range req.Header {
+			for _, value := range values {
+				sm.logger.Printf("  %s: %s", key, value)
+			}
+		}
+		if body != nil {
+			// Read body for logging
+			bodyBytes, _ := io.ReadAll(body)
+			sm.logger.Printf("Body: %s", string(bodyBytes))
+			// Recreate body since we consumed it
+			body = bytes.NewBuffer(bodyBytes)
+			req.Body = io.NopCloser(body)
+		}
+		sm.logger.Printf("=========================")
 	}
 
 	resp, err := sm.client.Do(req)
@@ -225,11 +242,22 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 		return "", fmt.Errorf("failed to read response body: %v", err)
 	}
 
+	// Log response details
+	if sm.verbose {
+		sm.logger.Printf("=== SRAIX Response from %s ===", serviceName)
+		sm.logger.Printf("Status: %d %s", resp.StatusCode, resp.Status)
+		sm.logger.Printf("Response Headers:")
+		for key, values := range resp.Header {
+			for _, value := range values {
+				sm.logger.Printf("  %s: %s", key, value)
+			}
+		}
+		sm.logger.Printf("Response Body: %s", string(responseBody))
+		sm.logger.Printf("============================")
+	}
+
 	// Check for HTTP errors
 	if resp.StatusCode >= 400 {
-		if sm.verbose {
-			sm.logger.Printf("SRAIX request returned status %d: %s", resp.StatusCode, string(responseBody))
-		}
 		// Return fallback response if configured
 		if config.FallbackResponse != "" {
 			return config.FallbackResponse, nil
