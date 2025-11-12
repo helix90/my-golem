@@ -11,7 +11,7 @@ func TestListHandlerHelper_BuildLoginPayload(t *testing.T) {
 
 	payload := lh.BuildLoginPayload("testuser", "testpass")
 
-	expected := "username=testuser&password=testpass"
+	expected := "username=testuser&password=testpass&grant_type=password"
 	if payload != expected {
 		t.Errorf("Expected %q, got %q", expected, payload)
 	}
