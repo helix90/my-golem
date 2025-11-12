@@ -2,6 +2,7 @@ package golem
 
 import (
 	"fmt"
+	"html"
 	"regexp"
 	"sort"
 	"strconv"
@@ -216,6 +217,10 @@ func (tp *TreeProcessor) ProcessTemplate(template string, wildcards map[string]s
 	} else {
 		result = strings.TrimLeft(result, "\n\r")
 	}
+
+	// Decode XML entities (&amp; -> &, &lt; -> <, &gt; -> >, etc.)
+	// AIML templates use XML encoding, but output should be plain text
+	result = html.UnescapeString(result)
 
 	return result, nil
 }
@@ -618,6 +623,10 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 
 	// The content is already processed by the AST
 	sraixContent := strings.TrimSpace(content)
+
+	// Decode XML entities before sending to external service
+	// AIML uses XML encoding (&amp;, &lt;, etc.) but external services expect plain text
+	sraixContent = html.UnescapeString(sraixContent)
 
 	// Check if SRAIX manager is configured
 	if tp.golem.sraixMgr == nil {

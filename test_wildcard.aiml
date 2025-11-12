@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+    <category>
+        <pattern>TEST * *</pattern>
+        <template>
+Star 1: [<star index="1"/>]
+Star 2: [<star index="2"/>]
+Combined: username=<star index="1"/>&amp;password=<star index="2"/>
+        </template>
+    </category>
+</aiml>

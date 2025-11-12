@@ -12,23 +12,25 @@ func main() {
 	// Create Golem with verbose mode enabled
 	g := golem.New(true)
 
-	// Create knowledge base
-	kb := golem.NewAIMLKnowledgeBase()
+	// Load List Handler AIML (creates knowledge base)
+	fmt.Println("Loading List Handler AIML...")
+	kb, err := g.LoadAIML("testdata/list-handler-examples.aiml")
+	if err != nil {
+		fmt.Printf("Error loading AIML: %v\n", err)
+		return
+	}
 
-	// Load List Handler configuration
+	// Load List Handler configuration properties
 	fmt.Println("Loading List Handler configuration...")
-	err := g.LoadPropertiesFromFile("testdata/list-handler-config.properties", kb)
+	props, err := g.LoadPropertiesFromFile("testdata/list-handler-config.properties")
 	if err != nil {
 		fmt.Printf("Error loading properties: %v\n", err)
 		return
 	}
 
-	// Load List Handler AIML
-	fmt.Println("Loading List Handler AIML...")
-	err = g.LoadAIMLFile("testdata/list-handler-examples.aiml", kb)
-	if err != nil {
-		fmt.Printf("Error loading AIML: %v\n", err)
-		return
+	// Merge properties into knowledge base
+	for k, v := range props {
+		kb.Properties[k] = v
 	}
 
 	g.SetKnowledgeBase(kb)

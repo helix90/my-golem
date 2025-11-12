@@ -1848,10 +1848,15 @@ func patternToRegex(pattern string) string {
 			// Don't add anything to regex - this will be handled in pattern matching
 			continue
 		case ' ':
-			// Check if this space is followed by a wildcard or preceded by a wildcard
-			if (i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')) ||
-				(i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')) {
-				// This space is adjacent to a wildcard, make it optional
+			// Check if this space is between two wildcards
+			prevIsWildcard := i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')
+			nextIsWildcard := i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')
+
+			if prevIsWildcard && nextIsWildcard {
+				// Space between two wildcards must be MANDATORY for proper capture
+				result.WriteRune(' ')
+			} else if prevIsWildcard || nextIsWildcard {
+				// Space adjacent to a single wildcard (at start/end) can be optional
 				result.WriteString(" ?")
 			} else {
 				// Regular space
@@ -1961,10 +1966,15 @@ func patternToRegexWithSetsCached(g *Golem, pattern string, kb *AIMLKnowledgeBas
 			// Don't add anything to regex - this will be handled in pattern matching
 			continue
 		case ' ':
-			// Check if this space is followed by a wildcard or preceded by a wildcard
-			if (i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')) ||
-				(i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')) {
-				// This space is adjacent to a wildcard, make it optional
+			// Check if this space is between two wildcards
+			prevIsWildcard := i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')
+			nextIsWildcard := i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')
+
+			if prevIsWildcard && nextIsWildcard {
+				// Space between two wildcards must be MANDATORY for proper capture
+				result.WriteRune(' ')
+			} else if prevIsWildcard || nextIsWildcard {
+				// Space adjacent to a single wildcard (at start/end) can be optional
 				result.WriteString(" ?")
 			} else {
 				// Regular space
