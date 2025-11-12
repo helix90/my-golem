@@ -9,7 +9,7 @@
             <think>
                 <set name="list_username"><star index="1"/></set>
                 <set name="temp_password"><star index="2"/></set>
-                <set name="list_access_token"><sraix service="list_login">username=<star index="1"/>&amp;password=<star index="2"/>&amp;grant_type=password</sraix></set>
+                <set name="list_access_token"><sraix service="list_login">username=<star index="1"/>&amp;password=<star index="2"/></sraix></set>
             </think>
             <condition name="list_access_token">
                 <li value="Login failed. Please check your credentials.">Unable to login. Please check your username and password.</li>

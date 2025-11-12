@@ -100,9 +100,9 @@ func (lh *ListHandlerHelper) IsSessionAuthenticated(session *ChatSession) bool {
 }
 
 // BuildLoginPayload creates form-urlencoded login payload
-// FastAPI OAuth2PasswordRequestForm requires grant_type field
+// FastAPI OAuth2 accepts grant_type as optional (defaults to "password")
 func (lh *ListHandlerHelper) BuildLoginPayload(username, password string) string {
-	return fmt.Sprintf("username=%s&password=%s&grant_type=password",
+	return fmt.Sprintf("username=%s&password=%s",
 		url.QueryEscape(username),
 		url.QueryEscape(password))
 }
