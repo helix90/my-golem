@@ -142,33 +142,43 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 			}
 		}
 	} else {
-		// For POST/PUT requests, create JSON body
-		requestData := map[string]interface{}{
-			"input": input,
-		}
+		// Check if Content-Type is already configured
+		configuredContentType := config.Headers["Content-Type"]
 
-		// Include wildcards if configured
-		if config.IncludeWildcards && len(wildcards) > 0 {
-			requestData["wildcards"] = wildcards
-		}
+		// For form-urlencoded requests, use input directly as body
+		if configuredContentType == "application/x-www-form-urlencoded" {
+			// Input is already in form-urlencoded format (e.g., "username=X&password=Y")
+			body = bytes.NewBufferString(input)
+			contentType = "application/x-www-form-urlencoded"
+		} else {
+			// For POST/PUT requests with JSON (default), create JSON body
+			requestData := map[string]interface{}{
+				"input": input,
+			}
 
-		// Include additional SRAIX parameters
-		if botid, exists := wildcards["botid"]; exists && botid != "" {
-			requestData["botid"] = botid
-		}
-		if host, exists := wildcards["host"]; exists && host != "" {
-			requestData["host"] = host
-		}
-		if hint, exists := wildcards["hint"]; exists && hint != "" {
-			requestData["hint"] = hint
-		}
+			// Include wildcards if configured
+			if config.IncludeWildcards && len(wildcards) > 0 {
+				requestData["wildcards"] = wildcards
+			}
 
-		jsonData, err := json.Marshal(requestData)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal request data: %v", err)
+			// Include additional SRAIX parameters
+			if botid, exists := wildcards["botid"]; exists && botid != "" {
+				requestData["botid"] = botid
+			}
+			if host, exists := wildcards["host"]; exists && host != "" {
+				requestData["host"] = host
+			}
+			if hint, exists := wildcards["hint"]; exists && hint != "" {
+				requestData["hint"] = hint
+			}
+
+			jsonData, err := json.Marshal(requestData)
+			if err != nil {
+				return "", fmt.Errorf("failed to marshal request data: %v", err)
+			}
+			body = bytes.NewBuffer(jsonData)
+			contentType = "application/json"
 		}
-		body = bytes.NewBuffer(jsonData)
-		contentType = "application/json"
 	}
 
 	// Create HTTP request
@@ -177,12 +187,13 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 		return "", fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 
-	// Set headers
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
+	// Set headers - configured headers take precedence
 	for key, value := range config.Headers {
 		req.Header.Set(key, value)
+	}
+	// Only set Content-Type if not already configured
+	if contentType != "" && req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	// Set timeout

@@ -105,6 +105,45 @@ You can use multiple SRAIX tags in a single template:
 <sraix service="service1" default="Response 1">Question 1</sraix> and <sraix service="service2" default="Response 2">Question 2</sraix>
 ```
 
+### Content-Type Handling
+
+SRAIX intelligently handles different Content-Type headers for POST/PUT requests:
+
+**Form-Urlencoded Requests** (OAuth2, login endpoints):
+```go
+config := &SRAIXConfig{
+    Name:    "login",
+    URLTemplate: "https://api.example.com/auth/login",
+    Method:  "POST",
+    Headers: map[string]string{
+        "Content-Type": "application/x-www-form-urlencoded",
+    },
+    ResponseFormat: "json",
+    ResponsePath:   "access_token",
+}
+```
+
+When `Content-Type: application/x-www-form-urlencoded` is set in headers:
+- The SRAIX input is sent **directly** as the request body (not wrapped in JSON)
+- This is essential for FastAPI OAuth2 password flow and similar endpoints
+- Example AIML: `<sraix service="login">username=user&password=pass</sraix>`
+
+**JSON Requests** (default):
+```go
+config := &SRAIXConfig{
+    Name:    "chat",
+    BaseURL: "https://api.example.com/chat",
+    Method:  "POST",
+    // No Content-Type header, or set to "application/json"
+    ResponseFormat: "json",
+}
+```
+
+When Content-Type is not specified or set to `application/json`:
+- The SRAIX input is wrapped in a JSON object: `{"input": "your text here"}`
+- Additional fields (wildcards, botid, host, hint) are included if configured
+- This is the default behavior for modern REST APIs
+
 ## Error Handling
 
 ### Service Not Found

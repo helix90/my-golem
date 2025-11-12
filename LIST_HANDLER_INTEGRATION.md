@@ -263,6 +263,12 @@ The integration uses Golem's SRAIX (external service integration) system. Nine S
 9. **list_item_toggle** - Toggle item completion (PATCH)
 10. **list_item_update** - Update item content (PUT, JSON)
 
+**Content-Type Handling**: The SRAIX system intelligently handles different Content-Type headers:
+- **Form-urlencoded** (`application/x-www-form-urlencoded`): When this Content-Type is configured in headers, the SRAIX input is sent directly as the request body without JSON wrapping. This is essential for authentication endpoints that expect form data.
+- **JSON** (default): For all other Content-Types (or when not specified), the SRAIX input is wrapped in a JSON object as `{"input": "..."}` and sent with `Content-Type: application/json`.
+
+This allows seamless integration with both traditional form-based APIs (like FastAPI's OAuth2 password flow) and modern JSON APIs.
+
 ### ListHandlerHelper
 
 The `ListHandlerHelper` class provides utilities for:
@@ -393,8 +399,13 @@ Properties support `${ENV_VAR}` syntax for environment variables:
 
 ### Authentication (POST /auth/login)
 
+**Important**: FastAPI (and many Python web frameworks) require `application/x-www-form-urlencoded` for OAuth2 password flow authentication. The configuration automatically handles this.
+
 **Request** (Form-Urlencoded):
 ```
+POST /auth/login
+Content-Type: application/x-www-form-urlencoded
+
 username=testuser&password=testpass
 ```
 
@@ -405,6 +416,8 @@ username=testuser&password=testpass
   "token_type": "bearer"
 }
 ```
+
+**Note**: The SRAIX configuration correctly sets `Content-Type: application/x-www-form-urlencoded` for the login endpoint. The AIML template provides credentials in form-urlencoded format (`username=X&password=Y`), which is sent directly as the request body without JSON wrapping.
 
 ### Create List (POST /users/{userId}/lists)
 

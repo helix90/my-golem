@@ -456,3 +456,132 @@ func deleteTempFile(t *testing.T, filename string) {
 		t.Fatalf("Failed to delete temp file: %v", err)
 	}
 }
+
+// TestSRAIXFormUrlencoded tests form-urlencoded content type handling
+func TestSRAIXFormUrlencoded(t *testing.T) {
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	sm := NewSRAIXManager(logger, true)
+
+	// Create a mock server that validates form-urlencoded requests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify Content-Type header
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "application/x-www-form-urlencoded" {
+			t.Errorf("Expected Content-Type 'application/x-www-form-urlencoded', got '%s'", contentType)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid Content-Type"))
+			return
+		}
+
+		// Verify body is form-urlencoded (not JSON)
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		// Should be "username=testuser&password=testpass" format
+		if !strings.Contains(bodyStr, "username=") || !strings.Contains(bodyStr, "password=") {
+			t.Errorf("Expected form-urlencoded body, got: %s", bodyStr)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid body format"))
+			return
+		}
+
+		// Should NOT be JSON format
+		if strings.HasPrefix(bodyStr, "{") {
+			t.Errorf("Body should not be JSON format, got: %s", bodyStr)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Body should not be JSON"))
+			return
+		}
+
+		// Return success response
+		response := map[string]interface{}{
+			"access_token": "mock_token_12345",
+			"token_type":   "bearer",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// Configure SRAIX with form-urlencoded Content-Type
+	config := &SRAIXConfig{
+		Name:           "login_service",
+		URLTemplate:    server.URL + "/auth/login",
+		Method:         "POST",
+		Timeout:        5,
+		ResponseFormat: "json",
+		ResponsePath:   "access_token",
+		Headers: map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+	}
+
+	err := sm.AddConfig(config)
+	if err != nil {
+		t.Fatalf("Failed to add SRAIX config: %v", err)
+	}
+
+	// Test with form-urlencoded input
+	input := "username=testuser&password=testpass"
+	response, err := sm.ProcessSRAIX("login_service", input, make(map[string]string))
+	if err != nil {
+		t.Errorf("SRAIX processing failed: %v", err)
+	}
+
+	// Verify we got the access token
+	if response != "mock_token_12345" {
+		t.Errorf("Expected access token 'mock_token_12345', got '%s'", response)
+	}
+}
+
+// TestSRAIXFormUrlencodedVsJSON tests that JSON is still the default
+func TestSRAIXFormUrlencodedVsJSON(t *testing.T) {
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	sm := NewSRAIXManager(logger, true)
+
+	// Test 1: Default should be JSON
+	jsonServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			t.Errorf("Default should be JSON, got Content-Type: %s", contentType)
+		}
+		w.Write([]byte("OK"))
+	}))
+	defer jsonServer.Close()
+
+	jsonConfig := &SRAIXConfig{
+		Name:           "json_default",
+		BaseURL:        jsonServer.URL,
+		Method:         "POST",
+		Timeout:        5,
+		ResponseFormat: "text",
+	}
+
+	sm.AddConfig(jsonConfig)
+	sm.ProcessSRAIX("json_default", "test input", make(map[string]string))
+
+	// Test 2: Explicit form-urlencoded should override default
+	formServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "application/x-www-form-urlencoded" {
+			t.Errorf("Expected form-urlencoded, got Content-Type: %s", contentType)
+		}
+		w.Write([]byte("OK"))
+	}))
+	defer formServer.Close()
+
+	formConfig := &SRAIXConfig{
+		Name:           "form_explicit",
+		BaseURL:        formServer.URL,
+		Method:         "POST",
+		Timeout:        5,
+		ResponseFormat: "text",
+		Headers: map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+	}
+
+	sm.AddConfig(formConfig)
+	sm.ProcessSRAIX("form_explicit", "key=value", make(map[string]string))
+}
