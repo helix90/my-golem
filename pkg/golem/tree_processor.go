@@ -671,7 +671,7 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 		requestParams["hint"] = hintText
 	}
 
-	// Add lat/lon from session predicates if available (for weather and location-based services)
+	// Add session variables needed for service calls (for weather and location-based services)
 	if tp.ctx != nil && tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
 		hasLat := false
 		hasLon := false
@@ -691,6 +691,18 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 			if coords, exists := tp.ctx.Session.Variables["_coords"]; exists && coords != "" {
 				requestParams["hint"] = coords
 			}
+		}
+
+		// Add List Handler authentication token if available
+		// This allows {access_token} placeholder in headers to be substituted
+		if token, exists := tp.ctx.Session.Variables["list_access_token"]; exists && token != "" {
+			requestParams["access_token"] = token
+		}
+
+		// Add List Handler user ID if available
+		// This allows {user_id} placeholder in URLs to be substituted
+		if userID, exists := tp.ctx.Session.Variables["list_user_id"]; exists && userID != "" {
+			requestParams["user_id"] = userID
 		}
 	}
 

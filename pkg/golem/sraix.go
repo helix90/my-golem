@@ -113,6 +113,23 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 		return "", fmt.Errorf("SRAIX service '%s' not configured", serviceName)
 	}
 
+	// Parse form-urlencoded input to extract parameters for URL substitution
+	// This handles cases like "list_id=1&content=buy milk" where list_id is needed in the URL
+	if strings.Contains(input, "=") && strings.Contains(input, "&") {
+		pairs := strings.Split(input, "&")
+		for _, pair := range pairs {
+			kv := strings.SplitN(pair, "=", 2)
+			if len(kv) == 2 {
+				key := strings.TrimSpace(kv[0])
+				value := strings.TrimSpace(kv[1])
+				// Only add if not already present (passed wildcards take precedence)
+				if _, exists := wildcards[key]; !exists {
+					wildcards[key] = value
+				}
+			}
+		}
+	}
+
 	// Prepare the request
 	var url string
 	var body io.Reader
@@ -188,8 +205,11 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 	}
 
 	// Set headers - configured headers take precedence
+	// Substitute placeholders in header values (e.g., {access_token}, {user_id})
 	for key, value := range config.Headers {
-		req.Header.Set(key, value)
+		// Substitute placeholders in header value
+		substitutedValue := sm.substituteURLTemplate(value, input, wildcards, config.Headers)
+		req.Header.Set(key, substitutedValue)
 	}
 	// Only set Content-Type if not already configured
 	if contentType != "" && req.Header.Get("Content-Type") == "" {
@@ -340,7 +360,7 @@ func (sm *SRAIXManager) substituteURLTemplate(template, input string, wildcards 
 	}
 
 	// Substitute common wildcard placeholders
-	commonWildcards := []string{"lat", "lon", "location", "hint", "botid", "host"}
+	commonWildcards := []string{"lat", "lon", "location", "hint", "botid", "host", "user_id", "list_id", "item_id", "access_token"}
 	for _, key := range commonWildcards {
 		placeholder := "{" + key + "}"
 		if value, exists := wildcards[key]; exists {
@@ -351,6 +371,13 @@ func (sm *SRAIXManager) substituteURLTemplate(template, input string, wildcards 
 	// Substitute any uppercase wildcard placeholders {WILDCARD_NAME}
 	for key, value := range wildcards {
 		placeholder := "{" + strings.ToUpper(key) + "}"
+		result = strings.ReplaceAll(result, placeholder, value)
+	}
+
+	// Also substitute lowercase placeholders for any remaining wildcards
+	// This handles cases like {username}, {password}, etc.
+	for key, value := range wildcards {
+		placeholder := "{" + key + "}"
 		result = strings.ReplaceAll(result, placeholder, value)
 	}
 
