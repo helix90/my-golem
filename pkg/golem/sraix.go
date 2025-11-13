@@ -167,8 +167,61 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 			// Input is already in form-urlencoded format (e.g., "username=X&password=Y")
 			body = bytes.NewBufferString(input)
 			contentType = "application/x-www-form-urlencoded"
+		} else if configuredContentType == "application/json" {
+			// For JSON Content-Type, check if input is already valid JSON
+			trimmedInput := strings.TrimSpace(input)
+			if (strings.HasPrefix(trimmedInput, "{") && strings.HasSuffix(trimmedInput, "}")) ||
+				(strings.HasPrefix(trimmedInput, "[") && strings.HasSuffix(trimmedInput, "]")) {
+				// Input appears to be JSON already, use it directly
+				// Validate it's parseable JSON
+				var testJSON interface{}
+				if json.Unmarshal([]byte(trimmedInput), &testJSON) == nil {
+					// Valid JSON, use as-is
+					body = bytes.NewBufferString(trimmedInput)
+					contentType = "application/json"
+				} else {
+					// Not valid JSON, wrap it
+					requestData := map[string]interface{}{
+						"input": input,
+					}
+					jsonData, err := json.Marshal(requestData)
+					if err != nil {
+						return "", fmt.Errorf("failed to marshal request data: %v", err)
+					}
+					body = bytes.NewBuffer(jsonData)
+					contentType = "application/json"
+				}
+			} else {
+				// Not JSON format, wrap in {"input": ...}
+				requestData := map[string]interface{}{
+					"input": input,
+				}
+
+				// Include wildcards if configured
+				if config.IncludeWildcards && len(wildcards) > 0 {
+					requestData["wildcards"] = wildcards
+				}
+
+				// Include additional SRAIX parameters
+				if botid, exists := wildcards["botid"]; exists && botid != "" {
+					requestData["botid"] = botid
+				}
+				if host, exists := wildcards["host"]; exists && host != "" {
+					requestData["host"] = host
+				}
+				if hint, exists := wildcards["hint"]; exists && hint != "" {
+					requestData["hint"] = hint
+				}
+
+				jsonData, err := json.Marshal(requestData)
+				if err != nil {
+					return "", fmt.Errorf("failed to marshal request data: %v", err)
+				}
+				body = bytes.NewBuffer(jsonData)
+				contentType = "application/json"
+			}
 		} else {
-			// For POST/PUT requests with JSON (default), create JSON body
+			// For other POST/PUT requests (default), create JSON body
 			requestData := map[string]interface{}{
 				"input": input,
 			}
