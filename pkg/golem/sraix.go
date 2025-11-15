@@ -113,9 +113,25 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 		return "", fmt.Errorf("SRAIX service '%s' not configured", serviceName)
 	}
 
-	// Parse form-urlencoded input to extract parameters for URL substitution
-	// This handles cases like "list_id=1&content=buy milk" where list_id is needed in the URL
-	if strings.Contains(input, "=") && strings.Contains(input, "&") {
+	// Parse input to extract parameters for URL substitution
+	// Try JSON first, then fall back to form-urlencoded
+	trimmedInput := strings.TrimSpace(input)
+	if (strings.HasPrefix(trimmedInput, "{") && strings.HasSuffix(trimmedInput, "}")) {
+		// Input appears to be JSON, try to parse it
+		var jsonData map[string]interface{}
+		if err := json.Unmarshal([]byte(trimmedInput), &jsonData); err == nil {
+			// Successfully parsed JSON, extract parameters
+			for key, value := range jsonData {
+				// Only add if not already present (passed wildcards take precedence)
+				if _, exists := wildcards[key]; !exists {
+					// Convert value to string
+					wildcards[key] = fmt.Sprintf("%v", value)
+				}
+			}
+		}
+	} else if strings.Contains(input, "=") && strings.Contains(input, "&") {
+		// Parse form-urlencoded input
+		// This handles cases like "list_id=1&content=buy milk" where list_id is needed in the URL
 		pairs := strings.Split(input, "&")
 		for _, pair := range pairs {
 			kv := strings.SplitN(pair, "=", 2)
