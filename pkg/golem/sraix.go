@@ -144,6 +144,19 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 				}
 			}
 		}
+	} else if config.URLTemplate != "" && trimmedInput != "" {
+		// For simple input values, try to auto-map to URL template placeholders
+		// Find all placeholders in the URL template
+		placeholders := extractPlaceholders(config.URLTemplate)
+
+		// If there's exactly one placeholder and input is a simple value (not already in wildcards),
+		// map the input to that placeholder
+		if len(placeholders) == 1 {
+			placeholder := placeholders[0]
+			if _, exists := wildcards[placeholder]; !exists {
+				wildcards[placeholder] = trimmedInput
+			}
+		}
 	}
 
 	// Prepare the request
@@ -381,6 +394,38 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 	}
 
 	return strings.TrimSpace(response), nil
+}
+
+// extractPlaceholders finds all {placeholder} patterns in a string
+func extractPlaceholders(template string) []string {
+	var placeholders []string
+	start := 0
+	for {
+		// Find next opening brace
+		startIdx := strings.Index(template[start:], "{")
+		if startIdx == -1 {
+			break
+		}
+		startIdx += start
+
+		// Find closing brace
+		endIdx := strings.Index(template[startIdx:], "}")
+		if endIdx == -1 {
+			break
+		}
+		endIdx += startIdx
+
+		// Extract placeholder name (without braces)
+		placeholder := template[startIdx+1 : endIdx]
+		// Skip environment variables (${...})
+		if startIdx > 0 && template[startIdx-1] == '$' {
+			start = endIdx + 1
+			continue
+		}
+		placeholders = append(placeholders, placeholder)
+		start = endIdx + 1
+	}
+	return placeholders
 }
 
 // substituteURLTemplate replaces placeholders in URL template with actual values
