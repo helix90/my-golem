@@ -116,7 +116,7 @@
                     </think>
                     <condition name="lists_response">
                         <li value="Unable to retrieve lists">Unable to retrieve your lists.</li>
-                        <li>Your lists: <get name="lists_response"/></li>
+                        <li><jsonformat><get name="lists_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>
@@ -157,7 +157,7 @@
                     </think>
                     <condition name="list_response">
                         <li value="List not found">List ID <get name="target_list_id"/> not found.</li>
-                        <li>List details: <get name="list_response"/></li>
+                        <li><jsonformat><get name="list_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>
@@ -246,7 +246,7 @@
                     </think>
                     <condition name="items_response">
                         <li value="Unable to retrieve items">Unable to retrieve items for list <get name="target_list_id"/>.</li>
-                        <li>Items in list <get name="target_list_id"/>: <get name="items_response"/></li>
+                        <li><jsonformat><get name="items_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>

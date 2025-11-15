@@ -1,6 +1,7 @@
 package golem
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"regexp"
@@ -440,6 +441,8 @@ func (tp *TreeProcessor) processTag(node *ASTNode) string {
 		return tp.processJavascriptTag(node, content)
 	case "system":
 		return tp.processSystemTag(node, content)
+	case "jsonformat":
+		return tp.processJsonFormatTag(node, content)
 	default:
 		// Unknown tag, return as-is with processed content
 		return fmt.Sprintf("<%s>%s</%s>", node.TagName, content, node.TagName)
@@ -2700,6 +2703,231 @@ func (tp *TreeProcessor) processGenderTag(node *ASTNode, content string) string 
 
 	tp.golem.LogInfo("Gender tag: '%s' -> '%s'", content, substitutedContent)
 	return substitutedContent
+}
+
+func (tp *TreeProcessor) processJsonFormatTag(node *ASTNode, content string) string {
+	// Process jsonformat tag - converts JSON to human-readable format
+	// Supports attributes: type="lists|items|list|item"
+	content = strings.TrimSpace(content)
+
+	if content == "" {
+		return ""
+	}
+
+	// Get format type from attributes
+	formatType := "auto"
+	if node.Attributes != nil {
+		if typeAttr, exists := node.Attributes["type"]; exists {
+			formatType = typeAttr
+		}
+	}
+
+	// Try to parse as JSON
+	var data interface{}
+	if err := json.Unmarshal([]byte(content), &data); err != nil {
+		// Not valid JSON, return as-is
+		tp.golem.LogInfo("JsonFormat: Not valid JSON, returning as-is")
+		return content
+	}
+
+	// Auto-detect format type if not specified
+	if formatType == "auto" {
+		switch v := data.(type) {
+		case []interface{}:
+			if len(v) > 0 {
+				if item, ok := v[0].(map[string]interface{}); ok {
+					if _, hasContent := item["content"]; hasContent {
+						formatType = "items"
+					} else if _, hasName := item["name"]; hasName {
+						formatType = "lists"
+					}
+				}
+			}
+		case map[string]interface{}:
+			if _, hasItems := v["items"]; hasItems {
+				formatType = "list"
+			} else if _, hasContent := v["content"]; hasContent {
+				formatType = "item"
+			}
+		}
+	}
+
+	// Format based on type
+	switch formatType {
+	case "lists":
+		return tp.formatListsJSON(data)
+	case "list":
+		return tp.formatListJSON(data)
+	case "items":
+		return tp.formatItemsJSON(data)
+	case "item":
+		return tp.formatItemJSON(data)
+	default:
+		return tp.formatGenericJSON(data)
+	}
+}
+
+func (tp *TreeProcessor) formatListsJSON(data interface{}) string {
+	lists, ok := data.([]interface{})
+	if !ok {
+		return "Invalid lists format"
+	}
+
+	if len(lists) == 0 {
+		return "You have no lists yet."
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("You have %d list", len(lists)))
+	if len(lists) != 1 {
+		result.WriteString("s")
+	}
+	result.WriteString(":\n")
+
+	for i, item := range lists {
+		list, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		id := fmt.Sprintf("%v", list["id"])
+		name := fmt.Sprintf("%v", list["name"])
+		desc := ""
+		if description, exists := list["description"]; exists && description != nil {
+			descStr := fmt.Sprintf("%v", description)
+			if descStr != "" {
+				desc = fmt.Sprintf(" - %s", descStr)
+			}
+		}
+
+		result.WriteString(fmt.Sprintf("%d. %s (ID: %s)%s\n", i+1, name, id, desc))
+	}
+
+	return strings.TrimSpace(result.String())
+}
+
+func (tp *TreeProcessor) formatListJSON(data interface{}) string {
+	list, ok := data.(map[string]interface{})
+	if !ok {
+		return "Invalid list format"
+	}
+
+	name := fmt.Sprintf("%v", list["name"])
+	id := fmt.Sprintf("%v", list["id"])
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("List: %s (ID: %s)\n", name, id))
+
+	if description, exists := list["description"]; exists && description != nil {
+		descStr := fmt.Sprintf("%v", description)
+		if descStr != "" {
+			result.WriteString(fmt.Sprintf("Description: %s\n", descStr))
+		}
+	}
+
+	if items, exists := list["items"]; exists {
+		itemsList, ok := items.([]interface{})
+		if ok {
+			if len(itemsList) == 0 {
+				result.WriteString("\nThis list is empty.")
+			} else {
+				result.WriteString(fmt.Sprintf("\nItems (%d):\n", len(itemsList)))
+				for i, item := range itemsList {
+					itemMap, ok := item.(map[string]interface{})
+					if !ok {
+						continue
+					}
+
+					content := fmt.Sprintf("%v", itemMap["content"])
+					completed := false
+					if comp, exists := itemMap["completed"]; exists {
+						completed, _ = comp.(bool)
+					}
+
+					checkbox := "☐"
+					if completed {
+						checkbox = "☑"
+					}
+
+					itemID := fmt.Sprintf("%v", itemMap["id"])
+					result.WriteString(fmt.Sprintf("%d. %s %s (ID: %s)\n", i+1, checkbox, content, itemID))
+				}
+			}
+		}
+	}
+
+	return strings.TrimSpace(result.String())
+}
+
+func (tp *TreeProcessor) formatItemsJSON(data interface{}) string {
+	items, ok := data.([]interface{})
+	if !ok {
+		return "Invalid items format"
+	}
+
+	if len(items) == 0 {
+		return "No items in this list."
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("%d item", len(items)))
+	if len(items) != 1 {
+		result.WriteString("s")
+	}
+	result.WriteString(":\n")
+
+	for i, item := range items {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		content := fmt.Sprintf("%v", itemMap["content"])
+		completed := false
+		if comp, exists := itemMap["completed"]; exists {
+			completed, _ = comp.(bool)
+		}
+
+		checkbox := "☐"
+		if completed {
+			checkbox = "☑"
+		}
+
+		itemID := fmt.Sprintf("%v", itemMap["id"])
+		result.WriteString(fmt.Sprintf("%d. %s %s (ID: %s)\n", i+1, checkbox, content, itemID))
+	}
+
+	return strings.TrimSpace(result.String())
+}
+
+func (tp *TreeProcessor) formatItemJSON(data interface{}) string {
+	item, ok := data.(map[string]interface{})
+	if !ok {
+		return "Invalid item format"
+	}
+
+	content := fmt.Sprintf("%v", item["content"])
+	id := fmt.Sprintf("%v", item["id"])
+	completed := false
+	if comp, exists := item["completed"]; exists {
+		completed, _ = comp.(bool)
+	}
+
+	status := "not completed"
+	if completed {
+		status = "completed"
+	}
+
+	return fmt.Sprintf("Item: %s (ID: %s) - %s", content, id, status)
+}
+
+func (tp *TreeProcessor) formatGenericJSON(data interface{}) string {
+	// For generic JSON, just pretty-print it
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", data)
+	}
+	return string(bytes)
 }
 
 func (tp *TreeProcessor) processSentenceTag(node *ASTNode, content string) string {
