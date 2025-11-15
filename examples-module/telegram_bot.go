@@ -35,10 +35,8 @@ func NewTelegramBot(token, aimlPath string, verbose bool) (*TelegramBot, error) 
 		}
 	}
 
-	// Create bot options
-	opts := []bot.Option{
-		bot.WithDefaultHandler(nil), // We'll handle messages manually
-	}
+	// Create bot options - no default handler needed, we register handlers explicitly
+	opts := []bot.Option{}
 
 	// Create Telegram bot
 	telegramBot, err := bot.New(token, opts...)
