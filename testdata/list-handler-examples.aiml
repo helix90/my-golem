@@ -14,11 +14,6 @@
             <condition name="list_access_token">
                 <li value="Login failed. Please check your credentials.">Unable to login. Please check your username and password.</li>
                 <li>
-                    <think>
-                        <!-- For now, assume user_id is 1 or derived from username -->
-                        <!-- This would ideally come from the login response -->
-                        <set name="list_user_id">1</set>
-                    </think>
                     Logged in successfully as <get name="list_username"/>. You can now manage your lists.
                 </li>
             </condition>
@@ -31,7 +26,6 @@
             <think>
                 <set name="list_username"></set>
                 <set name="list_access_token"></set>
-                <set name="list_user_id"></set>
             </think>
             Logged out successfully.
         </template>
@@ -43,7 +37,7 @@
         <template>
             <condition name="list_access_token">
                 <li value="">You are not logged in. Use 'list login username password' to authenticate.</li>
-                <li>You are logged in as <get name="list_username"/> (User ID: <get name="list_user_id"/>)</li>
+                <li>You are logged in as <get name="list_username"/>.</li>
             </condition>
         </template>
     </category>
