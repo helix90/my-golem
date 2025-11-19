@@ -103,21 +103,22 @@
 <template>
   <think>
     <!-- Geocode the location -->
-    <set var="location"><star/></set>
-    <set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
-    <set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
-    <!-- Store geocoded coordinates as temporary session predicates for SRAIX -->
-    <set name="latitude"><get var="lat"/></set>
-    <set name="longitude"><get var="lon"/></set>
-    <set name="location"><get var="location"/></set>
+    <set var="query_location"><star/></set>
+    <set var="query_lat"><sraix service="geocode"><get var="query_location"/></sraix></set>
+    <set var="query_lon"><sraix service="geocode_lon"><get var="query_location"/></sraix></set>
+    <!-- Use _coords for this query - won't overwrite user's permanent location -->
+    <set name="_coords"><get var="query_lat"/>,<get var="query_lon"/></set>
   </think>
 
   <!-- Check if geocoding succeeded -->
-  <condition var="lat">
-    <li value="Unable to find that location">I couldn't find weather information for <get var="location"/>. Please check the location name and try again.</li>
+  <condition var="query_lat">
+    <li value="Unable to find that location">I couldn't find weather information for <get var="query_location"/>. Please check the location name and try again.</li>
     <li>
-      <!-- Call weather API - lat/lon will be passed automatically from session predicates -->
-      The weather in <get var="location"/> is currently: <sraix service="weather">weather</sraix>
+      <!-- Call weather API - coordinates will be passed from _coords -->
+      <think><set var="weather_result"><sraix service="weather">weather</sraix></set></think>
+      <!-- Clear temporary coordinates after the query -->
+      <think><set name="_coords"></set></think>
+      The weather in <get var="query_location"/> is currently: <get var="weather_result"/>
     </li>
   </condition>
 </template>

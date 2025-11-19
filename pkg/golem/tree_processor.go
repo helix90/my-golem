@@ -676,23 +676,17 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 
 	// Add session variables needed for service calls (for weather and location-based services)
 	if tp.ctx != nil && tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
-		hasLat := false
-		hasLon := false
-
-		if lat, exists := tp.ctx.Session.Variables["latitude"]; exists && lat != "" {
-			requestParams["lat"] = lat
-			hasLat = true
-		}
-		if lon, exists := tp.ctx.Session.Variables["longitude"]; exists && lon != "" {
-			requestParams["lon"] = lon
-			hasLon = true
-		}
-
-		// Only use _coords as fallback if we don't have individual lat/lon
-		// (because _coords in hint will override lat/lon in substituteURLTemplate)
-		if !hasLat || !hasLon {
-			if coords, exists := tp.ctx.Session.Variables["_coords"]; exists && coords != "" {
-				requestParams["hint"] = coords
+		// Check for _coords first (temporary query coordinates take priority)
+		// This allows "weather in Seattle" to not overwrite "my location is Portland"
+		if coords, exists := tp.ctx.Session.Variables["_coords"]; exists && coords != "" {
+			requestParams["hint"] = coords
+		} else {
+			// Use permanent location coordinates as fallback
+			if lat, exists := tp.ctx.Session.Variables["latitude"]; exists && lat != "" {
+				requestParams["lat"] = lat
+			}
+			if lon, exists := tp.ctx.Session.Variables["longitude"]; exists && lon != "" {
+				requestParams["lon"] = lon
 			}
 		}
 
