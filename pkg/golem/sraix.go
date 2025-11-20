@@ -371,6 +371,9 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 	response := string(responseBody)
 	switch config.ResponseFormat {
 	case "json":
+		if sm.verbose {
+			sm.logger.Printf("ResponseFormat is 'json', ResponsePath is '%s'", config.ResponsePath)
+		}
 		if config.ResponsePath != "" {
 			// Extract specific field from JSON response
 			var jsonData interface{}
@@ -379,6 +382,11 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 			}
 			// JSON path extraction (supports dot notation and array indices like "0.lat")
 			response = sm.extractJSONPath(jsonData, config.ResponsePath)
+		} else {
+			// No path specified, return full JSON
+			if sm.verbose {
+				sm.logger.Printf("No ResponsePath specified, returning full JSON response (%d bytes)", len(response))
+			}
 		}
 	case "xml":
 		// For XML, we'll return the raw response for now
