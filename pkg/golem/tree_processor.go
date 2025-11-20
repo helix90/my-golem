@@ -2935,8 +2935,17 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 		return "unavailable"
 	}
 
+	// Log what we received for debugging
+	if tp.golem.verbose {
+		if len(content) > 200 {
+			tp.golem.LogInfo("WeatherFormat: Received content (truncated): %s...", content[:200])
+		} else {
+			tp.golem.LogInfo("WeatherFormat: Received content: %s", content)
+		}
+	}
+
 	// Check for fallback messages (non-JSON responses)
-	if !strings.HasPrefix(content, "{") {
+	if !strings.HasPrefix(content, "{") && !strings.HasPrefix(content, "[") {
 		tp.golem.LogInfo("WeatherFormat: Non-JSON content, returning as-is: %s", content)
 		return content
 	}
@@ -2945,7 +2954,7 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 	var data map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &data); err != nil {
 		// Not valid JSON, return as-is
-		tp.golem.LogInfo("WeatherFormat: Failed to parse JSON: %v", err)
+		tp.golem.LogInfo("WeatherFormat: Failed to parse JSON: %v, Content: %s", err, content)
 		return content
 	}
 
