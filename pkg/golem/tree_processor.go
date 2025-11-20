@@ -2931,14 +2931,21 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 	content = strings.TrimSpace(content)
 
 	if content == "" {
-		return ""
+		tp.golem.LogInfo("WeatherFormat: Empty content")
+		return "unavailable"
+	}
+
+	// Check for fallback messages (non-JSON responses)
+	if !strings.HasPrefix(content, "{") {
+		tp.golem.LogInfo("WeatherFormat: Non-JSON content, returning as-is: %s", content)
+		return content
 	}
 
 	// Try to parse as JSON
 	var data map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &data); err != nil {
 		// Not valid JSON, return as-is
-		tp.golem.LogInfo("WeatherFormat: Not valid JSON, returning as-is")
+		tp.golem.LogInfo("WeatherFormat: Failed to parse JSON: %v", err)
 		return content
 	}
 
@@ -2948,31 +2955,52 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 	// Get currently data
 	currently, hasCurrently := data["currently"].(map[string]interface{})
 	if !hasCurrently {
-		return "Weather data format not recognized"
+		tp.golem.LogInfo("WeatherFormat: No 'currently' field in response")
+		// Check if there's an error message in the response
+		if errMsg, hasError := data["error"].(string); hasError {
+			return errMsg
+		}
+		return "unavailable (data format not recognized)"
 	}
 
 	// Get temperature (in Celsius since we use units=si)
 	temp := 0.0
+	hasTemp := false
 	if tempVal, exists := currently["temperature"]; exists {
 		switch v := tempVal.(type) {
 		case float64:
 			temp = v
+			hasTemp = true
 		case int:
 			temp = float64(v)
+			hasTemp = true
 		}
 	}
 
 	// Get summary (e.g., "Cloudy", "Clear")
-	summary := "Unknown"
+	summary := ""
 	if summaryVal, exists := currently["summary"]; exists {
 		summary = fmt.Sprintf("%v", summaryVal)
 	}
 
-	// Convert Celsius to Fahrenheit
-	tempF := (temp * 9 / 5) + 32
+	// If we don't have basic data, log it and return fallback
+	if summary == "" && !hasTemp {
+		tp.golem.LogInfo("WeatherFormat: Missing both summary and temperature")
+		return "unavailable (missing weather data)"
+	}
 
 	// Build current conditions
-	result.WriteString(fmt.Sprintf("%s with a temperature of %.0f°F (%.0f°C)", summary, tempF, temp))
+	if hasTemp {
+		// Convert Celsius to Fahrenheit
+		tempF := (temp * 9 / 5) + 32
+		if summary != "" {
+			result.WriteString(fmt.Sprintf("%s with a temperature of %.0f°F (%.0f°C)", summary, tempF, temp))
+		} else {
+			result.WriteString(fmt.Sprintf("Temperature of %.0f°F (%.0f°C)", tempF, temp))
+		}
+	} else if summary != "" {
+		result.WriteString(summary)
+	}
 
 	// Try to get daily high/low
 	if daily, hasDaily := data["daily"].(map[string]interface{}); hasDaily {
