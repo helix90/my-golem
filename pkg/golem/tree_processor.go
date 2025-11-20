@@ -443,6 +443,8 @@ func (tp *TreeProcessor) processTag(node *ASTNode) string {
 		return tp.processSystemTag(node, content)
 	case "jsonformat":
 		return tp.processJsonFormatTag(node, content)
+	case "weatherformat":
+		return tp.processWeatherFormatTag(node, content)
 	default:
 		// Unknown tag, return as-is with processed content
 		return fmt.Sprintf("<%s>%s</%s>", node.TagName, content, node.TagName)
@@ -2922,6 +2924,106 @@ func (tp *TreeProcessor) formatGenericJSON(data interface{}) string {
 		return fmt.Sprintf("%v", data)
 	}
 	return string(bytes)
+}
+
+func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) string {
+	// Process weatherformat tag - converts weather API JSON to natural language
+	content = strings.TrimSpace(content)
+
+	if content == "" {
+		return ""
+	}
+
+	// Try to parse as JSON
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &data); err != nil {
+		// Not valid JSON, return as-is
+		tp.golem.LogInfo("WeatherFormat: Not valid JSON, returning as-is")
+		return content
+	}
+
+	// Extract weather data
+	var result strings.Builder
+
+	// Get currently data
+	currently, hasCurrently := data["currently"].(map[string]interface{})
+	if !hasCurrently {
+		return "Weather data format not recognized"
+	}
+
+	// Get temperature (in Celsius since we use units=si)
+	temp := 0.0
+	if tempVal, exists := currently["temperature"]; exists {
+		switch v := tempVal.(type) {
+		case float64:
+			temp = v
+		case int:
+			temp = float64(v)
+		}
+	}
+
+	// Get summary (e.g., "Cloudy", "Clear")
+	summary := "Unknown"
+	if summaryVal, exists := currently["summary"]; exists {
+		summary = fmt.Sprintf("%v", summaryVal)
+	}
+
+	// Convert Celsius to Fahrenheit
+	tempF := (temp * 9 / 5) + 32
+
+	// Build current conditions
+	result.WriteString(fmt.Sprintf("%s with a temperature of %.0f°F (%.0f°C)", summary, tempF, temp))
+
+	// Try to get daily high/low
+	if daily, hasDaily := data["daily"].(map[string]interface{}); hasDaily {
+		if dailyData, hasData := daily["data"].([]interface{}); hasData && len(dailyData) > 0 {
+			if today, isMap := dailyData[0].(map[string]interface{}); isMap {
+				hasHigh := false
+				hasLow := false
+				highTemp := 0.0
+				lowTemp := 0.0
+
+				if highVal, exists := today["temperatureHigh"]; exists {
+					switch v := highVal.(type) {
+					case float64:
+						highTemp = v
+						hasHigh = true
+					case int:
+						highTemp = float64(v)
+						hasHigh = true
+					}
+				}
+
+				if lowVal, exists := today["temperatureLow"]; exists {
+					switch v := lowVal.(type) {
+					case float64:
+						lowTemp = v
+						hasLow = true
+					case int:
+						lowTemp = float64(v)
+						hasLow = true
+					}
+				}
+
+				if hasHigh && hasLow {
+					highF := (highTemp * 9 / 5) + 32
+					lowF := (lowTemp * 9 / 5) + 32
+					result.WriteString(fmt.Sprintf(". Today's high will be %.0f°F (%.0f°C) and low will be %.0f°F (%.0f°C)",
+						highF, highTemp, lowF, lowTemp))
+				} else if hasHigh {
+					highF := (highTemp * 9 / 5) + 32
+					result.WriteString(fmt.Sprintf(". Today's high will be %.0f°F (%.0f°C)", highF, highTemp))
+				} else if hasLow {
+					lowF := (lowTemp * 9 / 5) + 32
+					result.WriteString(fmt.Sprintf(". Today's low will be %.0f°F (%.0f°C)", lowF, lowTemp))
+				}
+			}
+		}
+	}
+
+	result.WriteString(".")
+
+	return result.String()
 }
 
 func (tp *TreeProcessor) processSentenceTag(node *ASTNode, content string) string {

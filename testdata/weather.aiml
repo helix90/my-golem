@@ -79,7 +79,7 @@
 
 <category>
 <pattern>CALL WEATHER API</pattern>
-<template>The weather in <get name="location"/> is currently: <sraix service="weather">weather</sraix></template>
+<template>The weather in <get name="location"/> is <weatherformat><sraix service="weather">weather</sraix></weatherformat></template>
 </category>
 
 <category>
@@ -118,7 +118,7 @@
       <think><set var="weather_result"><sraix service="weather">weather</sraix></set></think>
       <!-- Clear temporary coordinates after the query -->
       <think><set name="_coords"></set></think>
-      The weather in <get var="query_location"/> is currently: <get var="weather_result"/>
+      The weather in <get var="query_location"/> is <weatherformat><get var="weather_result"/></weatherformat>
     </li>
   </condition>
 </template>
