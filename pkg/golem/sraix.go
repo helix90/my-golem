@@ -760,3 +760,19 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 
 	return config, nil
 }
+
+// GetServiceConfig returns the configuration for a specific SRAIX service.
+// Returns the config and true if the service exists, or nil and false if not.
+func (sm *SRAIXManager) GetServiceConfig(serviceName string) (*SRAIXConfig, bool) {
+	config, exists := sm.configs[serviceName]
+	return config, exists
+}
+
+// ListServices returns a list of all configured SRAIX service names.
+func (sm *SRAIXManager) ListServices() []string {
+	services := make([]string, 0, len(sm.configs))
+	for name := range sm.configs {
+		services = append(services, name)
+	}
+	return services
+}
