@@ -194,6 +194,17 @@
 <template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
 </category>
 
+<!-- Contraction variations for tomorrow (WHAT S from "what's") -->
+<category>
+<pattern>WHAT S THE WEATHER TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<category>
+<pattern>HOW S THE WEATHER TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
 <!-- Tomorrow's weather queries for specific locations -->
 <category>
 <pattern>WHAT IS THE WEATHER TOMORROW IN *</pattern>
@@ -243,6 +254,58 @@
 
 <category>
 <pattern>TOMORROW S WEATHER IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<!-- Tomorrow's weather with location first (IN * TOMORROW word order) -->
+<category>
+<pattern>WHAT IS THE WEATHER IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>WHAT WILL THE WEATHER BE IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>HOW WILL THE WEATHER BE IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>WHAT IS THE WEATHER LIKE IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>WEATHER IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>HOW IS THE WEATHER IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<!-- Contraction variations for location + tomorrow -->
+<category>
+<pattern>WHAT S THE WEATHER IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>HOW S THE WEATHER IN * TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>WHAT S THE WEATHER TOMORROW IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>HOW S THE WEATHER TOMORROW IN *</pattern>
 <template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
 </category>
 
