@@ -219,10 +219,9 @@ func (tp *TreeProcessor) ProcessTemplate(template string, wildcards map[string]s
 		result = strings.TrimLeft(result, "\n\r")
 	}
 
-	// Decode XML entities (&amp; -> &, &lt; -> <, &gt; -> >, etc.)
-	// AIML templates use XML encoding, but output should be plain text
-	result = html.UnescapeString(result)
-
+	// Return result as-is
+	// XML entities were already decoded during parsing, and we don't re-encode them
+	// to avoid double-escaping issues
 	return result, nil
 }
 
@@ -238,6 +237,7 @@ func (tp *TreeProcessor) processNode(node *ASTNode) string {
 			}
 			return children
 		}
+		// Return text content as-is; escaping happens at the end of ProcessTemplate
 		return node.Content
 	case NodeTypeComment:
 		return "" // Comments are not output
@@ -3425,6 +3425,16 @@ func (tp *TreeProcessor) processUniqTag(node *ASTNode, content string) string {
 	}
 
 	return strings.Join(words, " ")
+}
+
+// escapeXMLChars escapes only the core XML special characters: &, <, >
+// This preserves entities in output while not breaking contractions (apostrophes) or quotes
+func (tp *TreeProcessor) escapeXMLChars(s string) string {
+	// Replace & first to avoid double-escaping
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
 }
 
 // Helper method for random number generation

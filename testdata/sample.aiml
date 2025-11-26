@@ -22,7 +22,12 @@
         <pattern>WHAT IS YOUR VERSION</pattern>
         <template>I am version <get name="version"/> of <get name="name"/>.</template>
     </category>
-    
+
+    <category>
+        <pattern>WHAT IS YOUR AGE</pattern>
+        <template>I am <get name="age"/> year old.</template>
+    </category>
+
     <category>
         <pattern>WHAT IS YOUR PERSONALITY</pattern>
         <template>My personality is <get name="personality"/> and I have a <get name="attitude"/> attitude.</template>
