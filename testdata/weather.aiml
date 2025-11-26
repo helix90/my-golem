@@ -4,8 +4,10 @@
   Weather Integration using Pirate Weather API
 
   Features:
-  - Query weather for default user location
-  - Query weather for specified location
+  - Query current weather for default user location
+  - Query current weather for specified location
+  - Query tomorrow's forecast for user location
+  - Query tomorrow's forecast for specified location
   - Set user's default location
   - Geocoding support for location names
 
@@ -16,6 +18,8 @@
   Example usage:
   - "What's the weather?"
   - "What's the weather in San Francisco?"
+  - "What's the weather tomorrow?"
+  - "What's the weather tomorrow in Seattle?"
   - "My location is Boston"
   - "Set my location to Portland Oregon"
 -->
@@ -137,6 +141,109 @@
 <category>
 <pattern>HOW IS THE WEATHER IN *</pattern>
 <template><srai>WHAT IS THE WEATHER IN <star/></srai></template>
+</category>
+
+<!-- Tomorrow's weather queries for user's location -->
+<category>
+<pattern>WHAT IS THE WEATHER TOMORROW</pattern>
+<template>
+  <think>
+    <set var="lat"><get name="latitude"/></set>
+    <set var="lon"><get name="longitude"/></set>
+    <set name="_coords"><get var="lat"/>,<get var="lon"/></set>
+  </think>
+
+  <condition>
+    <li var="lat" value="">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
+    <li var="lat" value="0.0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
+    <li var="lat" value="0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
+    <li>
+      In <get name="location"/>, <weatherformat day="tomorrow"><sraix service="weather">weather</sraix></weatherformat>
+    </li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>WHAT WILL THE WEATHER BE TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<category>
+<pattern>HOW WILL THE WEATHER BE TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<category>
+<pattern>WHAT IS THE WEATHER LIKE TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<category>
+<pattern>WEATHER TOMORROW</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<category>
+<pattern>TOMORROW WEATHER</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<category>
+<pattern>TOMORROW S WEATHER</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW</srai></template>
+</category>
+
+<!-- Tomorrow's weather queries for specific locations -->
+<category>
+<pattern>WHAT IS THE WEATHER TOMORROW IN *</pattern>
+<template>
+  <think>
+    <set var="query_location"><star/></set>
+    <set var="query_lat"><sraix service="geocode"><get var="query_location"/></sraix></set>
+    <set var="query_lon"><sraix service="geocode_lon"><get var="query_location"/></sraix></set>
+    <set name="_coords"><get var="query_lat"/>,<get var="query_lon"/></set>
+  </think>
+
+  <condition var="query_lat">
+    <li value="Unable to find that location">I couldn't find weather information for <get var="query_location"/>. Please check the location name and try again.</li>
+    <li>
+      <think><set var="weather_result"><sraix service="weather">weather</sraix></set></think>
+      <think><set name="_coords"></set></think>
+      In <get var="query_location"/>, <weatherformat day="tomorrow"><get var="weather_result"/></weatherformat>
+    </li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>WHAT WILL THE WEATHER BE TOMORROW IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>HOW WILL THE WEATHER BE TOMORROW IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>WHAT IS THE WEATHER LIKE TOMORROW IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>WEATHER TOMORROW IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>TOMORROW WEATHER IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
+</category>
+
+<category>
+<pattern>TOMORROW S WEATHER IN *</pattern>
+<template><srai>WHAT IS THE WEATHER TOMORROW IN <star/></srai></template>
 </category>
 
 <!-- Weather forecast queries -->

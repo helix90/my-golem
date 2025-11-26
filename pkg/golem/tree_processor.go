@@ -2928,6 +2928,7 @@ func (tp *TreeProcessor) formatGenericJSON(data interface{}) string {
 
 func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) string {
 	// Process weatherformat tag - converts weather API JSON to natural language
+	// Supports day="today" (default) or day="tomorrow"
 	content = strings.TrimSpace(content)
 
 	if content == "" {
@@ -2935,12 +2936,20 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 		return "unavailable"
 	}
 
+	// Check for day attribute (default to "today")
+	day := "today"
+	if node != nil && node.Attributes != nil {
+		if dayAttr, exists := node.Attributes["day"]; exists {
+			day = strings.ToLower(strings.TrimSpace(dayAttr))
+		}
+	}
+
 	// Log what we received for debugging
 	if tp.golem.verbose {
 		if len(content) > 200 {
-			tp.golem.LogInfo("WeatherFormat: Received content (truncated): %s...", content[:200])
+			tp.golem.LogInfo("WeatherFormat: Received content (truncated) for day=%s: %s...", day, content[:200])
 		} else {
-			tp.golem.LogInfo("WeatherFormat: Received content: %s", content)
+			tp.golem.LogInfo("WeatherFormat: Received content for day=%s: %s", day, content)
 		}
 	}
 
@@ -2958,7 +2967,15 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 		return content
 	}
 
-	// Extract weather data
+	// Route to appropriate formatter based on day
+	if day == "tomorrow" {
+		return tp.formatTomorrowWeather(data)
+	}
+	return tp.formatTodayWeather(data)
+}
+
+func (tp *TreeProcessor) formatTodayWeather(data map[string]interface{}) string {
+	// Extract weather data for today
 	var result strings.Builder
 
 	// Get currently data
@@ -3056,6 +3073,90 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 				}
 			}
 		}
+	}
+
+	result.WriteString(".")
+
+	return result.String()
+}
+
+func (tp *TreeProcessor) formatTomorrowWeather(data map[string]interface{}) string {
+	// Extract weather forecast for tomorrow from daily data
+	var result strings.Builder
+
+	// Get daily forecast data
+	daily, hasDaily := data["daily"].(map[string]interface{})
+	if !hasDaily {
+		tp.golem.LogInfo("WeatherFormat (tomorrow): No 'daily' field in response")
+		return "unavailable (no forecast data)"
+	}
+
+	dailyData, hasData := daily["data"].([]interface{})
+	if !hasData || len(dailyData) < 2 {
+		tp.golem.LogInfo("WeatherFormat (tomorrow): Not enough daily forecast data (need at least 2 days)")
+		return "unavailable (insufficient forecast data)"
+	}
+
+	// Get tomorrow's forecast (index 1)
+	tomorrow, isMap := dailyData[1].(map[string]interface{})
+	if !isMap {
+		tp.golem.LogInfo("WeatherFormat (tomorrow): Tomorrow's data is not a map")
+		return "unavailable (invalid forecast format)"
+	}
+
+	// Extract forecast summary
+	summary := ""
+	if summaryVal, exists := tomorrow["summary"]; exists {
+		summary = fmt.Sprintf("%v", summaryVal)
+	}
+
+	// Extract temperature high and low
+	hasHigh := false
+	hasLow := false
+	highTemp := 0.0
+	lowTemp := 0.0
+
+	if highVal, exists := tomorrow["temperatureHigh"]; exists {
+		switch v := highVal.(type) {
+		case float64:
+			highTemp = v
+			hasHigh = true
+		case int:
+			highTemp = float64(v)
+			hasHigh = true
+		}
+	}
+
+	if lowVal, exists := tomorrow["temperatureLow"]; exists {
+		switch v := lowVal.(type) {
+		case float64:
+			lowTemp = v
+			hasLow = true
+		case int:
+			lowTemp = float64(v)
+			hasLow = true
+		}
+	}
+
+	// Build the response
+	if summary != "" {
+		result.WriteString("Tomorrow will be ")
+		result.WriteString(strings.ToLower(summary))
+	} else {
+		result.WriteString("Tomorrow's forecast")
+	}
+
+	if hasHigh && hasLow {
+		highF := (highTemp * 9 / 5) + 32
+		lowF := (lowTemp * 9 / 5) + 32
+		result.WriteString(fmt.Sprintf(" with a high of %.0f°F (%.0f°C) and a low of %.0f°F (%.0f°C)",
+			highF, highTemp, lowF, lowTemp))
+	} else if hasHigh {
+		highF := (highTemp * 9 / 5) + 32
+		result.WriteString(fmt.Sprintf(" with a high of %.0f°F (%.0f°C)", highF, highTemp))
+	} else if hasLow {
+		lowF := (lowTemp * 9 / 5) + 32
+		result.WriteString(fmt.Sprintf(" with a low of %.0f°F (%.0f°C)", lowF, lowTemp))
 	}
 
 	result.WriteString(".")
