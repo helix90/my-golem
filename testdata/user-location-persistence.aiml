@@ -4,17 +4,20 @@
   User Location Persistence using <learnf>
 
   This file provides persistent storage of user location information
-  keyed by Telegram username. Location data persists across bot restarts.
+  keyed by Telegram user ID. Location data persists across bot restarts.
 
   Usage from Telegram bot:
-  1. Pass the Telegram username as a session variable: "telegram_user"
+  1. Pass the Telegram user ID as a session variable: "telegram_user"
   2. User sets location: "My location is Seattle"
-  3. Bot learns the location tied to their username using <learnf>
+  3. Bot learns the location tied to their user ID using <learnf>
   4. Location persists in learned_categories/ directory
   5. Next session: Bot automatically loads user's saved location
 
+  IMPORTANT: Use Telegram user ID, not username!
+  Not all Telegram users have a username (@handle), but every user has a unique ID.
+
   Example session variable setup in Telegram bot:
-    session.Variables["telegram_user"] = update.Message.From.Username
+    session.Variables["telegram_user"] = fmt.Sprintf("%d", update.Message.From.ID)
 -->
 
 <!-- Set user's location with persistence -->
@@ -27,7 +30,7 @@
     <set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
     <set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
 
-    <!-- Get the user's Telegram username from session -->
+    <!-- Get the user's Telegram user ID from session -->
     <set var="telegram_user"><get name="telegram_user"/></set>
   </think>
 
@@ -46,7 +49,7 @@
         <!-- Persist user's location using learnf (if telegram_user is set) -->
         <condition var="telegram_user">
           <li value="">
-            <!-- No Telegram username - skip persistence -->
+            <!-- No Telegram user ID - skip persistence -->
           </li>
           <li>
             <!-- Learn location for this specific user -->

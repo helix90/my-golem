@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implemented user location persistence using AIML's `<learnf>` tag, keyed by Telegram username. Location data persists across bot restarts without requiring additional database infrastructure.
+Implemented user location persistence using AIML's `<learnf>` tag, keyed by Telegram user ID. Location data persists across bot restarts without requiring additional database infrastructure.
 
 ## Branch
 
@@ -21,16 +21,18 @@ Creates persistent storage for three pieces of data per user:
 
 **Key Features**:
 - Automatic persistence via `<learnf>` tag
-- Per-user storage using Telegram username as key
+- Per-user storage using Telegram user ID as key
 - Auto-load on weather queries
 - Manual load/forget commands
 - Graceful fallback when telegram_user not set
+
+**IMPORTANT**: Uses Telegram user ID (not username), as not all users have usernames.
 
 **Pattern Structure**:
 ```xml
 <learnf>
   <category>
-    <pattern>GET LOCATION FOR {telegram_username}</pattern>
+    <pattern>GET LOCATION FOR {telegram_user_id}</pattern>
     <template>{location_value}</template>
   </category>
 </learnf>
@@ -76,14 +78,15 @@ Applied to both:
 
 ### 4. Telegram Bot Integration
 
-**Required Integration** (already completed in telego bot):
+**Required Integration** (needs update in telego bot):
 
 ```go
 // When creating/retrieving session
-session := golem.CreateSession(update.Message.From.Username)
+userID := fmt.Sprintf("%d", update.Message.From.ID)
+session := golem.CreateSession(userID)
 
-// CRITICAL: Set telegram_user variable
-session.Variables["telegram_user"] = update.Message.From.Username
+// CRITICAL: Set telegram_user variable to user ID (not username!)
+session.Variables["telegram_user"] = userID
 ```
 
 ## Files Created/Modified
@@ -113,9 +116,9 @@ session.Variables["telegram_user"] = update.Message.From.Username
 2. **aiml_file/weather.aiml** (UPDATED)
    - Deployed with auto-load feature
 
-3. **telegram_bot.go** (MODIFIED)
-   - Updated `getOrCreateSession()` to accept username parameter
-   - Sets `session.Variables["telegram_user"]` automatically
+3. **telegram_bot.go** (NEEDS UPDATE)
+   - Should update `getOrCreateSession()` to accept user ID parameter
+   - Should set `session.Variables["telegram_user"]` to user ID (not username)
    - Lines 74-99, 115-122
 
 4. **USER_PERSISTENCE_README.md** (COPIED)
@@ -203,7 +206,7 @@ Bot:  Your location has been cleared from this session and removed from
 
 ### Edge Cases to Test:
 
-- [ ] User without Telegram username
+- [ ] User without Telegram username (should still work with user ID)
 - [ ] Invalid location name
 - [ ] Location with special characters
 - [ ] Multiple users with different locations
@@ -215,7 +218,7 @@ Bot:  Your location has been cleared from this session and removed from
 1. **No External Database**: Uses AIML's built-in learning system
 2. **Per-User Isolation**: Each Telegram user has separate patterns
 3. **Automatic Persistence**: `<learnf>` handles file I/O
-4. **Graceful Degradation**: Works without username (session-only)
+4. **Graceful Degradation**: Works without telegram_user set (session-only)
 5. **Extensible**: Same pattern can store other preferences
 
 ## Future Enhancements
@@ -226,7 +229,7 @@ Potential additions using the same pattern:
 <!-- Temperature unit preference -->
 <learnf>
   <category>
-    <pattern>GET TEMP UNIT FOR {username}</pattern>
+    <pattern>GET TEMP UNIT FOR {user_id}</pattern>
     <template>celsius</template>
   </category>
 </learnf>
@@ -234,7 +237,7 @@ Potential additions using the same pattern:
 <!-- Timezone preference -->
 <learnf>
   <category>
-    <pattern>GET TIMEZONE FOR {username}</pattern>
+    <pattern>GET TIMEZONE FOR {user_id}</pattern>
     <template>America/New_York</template>
   </category>
 </learnf>
@@ -242,7 +245,7 @@ Potential additions using the same pattern:
 
 ## Security Considerations
 
-1. **Username Sanitization**: Telegram usernames are alphanumeric + underscore (already safe)
+1. **User ID Format**: Telegram user IDs are numeric (safe for use in patterns)
 2. **File Storage**: Plain text JSON (consider encryption for sensitive data)
 3. **Privacy**: Each user's data in separate patterns
 4. **Cleanup**: Users can remove their data with "Forget my location"

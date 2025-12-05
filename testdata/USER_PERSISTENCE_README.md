@@ -1,30 +1,33 @@
 # User Location Persistence with Telegram Integration
 
-This system uses AIML's `<learnf>` tag to persist user location information across bot restarts, keyed by Telegram username.
+This system uses AIML's `<learnf>` tag to persist user location information across bot restarts, keyed by Telegram user ID.
 
 ## How It Works
 
 1. **User sets location**: "My location is Seattle"
 2. **Bot geocodes** the location to get coordinates
 3. **Bot learns** three patterns using `<learnf>`:
-   - `GET LOCATION FOR username` → "Seattle"
-   - `GET LATITUDE FOR username` → "47.6062"
-   - `GET LONGITUDE FOR username` → "-122.3321"
+   - `GET LOCATION FOR {user_id}` → "Seattle"
+   - `GET LATITUDE FOR {user_id}` → "47.6062"
+   - `GET LONGITUDE FOR {user_id}` → "-122.3321"
 4. **Patterns are saved** to `learned_categories/` directory
 5. **Next session**: Bot auto-loads user's location when they ask for weather
 
 ## Telegram Bot Integration
 
-### Step 1: Set the Telegram Username in Session
+### Step 1: Set the Telegram User ID in Session
 
-When creating or retrieving a session for a Telegram user, set their username as a session variable:
+**IMPORTANT**: Use the Telegram user ID, not username! Not all Telegram users have a username (@handle), but every user has a unique ID.
+
+When creating or retrieving a session for a Telegram user, set their user ID as a session variable:
 
 ```go
 // In your Telegram bot message handler
-session := golem.CreateSession(update.Message.From.Username)
+userID := fmt.Sprintf("%d", update.Message.From.ID)
+session := golem.CreateSession(userID)
 
-// CRITICAL: Set the telegram_user variable
-session.Variables["telegram_user"] = update.Message.From.Username
+// CRITICAL: Set the telegram_user variable to the user ID
+session.Variables["telegram_user"] = userID
 ```
 
 ### Step 2: Load AIML Files
@@ -103,7 +106,7 @@ When a user asks for weather without setting their location:
 
 1. `WHAT IS THE WEATHER` pattern calls `AUTOLOAD LOCATION FOR WEATHER`
 2. Checks if location is already in session
-3. If not, uses SRAI to call `GET LOCATION FOR [username]`
+3. If not, uses SRAI to call `GET LOCATION FOR [user_id]`
 4. If found, loads location/lat/lon into session variables
 5. Weather query proceeds with loaded location
 
@@ -168,7 +171,7 @@ This pattern can be extended to save other user preferences:
 ### Location Not Auto-Loading
 - Verify the learned patterns exist: check `learned_categories/`
 - Try manually: "load my location"
-- Check logs for SRAI calls to `GET LOCATION FOR [username]`
+- Check logs for SRAI calls to `GET LOCATION FOR [user_id]`
 
 ### Geocoding Failures
 - Ensure geocode and geocode_lon SRAIX services are configured
@@ -177,7 +180,7 @@ This pattern can be extended to save other user preferences:
 
 ## Security Considerations
 
-1. **Username Sanitization**: Telegram usernames are already sanitized (alphanumeric + underscore)
+1. **User ID Format**: Telegram user IDs are numeric (safe for use in patterns)
 2. **File Storage**: Learned categories are plain text JSON files
 3. **Privacy**: Each user's data is in separate learned patterns
 4. **Cleanup**: Use `FORGET MY LOCATION` to remove user data
