@@ -2012,6 +2012,38 @@ func (g *Golem) SetKnowledgeBase(kb *AIMLKnowledgeBase) {
 	propertiesHandler := &PropertiesHandler{aimlKB: kb}
 	g.oobMgr.RegisterHandler(propertiesHandler)
 
+	// Load persistent learned categories if available
+	if g.persistentLearning != nil && kb != nil {
+		g.LogInfo("Loading persistent learned categories...")
+		persistentCategories, err := g.persistentLearning.LoadPersistentCategories()
+		if err != nil {
+			g.LogWarn("Failed to load persistent categories: %v", err)
+		} else if len(persistentCategories) > 0 {
+			g.LogInfo("Loaded %d persistent learned categories", len(persistentCategories))
+			// Add persistent categories to the knowledge base
+			for _, category := range persistentCategories {
+				// Normalize pattern and add to knowledge base
+				normalizedPattern := NormalizePattern(category.Pattern)
+				key := normalizedPattern
+				if category.That != "" {
+					key += "|THAT:" + NormalizePattern(category.That)
+					if category.ThatIndex != 0 {
+						key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
+					}
+				}
+				if category.Topic != "" {
+					key += "|TOPIC:" + strings.ToUpper(category.Topic)
+				}
+
+				// Add category to knowledge base
+				g.aimlKB.Categories = append(g.aimlKB.Categories, category)
+				g.aimlKB.Patterns[key] = &g.aimlKB.Categories[len(g.aimlKB.Categories)-1]
+			}
+		} else {
+			g.LogInfo("No persistent learned categories found")
+		}
+	}
+
 	// Configure SRAIX services from properties if SRAIX manager exists
 	if g.sraixMgr != nil && kb != nil && kb.Properties != nil {
 		g.LogInfo("Configuring SRAIX from %d properties...", len(kb.Properties))
