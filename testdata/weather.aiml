@@ -325,33 +325,14 @@
 <template><srai>WHAT IS THE WEATHER IN <star/></srai></template>
 </category>
 
-<!-- Location info queries -->
-<category>
-<pattern>WHAT IS MY LOCATION</pattern>
-<template>
-  <condition name="location">
-    <li value="">You haven't set your location yet. Tell me your location by saying "My location is [city name]".</li>
-    <li>Your location is set to <get name="location"/> (coordinates: <get name="latitude"/>, <get name="longitude"/>).</li>
-  </condition>
-</template>
-</category>
+<!-- Location info queries moved to user-location-persistence.aiml for persistence support -->
+<!-- The following patterns are now handled by user-location-persistence.aiml:
+     - WHAT IS MY LOCATION (checks both session and saved learned patterns)
+     - WHERE AM I
+-->
 
-<category>
-<pattern>WHERE AM I</pattern>
-<template><srai>WHAT IS MY LOCATION</srai></template>
-</category>
-
-<!-- Clear location -->
-<category>
-<pattern>CLEAR MY LOCATION</pattern>
-<template>
-  <think>
-    <set name="location"></set>
-    <set name="latitude">0.0</set>
-    <set name="longitude">0.0</set>
-  </think>
-  Your location has been cleared.
-</template>
-</category>
+<!-- Clear location moved to user-location-persistence.aiml for persistence support -->
+<!-- CLEAR MY LOCATION now handled by user-location-persistence.aiml -->
+<!-- It redirects to FORGET MY LOCATION which clears both session and saved data -->
 
 </aiml>
