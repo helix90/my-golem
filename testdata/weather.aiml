@@ -24,39 +24,12 @@
   - "Set my location to Portland Oregon"
 -->
 
-<!-- Set user's default location -->
-<category>
-<pattern>MY LOCATION IS *</pattern>
-<template>
-  <think>
-    <!-- Geocode the location to get coordinates -->
-    <set var="location"><star/></set>
-    <set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
-    <set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
-
-    <!-- Store location and coordinates as predicates -->
-    <set name="location"><get var="location"/></set>
-    <set name="latitude"><get var="lat"/></set>
-    <set name="longitude"><get var="lon"/></set>
-  </think>
-
-  <!-- Confirm to user -->
-  <condition var="lat">
-    <li value="Unable to find that location">I couldn't find that location. Please try again with a city name or address.</li>
-    <li>I've set your location to <get name="location"/> (coordinates: <get name="latitude"/>, <get name="longitude"/>).</li>
-  </condition>
-</template>
-</category>
-
-<category>
-<pattern>SET MY LOCATION TO *</pattern>
-<template><srai>MY LOCATION IS <star/></srai></template>
-</category>
-
-<category>
-<pattern>SET LOCATION *</pattern>
-<template><srai>MY LOCATION IS <star/></srai></template>
-</category>
+<!-- Location setting patterns moved to user-location-persistence.aiml for persistence support -->
+<!-- The following patterns are now handled by user-location-persistence.aiml:
+     - MY LOCATION IS *
+     - SET MY LOCATION TO *
+     - SET LOCATION *
+-->
 
 <!-- Query weather for user's default location -->
 <category>
