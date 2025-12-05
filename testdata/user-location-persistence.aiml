@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+  User Location Persistence using <learnf>
+
+  This file provides persistent storage of user location information
+  keyed by Telegram username. Location data persists across bot restarts.
+
+  Usage from Telegram bot:
+  1. Pass the Telegram username as a session variable: "telegram_user"
+  2. User sets location: "My location is Seattle"
+  3. Bot learns the location tied to their username using <learnf>
+  4. Location persists in learned_categories/ directory
+  5. Next session: Bot automatically loads user's saved location
+
+  Example session variable setup in Telegram bot:
+    session.Variables["telegram_user"] = update.Message.From.Username
+-->
+
+<!-- Set user's location with persistence -->
+<category>
+<pattern>MY LOCATION IS *</pattern>
+<template>
+  <think>
+    <!-- Geocode the location to get coordinates -->
+    <set var="location"><star/></set>
+    <set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
+    <set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
+
+    <!-- Get the user's Telegram username from session -->
+    <set var="telegram_user"><get name="telegram_user"/></set>
+  </think>
+
+  <!-- Check if geocoding succeeded -->
+  <condition var="lat">
+    <li value="Unable to find that location">
+      I couldn't find that location. Please try again with a city name or address.
+    </li>
+    <li>
+      <think>
+        <!-- Store in session for immediate use -->
+        <set name="location"><get var="location"/></set>
+        <set name="latitude"><get var="lat"/></set>
+        <set name="longitude"><get var="lon"/></set>
+
+        <!-- Persist user's location using learnf (if telegram_user is set) -->
+        <condition var="telegram_user">
+          <li value="">
+            <!-- No Telegram username - skip persistence -->
+          </li>
+          <li>
+            <!-- Learn location for this specific user -->
+            <learnf>
+              <category>
+                <pattern>GET LOCATION FOR <get var="telegram_user"/></pattern>
+                <template><get var="location"/></template>
+              </category>
+            </learnf>
+
+            <!-- Learn latitude for this specific user -->
+            <learnf>
+              <category>
+                <pattern>GET LATITUDE FOR <get var="telegram_user"/></pattern>
+                <template><get var="lat"/></template>
+              </category>
+            </learnf>
+
+            <!-- Learn longitude for this specific user -->
+            <learnf>
+              <category>
+                <pattern>GET LONGITUDE FOR <get var="telegram_user"/></pattern>
+                <template><get var="lon"/></template>
+              </category>
+            </learnf>
+          </li>
+        </condition>
+      </think>
+      I've set your location to <get name="location"/> (coordinates: <get name="latitude"/>, <get name="longitude"/>).<condition var="telegram_user"><li value=""></li><li> This location has been saved to your profile.</li></condition>
+    </li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>SET MY LOCATION TO *</pattern>
+<template><srai>MY LOCATION IS <star/></srai></template>
+</category>
+
+<category>
+<pattern>SET LOCATION *</pattern>
+<template><srai>MY LOCATION IS <star/></srai></template>
+</category>
+
+<!-- Load user's saved location into session -->
+<category>
+<pattern>LOAD MY LOCATION</pattern>
+<template>
+  <think>
+    <set var="telegram_user"><get name="telegram_user"/></set>
+  </think>
+
+  <condition var="telegram_user">
+    <li value="">
+      You need to be logged in via Telegram to load saved locations.
+    </li>
+    <li>
+      <think>
+        <!-- Retrieve saved location for this user -->
+        <set var="saved_location"><srai>GET LOCATION FOR <get var="telegram_user"/></srai></set>
+        <set var="saved_lat"><srai>GET LATITUDE FOR <get var="telegram_user"/></srai></set>
+        <set var="saved_lon"><srai>GET LONGITUDE FOR <get var="telegram_user"/></srai></set>
+
+        <!-- Check if we got valid data back -->
+        <condition var="saved_location">
+          <li value="">
+            <!-- No saved location found -->
+          </li>
+          <li value="GET LOCATION FOR *">
+            <!-- Pattern not found - no saved location -->
+          </li>
+          <li>
+            <!-- Valid saved location - load into session -->
+            <set name="location"><get var="saved_location"/></set>
+            <set name="latitude"><get var="saved_lat"/></set>
+            <set name="longitude"><get var="saved_lon"/></set>
+          </li>
+        </condition>
+      </think>
+
+      <!-- Confirm to user -->
+      <condition name="location">
+        <li value="">
+          You don't have a saved location yet. Tell me your location by saying "My location is [city name]".
+        </li>
+        <li>
+          Welcome back! I've loaded your saved location: <get name="location"/>.
+        </li>
+      </condition>
+    </li>
+  </condition>
+</template>
+</category>
+
+<!-- Auto-load location when user asks for weather (if not already set) -->
+<category>
+<pattern>AUTOLOAD LOCATION FOR WEATHER</pattern>
+<template>
+  <think>
+    <!-- Check if location is already set in this session -->
+    <set var="current_location"><get name="location"/></set>
+    <set var="telegram_user"><get name="telegram_user"/></set>
+  </think>
+
+  <condition var="current_location">
+    <li value="">
+      <!-- No location in session - try to load saved location -->
+      <condition var="telegram_user">
+        <li value="">
+          <!-- No Telegram user - can't load -->
+        </li>
+        <li>
+          <think>
+            <!-- Try to load saved location -->
+            <set var="saved_location"><srai>GET LOCATION FOR <get var="telegram_user"/></srai></set>
+            <set var="saved_lat"><srai>GET LATITUDE FOR <get var="telegram_user"/></srai></set>
+            <set var="saved_lon"><srai>GET LONGITUDE FOR <get var="telegram_user"/></srai></set>
+
+            <!-- Load into session if valid -->
+            <condition var="saved_location">
+              <li value=""></li>
+              <li value="GET LOCATION FOR *"></li>
+              <li>
+                <set name="location"><get var="saved_location"/></set>
+                <set name="latitude"><get var="saved_lat"/></set>
+                <set name="longitude"><get var="saved_lon"/></set>
+              </li>
+            </condition>
+          </think>
+        </li>
+      </condition>
+    </li>
+    <li>
+      <!-- Location already set - no need to load -->
+    </li>
+  </condition>
+</template>
+</category>
+
+<!-- Clear user's saved location -->
+<category>
+<pattern>FORGET MY LOCATION</pattern>
+<template>
+  <think>
+    <set var="telegram_user"><get name="telegram_user"/></set>
+
+    <!-- Clear from session -->
+    <set name="location"></set>
+    <set name="latitude">0.0</set>
+    <set name="longitude">0.0</set>
+  </think>
+
+  <condition var="telegram_user">
+    <li value="">
+      Your location has been cleared from this session.
+    </li>
+    <li>
+      <think>
+        <!-- Unlearn the saved patterns for this user -->
+        <unlearnf>
+          <category>
+            <pattern>GET LOCATION FOR <get var="telegram_user"/></pattern>
+            <template>*</template>
+          </category>
+        </unlearnf>
+
+        <unlearnf>
+          <category>
+            <pattern>GET LATITUDE FOR <get var="telegram_user"/></pattern>
+            <template>*</template>
+          </category>
+        </unlearnf>
+
+        <unlearnf>
+          <category>
+            <pattern>GET LONGITUDE FOR <get var="telegram_user"/></pattern>
+            <template>*</template>
+          </category>
+        </unlearnf>
+      </think>
+      Your location has been cleared from this session and removed from your saved profile.
+    </li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>CLEAR MY LOCATION</pattern>
+<template><srai>FORGET MY LOCATION</srai></template>
+</category>
+
+<!-- Show current/saved location -->
+<category>
+<pattern>WHAT IS MY LOCATION</pattern>
+<template>
+  <think>
+    <set var="current_location"><get name="location"/></set>
+    <set var="telegram_user"><get name="telegram_user"/></set>
+  </think>
+
+  <condition var="current_location">
+    <li value="">
+      <!-- No location in session - check for saved -->
+      <condition var="telegram_user">
+        <li value="">
+          You haven't set your location yet. Tell me your location by saying "My location is [city name]".
+        </li>
+        <li>
+          <think>
+            <set var="saved_location"><srai>GET LOCATION FOR <get var="telegram_user"/></srai></set>
+          </think>
+          <condition var="saved_location">
+            <li value="">
+              You don't have a saved location. Tell me your location by saying "My location is [city name]".
+            </li>
+            <li value="GET LOCATION FOR *">
+              You don't have a saved location. Tell me your location by saying "My location is [city name]".
+            </li>
+            <li>
+              You have a saved location (<get var="saved_location"/>), but it's not loaded in this session. Say "load my location" to use it.
+            </li>
+          </condition>
+        </li>
+      </condition>
+    </li>
+    <li>
+      Your location is set to <get name="location"/> (coordinates: <get name="latitude"/>, <get name="longitude"/>).
+    </li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>WHERE AM I</pattern>
+<template><srai>WHAT IS MY LOCATION</srai></template>
+</category>
+
+</aiml>

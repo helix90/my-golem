@@ -63,6 +63,9 @@
 <pattern>WHAT IS THE WEATHER</pattern>
 <template>
   <think>
+    <!-- Auto-load saved location if not already set -->
+    <srai>AUTOLOAD LOCATION FOR WEATHER</srai>
+
     <set var="lat"><get name="latitude"/></set>
     <set var="lon"><get name="longitude"/></set>
     <set name="_coords"><get var="lat"/>,<get var="lon"/></set>
@@ -148,6 +151,9 @@
 <pattern>WHAT IS THE WEATHER TOMORROW</pattern>
 <template>
   <think>
+    <!-- Auto-load saved location if not already set -->
+    <srai>AUTOLOAD LOCATION FOR WEATHER</srai>
+
     <set var="lat"><get name="latitude"/></set>
     <set var="lon"><get name="longitude"/></set>
     <set name="_coords"><get var="lat"/>,<get var="lon"/></set>
