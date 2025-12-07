@@ -7,7 +7,7 @@ import (
 
 // TestTreeProcessorInputTagBasic tests basic <input/> tag processing
 func TestTreeProcessorInputTagBasic(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with request history
 	session := &ChatSession{
@@ -92,7 +92,7 @@ func TestTreeProcessorInputTagBasic(t *testing.T) {
 
 // TestTreeProcessorInputTagEdgeCases tests edge cases for input tag
 func TestTreeProcessorInputTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name           string
@@ -184,7 +184,7 @@ func TestTreeProcessorInputTagEdgeCases(t *testing.T) {
 
 // TestTreeProcessorInputTagNoSession tests input tag when session is nil
 func TestTreeProcessorInputTagNoSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create variable context without a session
 	ctx := &VariableContext{
@@ -219,7 +219,7 @@ func TestTreeProcessorInputTagNoSession(t *testing.T) {
 
 // TestTreeProcessorInputTagNoContext tests input tag when context is nil
 func TestTreeProcessorInputTagNoContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	template := "You said: <input/>"
 	expected := "You said: "
@@ -245,7 +245,7 @@ func TestTreeProcessorInputTagNoContext(t *testing.T) {
 
 // TestTreeProcessorInputTagInNestedStructure tests input tag in nested AIML structures
 func TestTreeProcessorInputTagInNestedStructure(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with request history
 	session := &ChatSession{
@@ -325,7 +325,7 @@ func TestTreeProcessorInputTagInNestedStructure(t *testing.T) {
 
 // TestTreeProcessorInputTagMaxHistory tests input tag with maximum history size
 func TestTreeProcessorInputTagMaxHistory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a large request history (more than typical max)
 	requestHistory := make([]string, 15)
@@ -378,7 +378,7 @@ func TestTreeProcessorInputTagMaxHistory(t *testing.T) {
 
 // TestTreeProcessorInputTagSpecialCharacters tests input tag with special characters
 func TestTreeProcessorInputTagSpecialCharacters(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name    string
@@ -463,7 +463,7 @@ func TestTreeProcessorInputTagSpecialCharacters(t *testing.T) {
 
 // TestTreeProcessorInputTagWithRequestTag tests difference between input and request tags
 func TestTreeProcessorInputTagWithRequestTag(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with request history
 	session := &ChatSession{

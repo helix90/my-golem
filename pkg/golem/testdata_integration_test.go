@@ -10,7 +10,7 @@ import (
 // This test is critical for preventing regressions where example config files
 // accidentally override actual service configurations.
 func TestTestDataDirectoryLoad(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Load entire testdata directory
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
@@ -51,7 +51,7 @@ func TestTestDataDirectoryLoad(t *testing.T) {
 // TestTestDataSRAIXConfiguration verifies that SRAIX service configurations
 // are loaded correctly without conflicts from example files.
 func TestTestDataSRAIXConfiguration(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Load entire testdata directory
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
@@ -151,7 +151,7 @@ func TestTestDataSRAIXConfiguration(t *testing.T) {
 // TestTestDataBasicFunctionality tests that basic AIML patterns work correctly
 // after loading the testdata directory.
 func TestTestDataBasicFunctionality(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Load entire testdata directory
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
@@ -239,7 +239,7 @@ func TestTestDataExampleFilesNaming(t *testing.T) {
 	t.Log("  - If conflicts occur, rename example files to .bak or move to docs/")
 
 	// Load testdata and check for potential conflicts
-	g := New(false) // Disable verbose for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose for cleaner test output
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
 		t.Fatalf("Failed to load testdata directory: %v", err)
@@ -268,7 +268,7 @@ func TestTestDataExampleFilesNaming(t *testing.T) {
 // TestWeatherConfigurationSpecifically is a focused test for the weather service
 // configuration to prevent the specific regression we encountered.
 func TestWeatherConfigurationSpecifically(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Load entire testdata directory
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")

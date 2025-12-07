@@ -8,7 +8,7 @@ import (
 
 // TestTreeProcessorInputTagIntegration tests input tag in full AIML conversation flow
 func TestTreeProcessorInputTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with input tag patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -111,7 +111,7 @@ func TestTreeProcessorInputTagIntegration(t *testing.T) {
 
 // TestTreeProcessorInputTagWithTreeProcessor tests using TreeProcessor directly
 func TestTreeProcessorInputTagWithTreeProcessor(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize AIML knowledge base
 	if g.aimlKB == nil {
@@ -194,7 +194,7 @@ func TestTreeProcessorInputTagWithTreeProcessor(t *testing.T) {
 
 // TestTreeProcessorInputTagConversationFlow tests realistic conversation flow
 func TestTreeProcessorInputTagConversationFlow(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with contextual responses using input tag
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -287,7 +287,7 @@ func TestTreeProcessorInputTagConversationFlow(t *testing.T) {
 
 // TestTreeProcessorInputTagWithVariables tests input tag interaction with variables
 func TestTreeProcessorInputTagWithVariables(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize AIML knowledge base
 	if g.aimlKB == nil {
@@ -359,7 +359,7 @@ func TestTreeProcessorInputTagWithVariables(t *testing.T) {
 
 // TestTreeProcessorInputTagEmptyHistory tests input tag with empty request history
 func TestTreeProcessorInputTagEmptyHistory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize AIML knowledge base
 	if g.aimlKB == nil {
@@ -423,7 +423,7 @@ func TestTreeProcessorInputTagEmptyHistory(t *testing.T) {
 
 // TestTreeProcessorInputTagComparisonWithRequest tests difference between input and request tags
 func TestTreeProcessorInputTagComparisonWithRequest(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML that uses both input and request tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

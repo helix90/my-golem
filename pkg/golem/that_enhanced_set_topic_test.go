@@ -7,7 +7,7 @@ import (
 
 // TestEnhancedThatPatternWithSets tests that pattern matching with set support
 func TestEnhancedThatPatternWithSets(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -113,7 +113,7 @@ func TestEnhancedThatPatternWithSets(t *testing.T) {
 
 // TestEnhancedThatPatternWithTopics tests that pattern matching with topic support
 func TestEnhancedThatPatternWithTopics(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -219,7 +219,7 @@ func TestEnhancedThatPatternWithTopics(t *testing.T) {
 
 // TestEnhancedThatPatternWithMixedSetsAndTopics tests that pattern matching with mixed set and topic support
 func TestEnhancedThatPatternWithMixedSetsAndTopics(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -293,7 +293,7 @@ func TestEnhancedThatPatternWithMixedSetsAndTopics(t *testing.T) {
 
 // TestEnhancedThatPatternWithNonExistentSetsAndTopics tests that pattern matching with non-existent sets and topics
 func TestEnhancedThatPatternWithNonExistentSetsAndTopics(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -358,7 +358,7 @@ func TestEnhancedThatPatternWithNonExistentSetsAndTopics(t *testing.T) {
 
 // TestEnhancedThatPatternCaching tests that pattern matching caching works with sets and topics
 func TestEnhancedThatPatternCaching(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -389,7 +389,7 @@ func TestEnhancedThatPatternCaching(t *testing.T) {
 
 // TestEnhancedThatPatternRegexGeneration tests that regex generation works correctly with sets and topics
 func TestEnhancedThatPatternRegexGeneration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 

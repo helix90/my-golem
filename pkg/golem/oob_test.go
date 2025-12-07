@@ -169,7 +169,7 @@ func TestBuiltInOOBHandlers(t *testing.T) {
 
 func TestOOBIntegration(t *testing.T) {
 	// Create Golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML to register properties handler
 	kb := NewAIMLKnowledgeBase()
@@ -205,7 +205,7 @@ func TestOOBIntegration(t *testing.T) {
 
 func TestOOBInChat(t *testing.T) {
 	// Create Golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML
 	kb := NewAIMLKnowledgeBase()

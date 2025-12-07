@@ -6,7 +6,7 @@ import (
 )
 
 func TestMapTagBasicOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -102,7 +102,7 @@ func TestMapTagBasicOperations(t *testing.T) {
 }
 
 func TestMapTagMultipleOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -199,7 +199,7 @@ func TestMapTagMultipleOperations(t *testing.T) {
 }
 
 func TestMapTagContainsOperation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -267,7 +267,7 @@ func TestMapTagContainsOperation(t *testing.T) {
 }
 
 func TestMapTagBackwardCompatibility(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -316,7 +316,7 @@ func TestMapTagBackwardCompatibility(t *testing.T) {
 }
 
 func TestMapTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">

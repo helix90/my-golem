@@ -188,7 +188,7 @@ func TestTemplateTagProcessingCacheTagTypeInvalidation(t *testing.T) {
 
 func TestGolemTemplateTagProcessingCacheIntegration(t *testing.T) {
 	// Create a Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that template tag processing cache is initialized
 	if g.templateTagProcessingCache == nil {
@@ -245,7 +245,7 @@ func TestGolemTemplateTagProcessingCacheIntegration(t *testing.T) {
 
 func TestTemplateTagProcessingCachePerformance(t *testing.T) {
 	// Create a Golem instance
-	g := New(false) // Disable verbose logging
+	g := NewForTesting(t, false) // Disable verbose logging
 
 	// Create test session and knowledge base
 	session := &ChatSession{

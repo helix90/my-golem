@@ -6,7 +6,7 @@ import (
 )
 
 func TestSetTagBasicOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test basic set operations
 	aimlContent := `
@@ -63,7 +63,7 @@ func TestSetTagBasicOperations(t *testing.T) {
 }
 
 func TestSetTagMultipleOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -160,7 +160,7 @@ func TestSetTagMultipleOperations(t *testing.T) {
 }
 
 func TestSetTagDuplicateHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -222,7 +222,7 @@ func TestSetTagDuplicateHandling(t *testing.T) {
 }
 
 func TestSetTagCaseInsensitive(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -295,7 +295,7 @@ func TestSetTagCaseInsensitive(t *testing.T) {
 
 func TestSetTagBackwardCompatibility(t *testing.T) {
 	// Test that set operations work with explicit operation attribute
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -321,7 +321,7 @@ func TestSetTagBackwardCompatibility(t *testing.T) {
 }
 
 func TestSetTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">

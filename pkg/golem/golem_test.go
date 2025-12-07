@@ -7,7 +7,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	if g == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -22,7 +22,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestProcessData(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	input := "test input"
 	result, err := g.ProcessData(input)
 	if err != nil {
@@ -35,7 +35,7 @@ func TestProcessData(t *testing.T) {
 }
 
 func TestAnalyzeData(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	input := "test data"
 	result, err := g.AnalyzeData(input)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestAnalyzeData(t *testing.T) {
 }
 
 func TestGenerateOutput(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	data := "test data"
 	result, err := g.GenerateOutput(data)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestGenerateOutput(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test unknown command
 	err := g.Execute("unknown", []string{})
@@ -97,7 +97,7 @@ func TestExecute(t *testing.T) {
 }
 
 func TestLoadFile(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary file for testing
 	tempDir := t.TempDir()
@@ -148,7 +148,7 @@ func TestLoadFile(t *testing.T) {
 }
 
 func TestLoadCommand(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test load command without arguments
 	err := g.Execute("load", []string{})

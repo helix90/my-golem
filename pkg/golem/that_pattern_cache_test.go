@@ -181,7 +181,7 @@ func TestEnhancedThatPatternCacheContextInvalidation(t *testing.T) {
 
 func TestGolemThatPatternCacheIntegration(t *testing.T) {
 	// Create a Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that that pattern cache is initialized
 	if g.thatPatternCache == nil {
@@ -211,7 +211,7 @@ func TestGolemThatPatternCacheIntegration(t *testing.T) {
 
 func TestThatPatternCachePerformance(t *testing.T) {
 	// Create a Golem instance
-	g := New(false) // Disable verbose logging
+	g := NewForTesting(t, false) // Disable verbose logging
 
 	// Test patterns and contexts
 	testPatterns := []string{

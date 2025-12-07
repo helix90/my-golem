@@ -33,7 +33,7 @@ func TestSRAIXEnvironmentVariableSubstitution(t *testing.T) {
 	defer server.Close()
 
 	// Create Golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Configure SRAIX service with environment variable in URL template
 	config := &SRAIXConfig{
@@ -116,7 +116,7 @@ func TestSRAIXEnvironmentVariableWithSessionVariables(t *testing.T) {
 	defer server.Close()
 
 	// Create Golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Configure SRAIX service with both env var and session var placeholders
 	config := &SRAIXConfig{
@@ -196,7 +196,7 @@ func TestSRAIXEnvironmentVariableNotSet(t *testing.T) {
 	defer server.Close()
 
 	// Create Golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Configure SRAIX service with undefined environment variable
 	config := &SRAIXConfig{

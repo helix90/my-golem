@@ -400,7 +400,7 @@ func TestContractionExpansionInNormalization(t *testing.T) {
 
 // TestContractionExpansionWithPatternMatching tests that contraction expansion works with pattern matching
 func TestContractionExpansionWithPatternMatching(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories with contractions in patterns

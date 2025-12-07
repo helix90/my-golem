@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadAIML(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary AIML file for testing
 	tempDir := t.TempDir()
@@ -59,7 +59,7 @@ func TestLoadAIML(t *testing.T) {
 }
 
 func TestValidateAIML(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test valid AIML
 	validAIML := &AIML{
@@ -120,7 +120,7 @@ func TestValidateAIML(t *testing.T) {
 }
 
 func TestValidatePattern(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test valid patterns
 	validPatterns := []string{
@@ -247,7 +247,7 @@ func TestProcessTemplate(t *testing.T) {
 		"star1": "JOHN",
 	}
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	result := g.ProcessTemplate(template, wildcards)
 	expected := "Nice to meet you, JOHN!"
 	if result != expected {
@@ -266,7 +266,7 @@ func TestProcessTemplate(t *testing.T) {
 }
 
 func TestChatCommand(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test without loaded knowledge base
 	err := g.chatCommand([]string{"hello"})
@@ -299,7 +299,7 @@ func TestChatCommand(t *testing.T) {
 }
 
 func TestProperties(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Test default properties
@@ -336,7 +336,7 @@ func TestProperties(t *testing.T) {
 }
 
 func TestParsePropertiesFile(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	content := `# Test properties file
 name=TestBot
@@ -376,7 +376,7 @@ empty_key=
 }
 
 func TestReplacePropertyTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Set up properties
@@ -414,7 +414,7 @@ func TestReplacePropertyTags(t *testing.T) {
 }
 
 func TestSessionManagement(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test creating a session
 	session := g.createSession("test_session")
@@ -461,7 +461,7 @@ func TestSessionManagement(t *testing.T) {
 }
 
 func TestSessionCommands(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test session create command
 	err := g.sessionCommand([]string{"create", "test_session"})
@@ -501,7 +501,7 @@ func TestSessionCommands(t *testing.T) {
 }
 
 func TestProcessTemplateWithSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := &ChatSession{
 		ID:        "test_session",
 		Variables: map[string]string{"name": "TestUser", "mood": "happy"},
@@ -529,7 +529,7 @@ func TestProcessTemplateWithSession(t *testing.T) {
 }
 
 func TestReplaceSessionVariableTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := &ChatSession{
 		ID:        "test_session",
 		Variables: map[string]string{"name": "TestUser", "mood": "happy"},
@@ -556,7 +556,7 @@ func TestReplaceSessionVariableTags(t *testing.T) {
 }
 
 func TestSRAIProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -590,7 +590,7 @@ func TestSRAIProcessing(t *testing.T) {
 }
 
 func TestSRAIWithSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -633,7 +633,7 @@ func TestSRAIWithSession(t *testing.T) {
 }
 
 func TestSRAINoMatch(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -661,7 +661,7 @@ func TestSRAINoMatch(t *testing.T) {
 }
 
 func TestSRAIRecursive(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories with recursive SRAI
@@ -697,7 +697,7 @@ func TestSRAIRecursive(t *testing.T) {
 
 // TestSRTagProcessing tests the basic SR tag functionality
 func TestSRTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name      string
@@ -755,7 +755,7 @@ func TestSRTagProcessing(t *testing.T) {
 
 // TestSRTagWithKnowledgeBase tests SR tag with actual pattern matching
 func TestSRTagWithKnowledgeBase(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -821,7 +821,7 @@ func TestSRTagWithKnowledgeBase(t *testing.T) {
 
 // TestSRTagIntegration tests SR tag in full template processing
 func TestSRTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -853,7 +853,7 @@ func TestSRTagIntegration(t *testing.T) {
 
 // TestSRTagRecursive tests recursive SR tag processing
 func TestSRTagRecursive(t *testing.T) {
-	g := New(false) // Disable verbose logging for tests
+	g := NewForTesting(t, false) // Disable verbose logging for tests
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories with recursive SR
@@ -885,7 +885,7 @@ func TestSRTagRecursive(t *testing.T) {
 
 // TestSRTagEdgeCases tests edge cases for SR tag
 func TestSRTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -948,7 +948,7 @@ func TestSRTagEdgeCases(t *testing.T) {
 }
 
 func TestProcessRandomTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test single random option
 	template := "<random><li>Hello there!</li></random>"
@@ -1011,7 +1011,7 @@ func TestProcessRandomTags(t *testing.T) {
 }
 
 func TestProcessTemplateWithRandom(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories with random templates
@@ -1057,7 +1057,7 @@ func TestProcessTemplateWithRandom(t *testing.T) {
 }
 
 func TestProcessTemplateWithRandomAndSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories with random templates
@@ -1105,7 +1105,7 @@ func TestProcessTemplateWithRandomAndSession(t *testing.T) {
 }
 
 func TestRandomWithSRAI(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories with random and SRAI
@@ -1147,7 +1147,7 @@ func TestRandomWithSRAI(t *testing.T) {
 }
 
 func TestRandomWithProperties(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Set properties
@@ -1179,7 +1179,7 @@ func TestRandomWithProperties(t *testing.T) {
 }
 
 func TestProcessThinkTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test basic think tag processing
 	template := "<think><set name=\"test_var\">test_value</set></think>Hello world!"
@@ -1222,7 +1222,7 @@ func TestProcessThinkTags(t *testing.T) {
 }
 
 func TestProcessThinkContent(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -1261,7 +1261,7 @@ func TestProcessThinkContent(t *testing.T) {
 }
 
 func TestProcessTemplateWithThink(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -1281,7 +1281,7 @@ func TestProcessTemplateWithThink(t *testing.T) {
 }
 
 func TestProcessTemplateWithThinkAndSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -1309,7 +1309,7 @@ func TestProcessTemplateWithThinkAndSession(t *testing.T) {
 }
 
 func TestThinkWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -1330,7 +1330,7 @@ func TestThinkWithWildcards(t *testing.T) {
 }
 
 func TestThinkWithProperties(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Properties = map[string]string{
 		"bot_name": "Golem",
@@ -1353,7 +1353,7 @@ func TestThinkWithProperties(t *testing.T) {
 }
 
 func TestThinkWithSRAI(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -1386,7 +1386,7 @@ func TestThinkWithSRAI(t *testing.T) {
 }
 
 func TestThinkWithRandom(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -1417,7 +1417,7 @@ func TestThinkWithRandom(t *testing.T) {
 }
 
 func TestProcessDateTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test basic date tag
 	template := "Today is <date/>"
@@ -1452,7 +1452,7 @@ func TestProcessDateTags(t *testing.T) {
 }
 
 func TestProcessTimeTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test basic time tag
 	template := "Current time is <time/>"
@@ -1487,7 +1487,7 @@ func TestProcessTimeTags(t *testing.T) {
 }
 
 func TestFormatDate(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test various date formats with pattern validation
 	testCases := []struct {
@@ -1693,7 +1693,7 @@ func TestFormatDate(t *testing.T) {
 }
 
 func TestFormatTime(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test various time formats with pattern validation
 	testCases := []struct {
@@ -1950,7 +1950,7 @@ func TestFormatTime(t *testing.T) {
 }
 
 func TestProcessDateTimeTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test combined date and time tags
 	template := "Today is <date format=\"short\"/> and it is <time format=\"12\"/>"
@@ -1965,7 +1965,7 @@ func TestProcessDateTimeTags(t *testing.T) {
 }
 
 func TestDateTimeTagsWithAllFormats(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test all date formats in actual <date> tags
 	dateFormats := []string{
@@ -2196,7 +2196,7 @@ func TestDateTimeTagsWithAllFormats(t *testing.T) {
 }
 
 func TestCustomTimeFormats(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test C-style format strings
 	testCases := []struct {
@@ -2318,7 +2318,7 @@ func TestCustomTimeFormats(t *testing.T) {
 }
 
 func TestProcessTemplateWithDateTime(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2335,7 +2335,7 @@ func TestProcessTemplateWithDateTime(t *testing.T) {
 }
 
 func TestProcessTemplateWithDateTimeAndSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2359,7 +2359,7 @@ func TestProcessTemplateWithDateTimeAndSession(t *testing.T) {
 }
 
 func TestDateTimeWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2377,7 +2377,7 @@ func TestDateTimeWithWildcards(t *testing.T) {
 }
 
 func TestDateTimeWithProperties(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Properties = map[string]string{
 		"bot_name": "Golem",
@@ -2397,7 +2397,7 @@ func TestDateTimeWithProperties(t *testing.T) {
 }
 
 func TestDateTimeWithSRAI(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -2427,7 +2427,7 @@ func TestDateTimeWithSRAI(t *testing.T) {
 }
 
 func TestDateTimeWithRandom(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2447,7 +2447,7 @@ func TestDateTimeWithRandom(t *testing.T) {
 }
 
 func TestDateTimeWithThink(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2470,7 +2470,7 @@ func TestDateTimeWithThink(t *testing.T) {
 }
 
 func TestProcessConditionTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2503,7 +2503,7 @@ func TestProcessConditionTags(t *testing.T) {
 }
 
 func TestProcessConditionContent(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2542,7 +2542,7 @@ func TestProcessConditionContent(t *testing.T) {
 }
 
 func TestProcessConditionListItems(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test multiple conditions
 	content := `<li value="sunny">It's a beautiful sunny day!</li>
@@ -2580,7 +2580,7 @@ func TestProcessConditionListItems(t *testing.T) {
 }
 
 func TestGetVariableValue(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2636,7 +2636,7 @@ func TestGetVariableValue(t *testing.T) {
 }
 
 func TestProcessTemplateWithCondition(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Variables["mood"] = "happy"
 	g.SetKnowledgeBase(kb)
@@ -2652,7 +2652,7 @@ func TestProcessTemplateWithCondition(t *testing.T) {
 }
 
 func TestProcessTemplateWithConditionAndSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2678,7 +2678,7 @@ func TestProcessTemplateWithConditionAndSession(t *testing.T) {
 }
 
 func TestConditionWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2703,7 +2703,7 @@ func TestConditionWithWildcards(t *testing.T) {
 }
 
 func TestConditionWithProperties(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Properties = map[string]string{
 		"bot_name": "Golem",
@@ -2721,7 +2721,7 @@ func TestConditionWithProperties(t *testing.T) {
 }
 
 func TestConditionWithSRAI(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -2758,7 +2758,7 @@ func TestConditionWithSRAI(t *testing.T) {
 }
 
 func TestConditionWithThink(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2778,7 +2778,7 @@ func TestConditionWithThink(t *testing.T) {
 }
 
 func TestConditionWithRandom(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Variables["weather"] = "sunny"
 	g.SetKnowledgeBase(kb)
@@ -2808,7 +2808,7 @@ func TestConditionWithRandom(t *testing.T) {
 }
 
 func TestConditionWithDateTime(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Variables["time_of_day"] = "morning"
 	g.SetKnowledgeBase(kb)
@@ -2829,7 +2829,7 @@ func TestConditionWithDateTime(t *testing.T) {
 }
 
 func TestNestedConditions(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	kb.Variables["user_type"] = "admin"
 	kb.Variables["time_of_day"] = "morning"
@@ -2854,7 +2854,7 @@ func TestNestedConditions(t *testing.T) {
 }
 
 func TestConditionDefaultCase(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2879,7 +2879,7 @@ func TestConditionDefaultCase(t *testing.T) {
 
 // TestVariableScopeResolution tests the new variable scope resolution system
 func TestVariableScopeResolution(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -2986,7 +2986,7 @@ func TestVariableScopeResolution(t *testing.T) {
 }
 
 func TestLoadAIMLFromDirectory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
@@ -3107,7 +3107,7 @@ func TestLoadAIMLFromDirectory(t *testing.T) {
 }
 
 func TestLoadAIMLFromDirectoryEmpty(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create an empty temporary directory
 	tempDir := t.TempDir()
@@ -3123,7 +3123,7 @@ func TestLoadAIMLFromDirectoryEmpty(t *testing.T) {
 }
 
 func TestLoadCommandWithDirectory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
@@ -3165,7 +3165,7 @@ func TestLoadCommandWithDirectory(t *testing.T) {
 
 // TestVariableSetting tests the new variable setting system with scopes
 func TestVariableSetting(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	session := &ChatSession{
 		ID:        "test_session",
@@ -3240,7 +3240,7 @@ func TestVariableSetting(t *testing.T) {
 }
 
 func TestLoadMapFromFile(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary map file
 	tempFile := t.TempDir() + "/test.map"
@@ -3282,7 +3282,7 @@ func TestLoadMapFromFile(t *testing.T) {
 }
 
 func TestLoadMapFromFileInvalidJSON(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary map file with invalid JSON
 	tempFile := t.TempDir() + "/invalid.map"
@@ -3304,7 +3304,7 @@ func TestLoadMapFromFileInvalidJSON(t *testing.T) {
 }
 
 func TestLoadMapsFromDirectory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
@@ -3370,7 +3370,7 @@ func TestLoadMapsFromDirectory(t *testing.T) {
 }
 
 func TestProcessMapTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add a map to the knowledge base
@@ -3392,7 +3392,7 @@ func TestProcessMapTags(t *testing.T) {
 }
 
 func TestProcessMapTagsWithUnknownKey(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add a map to the knowledge base
@@ -3413,7 +3413,7 @@ func TestProcessMapTagsWithUnknownKey(t *testing.T) {
 }
 
 func TestProcessMapTagsWithUnknownMap(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	g.SetKnowledgeBase(kb)
@@ -3429,7 +3429,7 @@ func TestProcessMapTagsWithUnknownMap(t *testing.T) {
 }
 
 func TestLoadCommandWithMapFile(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary map file
 	tempFile := t.TempDir() + "/test.map"
@@ -3464,7 +3464,7 @@ func TestLoadCommandWithMapFile(t *testing.T) {
 }
 
 func TestLoadSetFromFile(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary set file
 	tempFile := t.TempDir() + "/test.set"
@@ -3500,7 +3500,7 @@ func TestLoadSetFromFile(t *testing.T) {
 }
 
 func TestLoadSetFromFileInvalidJSON(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary set file with invalid JSON
 	tempFile := t.TempDir() + "/invalid.set"
@@ -3519,7 +3519,7 @@ func TestLoadSetFromFileInvalidJSON(t *testing.T) {
 }
 
 func TestLoadSetsFromDirectory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
@@ -3585,7 +3585,7 @@ func TestLoadSetsFromDirectory(t *testing.T) {
 }
 
 func TestLoadCommandWithSetFile(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a temporary set file
 	tempFile := t.TempDir() + "/test.set"
@@ -3631,7 +3631,7 @@ func TestLoadCommandWithSetFile(t *testing.T) {
 }
 
 func TestSetMatchingInPatterns(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add a set to the knowledge base
@@ -3896,7 +3896,7 @@ func TestNormalization(t *testing.T) {
 
 // TestNormalizationIntegration tests normalization in the full AIML system
 func TestNormalizationIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -4051,7 +4051,7 @@ func TestNormalizationEdgeCases(t *testing.T) {
 }
 
 func TestBotTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -4118,7 +4118,7 @@ func TestBotTagProcessing(t *testing.T) {
 }
 
 func TestBotTagWithContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -4152,7 +4152,7 @@ func TestBotTagWithContext(t *testing.T) {
 
 // TestPersonTagProcessing tests the basic person tag functionality
 func TestPersonTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -4233,7 +4233,7 @@ func TestPersonTagProcessing(t *testing.T) {
 
 // TestPersonTagWithContext tests person tags with variable context
 func TestPersonTagWithContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -4315,7 +4315,7 @@ func TestPersonTagWithContext(t *testing.T) {
 
 // TestPersonTagIntegration tests the integration of person tags with the full processing pipeline
 func TestPersonTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -4410,7 +4410,7 @@ func TestPersonTagIntegration(t *testing.T) {
 
 // TestPersonTagEdgeCases tests edge cases for person tag processing
 func TestPersonTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -4496,7 +4496,7 @@ func TestPersonTagEdgeCases(t *testing.T) {
 }
 
 func TestBotTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -4571,7 +4571,7 @@ func TestBotTagIntegration(t *testing.T) {
 
 // TestGenderTagProcessing tests the basic gender tag processing functionality
 func TestGenderTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -4648,7 +4648,7 @@ func TestGenderTagProcessing(t *testing.T) {
 
 // TestGenderTagWithContext tests gender tag processing with context
 func TestGenderTagWithContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -4670,7 +4670,7 @@ func TestGenderTagWithContext(t *testing.T) {
 
 // TestGenderTagIntegration tests gender tag integration with full AIML processing
 func TestGenderTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with gender tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -4895,7 +4895,7 @@ func TestWordBoundaryDetection(t *testing.T) {
 
 // TestSentenceTagProcessing tests the sentence tag processing functionality
 func TestSentenceTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -4967,7 +4967,7 @@ func TestSentenceTagProcessing(t *testing.T) {
 
 // TestWordTagProcessing tests the word tag processing functionality
 func TestWordTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -5049,7 +5049,7 @@ func TestWordTagProcessing(t *testing.T) {
 
 // TestUpperLowerCaseTagProcessing tests the uppercase and lowercase tag processing functionality
 func TestUpperLowerCaseTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	type tc struct {
 		name     string
@@ -5100,7 +5100,7 @@ func TestUpperLowerCaseTagProcessing(t *testing.T) {
 
 // TestTextProcessingUpperLowerIntegration tests integration of uppercase/lowercase in full AIML processing
 func TestTextProcessingUpperLowerIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -5151,7 +5151,7 @@ func TestTextProcessingUpperLowerIntegration(t *testing.T) {
 
 // TestTextProcessingIntegration tests text processing integration with full AIML processing
 func TestTextProcessingIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with sentence and word tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -5226,7 +5226,7 @@ func TestTextProcessingIntegration(t *testing.T) {
 
 // TestTextProcessingEdgeCases tests edge cases for text processing
 func TestTextProcessingEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -5311,7 +5311,7 @@ func TestTextProcessingEdgeCases(t *testing.T) {
 
 // TestAIML2Wildcards tests the new AIML2 wildcard types
 func TestAIML2Wildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with various wildcard patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -5496,7 +5496,7 @@ func TestAIML2Wildcards(t *testing.T) {
 
 // TestWildcardPriority tests that wildcard priority ordering works correctly
 func TestWildcardPriority(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with patterns that should test priority ordering
 	// Each pattern should be mutually exclusive to properly test priority
@@ -5585,7 +5585,7 @@ func TestWildcardPriority(t *testing.T) {
 
 // TestWildcardValidation tests that new wildcard types are properly validated
 func TestWildcardValidation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test valid patterns with new wildcards
 	validPatterns := []string{
@@ -5631,7 +5631,7 @@ func TestWildcardValidation(t *testing.T) {
 
 // TestWildcardEdgeCases tests edge cases for wildcard matching
 func TestWildcardEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with edge case patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -5782,7 +5782,7 @@ func TestWildcardEdgeCases(t *testing.T) {
 
 // TestGenderTagEdgeCases tests edge cases for gender tag processing
 func TestGenderTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -5839,7 +5839,7 @@ func TestGenderTagEdgeCases(t *testing.T) {
 
 // TestUniqueTagProcessing tests the unique tag processing functionality
 func TestUniqueTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	uniqueTests := []struct {
 		name     string
@@ -5982,7 +5982,7 @@ test
 
 // TestUniqueTagIntegration tests integration of unique tag in full AIML processing
 func TestUniqueTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -6040,7 +6040,7 @@ func TestUniqueTagIntegration(t *testing.T) {
 
 // TestRepeatTagProcessing tests the repeat tag processing functionality
 func TestRepeatTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with some request history
 	session := &ChatSession{
@@ -6168,7 +6168,7 @@ func TestRepeatTagProcessing(t *testing.T) {
 
 // TestRepeatTagIntegration tests integration of repeat tag in full AIML processing
 func TestRepeatTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -6238,7 +6238,7 @@ func TestRepeatTagIntegration(t *testing.T) {
 
 // TestThatTagProcessing tests the that tag processing functionality
 func TestThatTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with some response history
 	session := &ChatSession{
@@ -6366,7 +6366,7 @@ func TestThatTagProcessing(t *testing.T) {
 
 // TestThatTagIntegration tests integration of that tag in full AIML processing
 func TestThatTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -6436,7 +6436,7 @@ func TestThatTagIntegration(t *testing.T) {
 
 // TestTopicTagProcessing tests the topic tag processing functionality
 func TestTopicTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with a topic set
 	session := &ChatSession{
@@ -6559,7 +6559,7 @@ func TestTopicTagProcessing(t *testing.T) {
 
 // TestTopicTagIntegration tests integration of topic tag in full AIML processing
 func TestTopicTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -6631,7 +6631,7 @@ func TestTopicTagIntegration(t *testing.T) {
 
 // TestTopicVariableScope tests topic variable scope functionality
 func TestTopicVariableScope(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with a topic
 	session := &ChatSession{

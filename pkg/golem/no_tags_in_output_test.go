@@ -7,7 +7,7 @@ import (
 
 // TestNoTagsInOutput verifies that XML tags never appear in template processing output
 func TestNoTagsInOutput(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 	
 	testCases := []struct {
 		name     string

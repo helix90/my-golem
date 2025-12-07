@@ -17,7 +17,7 @@ func TestPerformanceErrorConditions(t *testing.T) {
 		{
 			name: "Infinite recursion prevention",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><srai>test</srai></template>
@@ -31,7 +31,7 @@ func TestPerformanceErrorConditions(t *testing.T) {
 		{
 			name: "Deep recursion prevention",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><srai>test2</srai></template>
@@ -53,7 +53,7 @@ func TestPerformanceErrorConditions(t *testing.T) {
 		{
 			name: "Large template processing",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				largeTemplate := strings.Repeat("<uppercase>", 100) + "hello" + strings.Repeat("</uppercase>", 100)
 				aiml := `<category>
 					<pattern>test</pattern>
@@ -68,7 +68,7 @@ func TestPerformanceErrorConditions(t *testing.T) {
 		{
 			name: "Complex pattern matching",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				complexPattern := strings.Repeat("* ", 100)
 				aiml := `<category>
 					<pattern>` + complexPattern + `</pattern>
@@ -83,7 +83,7 @@ func TestPerformanceErrorConditions(t *testing.T) {
 		{
 			name: "Memory intensive operations",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><list name="large" operation="add">` + strings.Repeat("item ", 1000) + `</list></template>
@@ -124,7 +124,7 @@ func TestConcurrentAccessErrors(t *testing.T) {
 		{
 			name: "Concurrent session access",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template>response</template>
@@ -137,7 +137,7 @@ func TestConcurrentAccessErrors(t *testing.T) {
 		{
 			name: "Concurrent variable access",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><set name="test">value</set></template>
@@ -150,7 +150,7 @@ func TestConcurrentAccessErrors(t *testing.T) {
 		{
 			name: "Concurrent collection access",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><list name="test" operation="add">item</list></template>
@@ -163,7 +163,7 @@ func TestConcurrentAccessErrors(t *testing.T) {
 		{
 			name: "Concurrent knowledge base access",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><learn>new category</learn></template>
@@ -303,7 +303,7 @@ func TestEdgeCaseErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			err := g.LoadAIMLFromString(tt.aiml)
 			if err != nil {
 				// Some malformed AIML might not load, which is expected
@@ -329,7 +329,7 @@ func TestResourceCleanup(t *testing.T) {
 		{
 			name: "Large knowledge base cleanup",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := ""
 				for i := 0; i < 1000; i++ {
 					aiml += `<category>
@@ -345,7 +345,7 @@ func TestResourceCleanup(t *testing.T) {
 		{
 			name: "Large collections cleanup",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				kb := g.GetKnowledgeBase()
 				if kb == nil {
 					kb = NewAIMLKnowledgeBase()
@@ -363,7 +363,7 @@ func TestResourceCleanup(t *testing.T) {
 		{
 			name: "Large maps cleanup",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				kb := g.GetKnowledgeBase()
 				if kb == nil {
 					kb = NewAIMLKnowledgeBase()
@@ -484,7 +484,7 @@ func TestSecurityErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			err := g.LoadAIMLFromString(tt.aiml)
 			if err != nil {
 				// Some malformed AIML might not load, which is expected
@@ -511,7 +511,7 @@ func TestDataIntegrityErrorHandling(t *testing.T) {
 		{
 			name: "Corrupted knowledge base",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				// Create a knowledge base with corrupted data
 				kb := g.GetKnowledgeBase()
 				if kb == nil {
@@ -533,7 +533,7 @@ func TestDataIntegrityErrorHandling(t *testing.T) {
 		{
 			name: "Invalid collection data",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				kb := g.GetKnowledgeBase()
 				if kb == nil {
 					kb = NewAIMLKnowledgeBase()
@@ -550,7 +550,7 @@ func TestDataIntegrityErrorHandling(t *testing.T) {
 		{
 			name: "Circular references",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><srai>test</srai></template>
@@ -564,7 +564,7 @@ func TestDataIntegrityErrorHandling(t *testing.T) {
 		{
 			name: "Invalid wildcard references",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test *</pattern>
 					<template><star index="10"></star></template>
@@ -578,7 +578,7 @@ func TestDataIntegrityErrorHandling(t *testing.T) {
 		{
 			name: "Invalid variable references",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := `<category>
 					<pattern>test</pattern>
 					<template><get name=""></get></template>

@@ -20,7 +20,7 @@ func TestLocalVariableToSessionVariable(t *testing.T) {
   </category>
 </aiml>`
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	err := g.LoadAIMLFromString(aimlContent)
 	if err != nil {
 		t.Fatalf("Failed to load AIML: %v", err)
@@ -63,7 +63,7 @@ func TestLocalVarWithSameName(t *testing.T) {
   </category>
 </aiml>`
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	err := g.LoadAIMLFromString(aimlContent)
 	if err != nil {
 		t.Fatalf("Failed to load AIML: %v", err)
@@ -103,7 +103,7 @@ func TestMultipleLocalVariables(t *testing.T) {
   </category>
 </aiml>`
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	err := g.LoadAIMLFromString(aimlContent)
 	if err != nil {
 		t.Fatalf("Failed to load AIML: %v", err)
@@ -148,7 +148,7 @@ func TestLocalVarAfterGetVar(t *testing.T) {
   </category>
 </aiml>`
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	err := g.LoadAIMLFromString(aimlContent)
 	if err != nil {
 		t.Fatalf("Failed to load AIML: %v", err)

@@ -73,7 +73,7 @@ func TestRandomTagProcessing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -157,7 +157,7 @@ func TestRandomTagWithNestedTags(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -238,7 +238,7 @@ func TestRandomTagIntegration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -350,7 +350,7 @@ func TestRandomTagEdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -392,7 +392,7 @@ func TestRandomTagPerformance(t *testing.T) {
 	}
 	template += `</random>`
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()

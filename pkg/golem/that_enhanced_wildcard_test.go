@@ -325,7 +325,7 @@ func TestThatPatternPriority(t *testing.T) {
 }
 
 func TestEnhancedThatPatternIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with enhanced that patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

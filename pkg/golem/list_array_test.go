@@ -5,7 +5,7 @@ import (
 )
 
 func TestListTagBasicOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test basic list operations
 	aimlContent := `
@@ -51,7 +51,7 @@ func TestListTagBasicOperations(t *testing.T) {
 }
 
 func TestListTagMultipleOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -112,7 +112,7 @@ func TestListTagMultipleOperations(t *testing.T) {
 }
 
 func TestListTagInsertAndRemove(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -235,7 +235,7 @@ func TestListTagInsertAndRemove(t *testing.T) {
 }
 
 func TestArrayTagBasicOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -296,7 +296,7 @@ func TestArrayTagBasicOperations(t *testing.T) {
 }
 
 func TestArrayTagDynamicSizing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -367,7 +367,7 @@ func TestArrayTagDynamicSizing(t *testing.T) {
 }
 
 func TestArrayTagClear(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -427,7 +427,7 @@ func TestArrayTagClear(t *testing.T) {
 }
 
 func TestListAndArrayWithVariables(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -491,7 +491,7 @@ func TestListAndArrayWithVariables(t *testing.T) {
 }
 
 func TestListAndArrayErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">
@@ -548,7 +548,7 @@ func TestListAndArrayErrorHandling(t *testing.T) {
 }
 
 func TestListAndArrayPersistence(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	aimlContent := `
 <aiml version="2.0">

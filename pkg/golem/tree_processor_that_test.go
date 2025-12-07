@@ -7,7 +7,7 @@ import (
 
 // TestTreeProcessorThatTagBasic tests basic <that/> tag processing
 func TestTreeProcessorThatTagBasic(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with response history
 	session := &ChatSession{
@@ -77,7 +77,7 @@ func TestTreeProcessorThatTagBasic(t *testing.T) {
 
 // TestTreeProcessorThatTagWithIndex tests <that> tag with index attribute
 func TestTreeProcessorThatTagWithIndex(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with response history
 	session := &ChatSession{
@@ -157,7 +157,7 @@ func TestTreeProcessorThatTagWithIndex(t *testing.T) {
 
 // TestTreeProcessorThatTagEdgeCases tests edge cases for <that> tag
 func TestTreeProcessorThatTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name            string
@@ -256,7 +256,7 @@ func TestTreeProcessorThatTagEdgeCases(t *testing.T) {
 
 // TestTreeProcessorThatTagNoSession tests <that> tag when session is nil
 func TestTreeProcessorThatTagNoSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create variable context without a session
 	ctx := &VariableContext{
@@ -291,7 +291,7 @@ func TestTreeProcessorThatTagNoSession(t *testing.T) {
 
 // TestTreeProcessorThatTagNoContext tests <that> tag when context is nil
 func TestTreeProcessorThatTagNoContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	template := "You said: <that/>"
 	expected := "You said: "
@@ -317,7 +317,7 @@ func TestTreeProcessorThatTagNoContext(t *testing.T) {
 
 // TestTreeProcessorThatTagInNestedStructure tests <that> tag in nested AIML structures
 func TestTreeProcessorThatTagInNestedStructure(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with response history
 	session := &ChatSession{
@@ -392,7 +392,7 @@ func TestTreeProcessorThatTagInNestedStructure(t *testing.T) {
 
 // TestTreeProcessorThatTagMaxHistory tests <that> tag with maximum history size
 func TestTreeProcessorThatTagMaxHistory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a large response history (more than typical max)
 	responseHistory := make([]string, 15)
@@ -473,7 +473,7 @@ func TestTreeProcessorThatTagMaxHistory(t *testing.T) {
 
 // TestTreeProcessorThatTagSpecialCharacters tests <that> tag with special characters in responses
 func TestTreeProcessorThatTagSpecialCharacters(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with responses containing special characters
 	session := &ChatSession{

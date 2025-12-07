@@ -124,7 +124,7 @@ func TestTreeProcessorSRAITag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
@@ -139,7 +139,7 @@ func TestTreeProcessorSRAITag(t *testing.T) {
 
 // TestTreeProcessorSRAIRecursion tests recursion depth handling
 func TestTreeProcessorSRAIRecursion(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Create a circular SRAI that would cause infinite recursion
@@ -201,7 +201,7 @@ func TestTreeProcessorSRAIRecursion(t *testing.T) {
 
 // TestTreeProcessorSRAIWithWildcards tests SRAI with complex wildcard patterns
 func TestTreeProcessorSRAIWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `
@@ -244,7 +244,7 @@ func TestTreeProcessorSRAIWithWildcards(t *testing.T) {
 
 // TestTreeProcessorSRAIIntegration tests complex SRAI usage patterns
 func TestTreeProcessorSRAIIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `
@@ -342,7 +342,7 @@ func TestTreeProcessorSRAIXTag(t *testing.T) {
 	defer server.Close()
 
 	// Create Golem instance with SRAIX manager
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Configure SRAIX service
@@ -442,7 +442,7 @@ func TestTreeProcessorSRAIXWithAttributes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Configure SRAIX service
@@ -491,7 +491,7 @@ func TestTreeProcessorSRAIXWithAttributes(t *testing.T) {
 
 // TestTreeProcessorSRAIEdgeCases tests edge cases for SRAI processing
 func TestTreeProcessorSRAIEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `

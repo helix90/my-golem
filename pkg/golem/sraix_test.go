@@ -282,7 +282,7 @@ func TestSRAIXIntegration(t *testing.T) {
 	defer server.Close()
 
 	// Create Golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Add SRAIX configuration
 	config := &SRAIXConfig{

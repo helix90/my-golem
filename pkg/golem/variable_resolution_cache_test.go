@@ -156,7 +156,7 @@ func TestVariableResolutionCacheTTL(t *testing.T) {
 
 func TestGolemVariableResolutionCacheIntegration(t *testing.T) {
 	// Create a Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that variable resolution cache is initialized
 	if g.variableResolutionCache == nil {
@@ -219,7 +219,7 @@ func TestGolemVariableResolutionCacheIntegration(t *testing.T) {
 
 func TestVariableResolutionCachePerformance(t *testing.T) {
 	// Create a Golem instance
-	g := New(false) // Disable verbose logging
+	g := NewForTesting(t, false) // Disable verbose logging
 
 	// Create test session and knowledge base
 	session := &ChatSession{

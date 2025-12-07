@@ -7,7 +7,7 @@ import (
 )
 
 func TestTimeBasedGreetingWithCondition(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -72,7 +72,7 @@ func TestTimeBasedGreetingWithCondition(t *testing.T) {
 }
 
 func TestTimeBasedGreetingWithDirectTimeCondition(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -156,7 +156,7 @@ func TestTimeBasedGreetingWithDirectTimeCondition(t *testing.T) {
 }
 
 func TestTimeBasedGreetingWithNestedConditions(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -236,7 +236,7 @@ func TestTimeBasedGreetingWithNestedConditions(t *testing.T) {
 }
 
 func TestTimeBasedGreetingWithAIMLIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with time-based greeting patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

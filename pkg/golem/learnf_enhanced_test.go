@@ -13,7 +13,7 @@ func TestEnhancedLearnfBasicFunctionality(t *testing.T) {
 	// Create temporary directory for testing
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 
 	kb := NewAIMLKnowledgeBase()
@@ -100,7 +100,7 @@ func TestEnhancedLearnfPersistence(t *testing.T) {
 func TestEnhancedLearnfMultipleCategories(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -147,7 +147,7 @@ func TestEnhancedLearnfMultipleCategories(t *testing.T) {
 func TestEnhancedLearnfUpdateExisting(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -197,7 +197,7 @@ func TestEnhancedLearnfUpdateExisting(t *testing.T) {
 func TestEnhancedLearnfErrorHandling(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -227,7 +227,7 @@ func TestEnhancedLearnfErrorHandling(t *testing.T) {
 func TestEnhancedLearnfWithUnlearnf(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -267,7 +267,7 @@ func TestEnhancedLearnfWithUnlearnf(t *testing.T) {
 func TestEnhancedLearnfStorageInfo(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -310,7 +310,7 @@ func TestEnhancedLearnfStorageInfo(t *testing.T) {
 func TestEnhancedLearnfBackupCreation(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -346,7 +346,7 @@ func TestEnhancedLearnfBackupCreation(t *testing.T) {
 func TestEnhancedLearnfAutoSave(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 
 	// Configure auto-save with very short interval
@@ -381,7 +381,7 @@ func TestEnhancedLearnfAutoSave(t *testing.T) {
 func TestEnhancedLearnfWithWildcards(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -426,7 +426,7 @@ func TestEnhancedLearnfWithWildcards(t *testing.T) {
 func TestEnhancedLearnfWithThatContext(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -462,7 +462,7 @@ func TestEnhancedLearnfWithThatContext(t *testing.T) {
 func TestEnhancedLearnfWithTopic(t *testing.T) {
 	tempDir := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
@@ -499,7 +499,7 @@ func TestEnhancedLearnfStoragePathChange(t *testing.T) {
 	tempDir1 := t.TempDir()
 	tempDir2 := t.TempDir()
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.SetPersistentLearningPath(tempDir1)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)

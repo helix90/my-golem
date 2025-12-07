@@ -8,7 +8,7 @@ import (
 
 // TestTreeProcessorSRTagIntegration tests SR tag in full AIML conversation flow
 func TestTreeProcessorSRTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with SR tag patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -118,7 +118,7 @@ func TestTreeProcessorSRTagIntegration(t *testing.T) {
 
 // TestTreeProcessorSRTagWithTreeProcessor tests using TreeProcessor directly
 func TestTreeProcessorSRTagWithTreeProcessor(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base
 	kb := NewAIMLKnowledgeBase()
@@ -209,7 +209,7 @@ func TestTreeProcessorSRTagWithTreeProcessor(t *testing.T) {
 
 // TestTreeProcessorSRTagComplexPatterns tests SR tag with complex wildcard patterns
 func TestTreeProcessorSRTagComplexPatterns(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with complex patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -312,7 +312,7 @@ func TestTreeProcessorSRTagComplexPatterns(t *testing.T) {
 
 // TestTreeProcessorSRTagEdgeCases tests edge cases for SR tag
 func TestTreeProcessorSRTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with edge case patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -393,7 +393,7 @@ func TestTreeProcessorSRTagEdgeCases(t *testing.T) {
 
 // TestTreeProcessorSRTagWildcardPreservation tests that SR preserves original wildcards
 func TestTreeProcessorSRTagWildcardPreservation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

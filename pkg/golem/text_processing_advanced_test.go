@@ -7,7 +7,7 @@ import (
 
 // TestPersonTagAdvancedProcessing tests advanced <person> tag functionality
 func TestPersonTagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -79,7 +79,7 @@ func TestPersonTagAdvancedProcessing(t *testing.T) {
 
 // TestGenderTagAdvancedProcessing tests advanced <gender> tag functionality
 func TestGenderTagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -151,7 +151,7 @@ func TestGenderTagAdvancedProcessing(t *testing.T) {
 
 // TestPerson2TagAdvancedProcessing tests advanced <person2> tag functionality
 func TestPerson2TagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -223,7 +223,7 @@ func TestPerson2TagAdvancedProcessing(t *testing.T) {
 
 // TestSentenceTagAdvancedProcessing tests advanced <sentence> tag functionality
 func TestSentenceTagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -295,7 +295,7 @@ func TestSentenceTagAdvancedProcessing(t *testing.T) {
 
 // TestWordTagAdvancedProcessing tests advanced <word> tag functionality
 func TestWordTagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -367,7 +367,7 @@ func TestWordTagAdvancedProcessing(t *testing.T) {
 
 // TestNormalizeTagAdvancedProcessing tests advanced <normalize> tag functionality
 func TestNormalizeTagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing() // Enable AST-based processing
 	session := g.CreateSession("test_session")
 
@@ -440,7 +440,7 @@ func TestNormalizeTagAdvancedProcessing(t *testing.T) {
 
 // TestDenormalizeTagAdvancedProcessing tests advanced <denormalize> tag functionality
 func TestDenormalizeTagAdvancedProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -512,7 +512,7 @@ func TestDenormalizeTagAdvancedProcessing(t *testing.T) {
 
 // TestTextProcessingAdvancedIntegration tests integration of multiple text processing tags
 func TestTextProcessingAdvancedIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -579,7 +579,7 @@ func TestTextProcessingAdvancedIntegration(t *testing.T) {
 
 // TestTextProcessingAdvancedEdgeCases tests edge cases for text processing tags
 func TestTextProcessingAdvancedEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	testCases := []struct {
@@ -651,7 +651,7 @@ func TestTextProcessingAdvancedEdgeCases(t *testing.T) {
 
 // TestTextProcessingPerformance tests performance of text processing tags
 func TestTextProcessingPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	// Test with large text
@@ -674,7 +674,7 @@ func TestTextProcessingPerformance(t *testing.T) {
 
 // TestTextProcessingWithVariables tests text processing with variable context
 func TestTextProcessingWithVariables(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	// Set some variables
@@ -720,7 +720,7 @@ func TestTextProcessingWithVariables(t *testing.T) {
 
 // TestTextProcessingWithWildcards tests text processing with wildcard context
 func TestTextProcessingWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 
 	wildcards := map[string]string{

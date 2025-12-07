@@ -8,7 +8,7 @@ import (
 
 // TestTreeProcessorThatTagIntegration tests <that> tag in a full AIML conversation flow
 func TestTreeProcessorThatTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with that tag patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -109,7 +109,7 @@ func TestTreeProcessorThatTagIntegration(t *testing.T) {
 
 // TestTreeProcessorThatTagWithTreeProcessor tests using TreeProcessor directly
 func TestTreeProcessorThatTagWithTreeProcessor(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize AIML knowledge base
 	if g.aimlKB == nil {
@@ -202,7 +202,7 @@ func TestTreeProcessorThatTagWithTreeProcessor(t *testing.T) {
 
 // TestTreeProcessorThatTagConversationFlow tests realistic conversation flow
 func TestTreeProcessorThatTagConversationFlow(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load AIML with contextual responses using that tag
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -294,7 +294,7 @@ func TestTreeProcessorThatTagConversationFlow(t *testing.T) {
 
 // TestTreeProcessorThatTagWithVariables tests that tag interaction with variables
 func TestTreeProcessorThatTagWithVariables(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize AIML knowledge base
 	if g.aimlKB == nil {
@@ -367,7 +367,7 @@ func TestTreeProcessorThatTagWithVariables(t *testing.T) {
 
 // TestTreeProcessorThatTagEmptyHistory tests that tag with empty response history
 func TestTreeProcessorThatTagEmptyHistory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize AIML knowledge base
 	if g.aimlKB == nil {

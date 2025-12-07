@@ -6,7 +6,7 @@ import (
 
 // TestPerson2TagProcessing tests the <person2> tag processing
 func TestPerson2TagProcessing(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -102,7 +102,7 @@ func TestPerson2TagProcessing(t *testing.T) {
 
 // TestPerson2WithWildcards tests person2 tag with wildcards
 func TestPerson2WithWildcards(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name      string
@@ -148,7 +148,7 @@ func TestPerson2WithWildcards(t *testing.T) {
 
 // TestPerson2WithVariables tests person2 tag with variables
 func TestPerson2WithVariables(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 	kb := NewAIMLKnowledgeBase()
 
 	// Add a category that uses variables
@@ -216,7 +216,7 @@ func TestPerson2WithVariables(t *testing.T) {
 
 // TestPerson2Integration tests person2 integration with other tags
 func TestPerson2Integration(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -262,7 +262,7 @@ func TestPerson2Integration(t *testing.T) {
 
 // TestPerson2EdgeCases tests edge cases for person2 tag
 func TestPerson2EdgeCases(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -318,7 +318,7 @@ func TestPerson2EdgeCases(t *testing.T) {
 
 // TestPerson2VerbAgreement tests verb agreement after person2 substitution
 func TestPerson2VerbAgreement(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -364,7 +364,7 @@ func TestPerson2VerbAgreement(t *testing.T) {
 
 // TestPerson2Performance tests performance with multiple person2 tags
 func TestPerson2Performance(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	// Create a template with many person2 tags
 	template := ""
@@ -385,7 +385,7 @@ func TestPerson2Performance(t *testing.T) {
 
 // TestSubstitutePronouns2Direct tests the SubstitutePronouns2 function directly
 func TestSubstitutePronouns2Direct(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string

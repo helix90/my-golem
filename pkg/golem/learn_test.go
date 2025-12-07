@@ -16,7 +16,7 @@ func normalizeWhitespace(s string) string {
 
 // TestLearnTagProcessing tests basic learn tag processing
 func TestLearnTagProcessing(t *testing.T) {
-	g := New(false) // Disable verbose logging for tests
+	g := NewForTesting(t, false) // Disable verbose logging for tests
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -68,7 +68,7 @@ func TestLearnTagProcessing(t *testing.T) {
 
 // TestLearnfTagProcessing tests learnf tag processing
 func TestLearnfTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -114,7 +114,7 @@ func TestLearnfTagProcessing(t *testing.T) {
 
 // TestLearnWithMultipleCategories tests learning multiple categories at once
 func TestLearnWithMultipleCategories(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -169,7 +169,7 @@ func TestLearnWithMultipleCategories(t *testing.T) {
 
 // TestLearnWithWildcards tests learning categories with wildcards
 func TestLearnWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -227,7 +227,7 @@ func TestLearnWithWildcards(t *testing.T) {
 
 // TestLearnErrorHandling tests error handling in learn processing
 func TestLearnErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -264,7 +264,7 @@ func TestLearnErrorHandling(t *testing.T) {
 
 // TestLearnWithEmptyContent tests learn tags with empty content
 func TestLearnWithEmptyContent(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -299,7 +299,7 @@ func TestLearnWithEmptyContent(t *testing.T) {
 
 // TestLearnIntegration tests learn functionality in a complete scenario
 func TestLearnIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -360,7 +360,7 @@ func TestLearnIntegration(t *testing.T) {
 
 // TestLearnfIntegration tests learnf functionality in a complete scenario
 func TestLearnfIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -421,7 +421,7 @@ func TestLearnfIntegration(t *testing.T) {
 
 // TestLearnWithSessionContext tests learn functionality with session context
 func TestLearnWithSessionContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -478,7 +478,7 @@ func TestLearnWithSessionContext(t *testing.T) {
 
 // TestLearnCategoryValidation tests validation of learned categories
 func TestLearnCategoryValidation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories

@@ -7,7 +7,7 @@ import (
 
 // TestTreeProcessorEvalTagBasic tests basic <eval> tag processing with AST
 func TestTreeProcessorEvalTagBasic(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing() // Use AST processor
 
 	// Initialize knowledge base
@@ -106,7 +106,7 @@ func TestTreeProcessorEvalTagBasic(t *testing.T) {
 
 // TestTreeProcessorEvalTagNested tests nested <eval> tags
 func TestTreeProcessorEvalTagNested(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {
@@ -177,7 +177,7 @@ func TestTreeProcessorEvalTagNested(t *testing.T) {
 
 // TestTreeProcessorEvalTagWithConditions tests eval with conditional logic
 func TestTreeProcessorEvalTagWithConditions(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {
@@ -246,7 +246,7 @@ func TestTreeProcessorEvalTagWithConditions(t *testing.T) {
 
 // TestTreeProcessorEvalTagWithTextProcessing tests eval with person/gender tags
 func TestTreeProcessorEvalTagWithTextProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {
@@ -304,7 +304,7 @@ func TestTreeProcessorEvalTagWithTextProcessing(t *testing.T) {
 
 // TestTreeProcessorEvalTagWithWildcards tests eval with wildcard references
 func TestTreeProcessorEvalTagWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {
@@ -361,7 +361,7 @@ func TestTreeProcessorEvalTagWithWildcards(t *testing.T) {
 
 // TestTreeProcessorEvalTagWithHistoryTags tests eval with request/response/that/input tags
 func TestTreeProcessorEvalTagWithHistoryTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {
@@ -424,7 +424,7 @@ func TestTreeProcessorEvalTagWithHistoryTags(t *testing.T) {
 
 // TestTreeProcessorEvalTagEdgeCases tests edge cases for eval tag
 func TestTreeProcessorEvalTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {
@@ -492,7 +492,7 @@ func TestTreeProcessorEvalTagEdgeCases(t *testing.T) {
 
 // TestTreeProcessorEvalTagNoContext tests eval tag with nil context
 func TestTreeProcessorEvalTagNoContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	template := "<eval>test</eval>"
@@ -508,7 +508,7 @@ func TestTreeProcessorEvalTagNoContext(t *testing.T) {
 
 // TestTreeProcessorEvalTagComplex tests complex eval scenarios
 func TestTreeProcessorEvalTagComplex(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	if g.aimlKB == nil {

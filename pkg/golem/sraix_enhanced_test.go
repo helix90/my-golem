@@ -158,7 +158,7 @@ func TestEnhancedSRAIXTags(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a new Golem instance
-			g := New(true)
+			g := NewForTesting(t, true)
 			session := &ChatSession{
 				ID:        "test_session",
 				Variables: make(map[string]string),
@@ -326,7 +326,7 @@ func TestEnhancedSRAIXErrorHandling(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a new Golem instance
-			g := New(true)
+			g := NewForTesting(t, true)
 			session := &ChatSession{
 				ID:        "test_session",
 				Variables: make(map[string]string),

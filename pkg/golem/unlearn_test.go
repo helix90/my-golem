@@ -8,7 +8,7 @@ import (
 
 // TestUnlearnTagProcessing tests basic unlearn tag processing
 func TestUnlearnTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -61,7 +61,7 @@ func TestUnlearnTagProcessing(t *testing.T) {
 
 // TestUnlearnfTagProcessing tests unlearnf tag processing
 func TestUnlearnfTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -108,7 +108,7 @@ func TestUnlearnfTagProcessing(t *testing.T) {
 
 // TestUnlearnWithMultipleCategories tests unlearning multiple categories at once
 func TestUnlearnWithMultipleCategories(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -177,7 +177,7 @@ func TestUnlearnWithMultipleCategories(t *testing.T) {
 
 // TestUnlearnWithWildcards tests unlearning with wildcard patterns
 func TestUnlearnWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories with wildcards
@@ -236,7 +236,7 @@ func TestUnlearnWithWildcards(t *testing.T) {
 
 // TestUnlearnErrorHandling tests error handling in unlearn processing
 func TestUnlearnErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -276,7 +276,7 @@ func TestUnlearnErrorHandling(t *testing.T) {
 
 // TestUnlearnWithEmptyContent tests unlearning with empty content
 func TestUnlearnWithEmptyContent(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -311,7 +311,7 @@ func TestUnlearnWithEmptyContent(t *testing.T) {
 
 // TestUnlearnIntegration tests integration with learning system
 func TestUnlearnIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -370,7 +370,7 @@ func TestUnlearnIntegration(t *testing.T) {
 
 // TestUnlearnfIntegration tests integration with persistent learning system
 func TestUnlearnfIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories
@@ -429,7 +429,7 @@ func TestUnlearnfIntegration(t *testing.T) {
 
 // TestUnlearnWithSessionContext tests unlearn functionality with session context
 func TestUnlearnWithSessionContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add initial categories

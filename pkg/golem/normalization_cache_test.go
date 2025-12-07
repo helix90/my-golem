@@ -164,7 +164,7 @@ func TestTextNormalizationCacheInvalidType(t *testing.T) {
 
 func TestGolemTextNormalizationCacheIntegration(t *testing.T) {
 	// Create a Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that text normalization cache is initialized
 	if g.textNormalizationCache == nil {
@@ -218,7 +218,7 @@ func TestGolemTextNormalizationCacheIntegration(t *testing.T) {
 
 func TestTextNormalizationCachePerformance(t *testing.T) {
 	// Create a Golem instance
-	g := New(false) // Disable verbose logging
+	g := NewForTesting(t, false) // Disable verbose logging
 
 	// Test data
 	testInputs := []string{

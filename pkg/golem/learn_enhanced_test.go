@@ -7,7 +7,7 @@ import (
 
 // TestEnhancedLearnSessionManagement tests enhanced session management for learn
 func TestEnhancedLearnSessionManagement(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -59,7 +59,7 @@ func TestEnhancedLearnSessionManagement(t *testing.T) {
 
 // TestEnhancedLearnStatistics tests learning statistics tracking
 func TestEnhancedLearnStatistics(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -109,7 +109,7 @@ func TestEnhancedLearnStatistics(t *testing.T) {
 
 // TestEnhancedLearnValidationErrors tests validation error tracking
 func TestEnhancedLearnValidationErrors(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -139,7 +139,7 @@ func TestEnhancedLearnValidationErrors(t *testing.T) {
 
 // TestEnhancedLearnUnlearnCycle tests learn/unlearn cycle with statistics
 func TestEnhancedLearnUnlearnCycle(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -184,7 +184,7 @@ func TestEnhancedLearnUnlearnCycle(t *testing.T) {
 
 // TestEnhancedLearnLearningRate tests learning rate calculation
 func TestEnhancedLearnLearningRate(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -216,7 +216,7 @@ func TestEnhancedLearnLearningRate(t *testing.T) {
 
 // TestEnhancedLearnSessionIsolation tests session isolation
 func TestEnhancedLearnSessionIsolation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -281,7 +281,7 @@ func TestEnhancedLearnSessionIsolation(t *testing.T) {
 
 // TestEnhancedLearnSessionCleanup tests session learning cleanup
 func TestEnhancedLearnSessionCleanup(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -323,7 +323,7 @@ func TestEnhancedLearnSessionCleanup(t *testing.T) {
 
 // TestEnhancedLearnGetSessionStats tests getting session learning statistics
 func TestEnhancedLearnGetSessionStats(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -367,7 +367,7 @@ func TestEnhancedLearnGetSessionStats(t *testing.T) {
 
 // TestEnhancedLearnGetLearningSummary tests getting learning summary
 func TestEnhancedLearnGetLearningSummary(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -424,7 +424,7 @@ func TestEnhancedLearnGetLearningSummary(t *testing.T) {
 
 // TestEnhancedLearnPatternCategorization tests pattern categorization
 func TestEnhancedLearnPatternCategorization(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -466,7 +466,7 @@ func TestEnhancedLearnPatternCategorization(t *testing.T) {
 
 // TestEnhancedLearnWithThatContext tests learn with that context
 func TestEnhancedLearnWithThatContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -502,7 +502,7 @@ func TestEnhancedLearnWithThatContext(t *testing.T) {
 
 // TestEnhancedLearnWithTopic tests learn with topic
 func TestEnhancedLearnWithTopic(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -541,7 +541,7 @@ func TestEnhancedLearnWithTopic(t *testing.T) {
 
 // TestEnhancedLearnErrorHandling tests error handling in enhanced learn
 func TestEnhancedLearnErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -566,7 +566,7 @@ func TestEnhancedLearnErrorHandling(t *testing.T) {
 
 // TestEnhancedLearnConcurrentSessions tests concurrent session learning
 func TestEnhancedLearnConcurrentSessions(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 

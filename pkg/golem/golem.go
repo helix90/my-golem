@@ -2020,6 +2020,10 @@ func (g *Golem) SetKnowledgeBase(kb *AIMLKnowledgeBase) {
 			g.LogWarn("Failed to load persistent categories: %v", err)
 		} else if len(persistentCategories) > 0 {
 			g.LogInfo("Loaded %d persistent learned categories", len(persistentCategories))
+			// Ensure Patterns map is initialized
+			if g.aimlKB.Patterns == nil {
+				g.aimlKB.Patterns = make(map[string]*Category)
+			}
 			// Add persistent categories to the knowledge base
 			for _, category := range persistentCategories {
 				// Normalize pattern and add to knowledge base

@@ -7,7 +7,7 @@ import (
 
 // TestValidateLearnedCategory tests the comprehensive validation system
 func TestValidateLearnedCategory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -254,7 +254,7 @@ func TestValidateLearnedCategory(t *testing.T) {
 
 // TestValidatePatternSpecific tests pattern-specific validation
 func TestValidatePatternSpecific(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name    string
@@ -349,7 +349,7 @@ func TestValidatePatternSpecific(t *testing.T) {
 
 // TestValidateTemplate tests template-specific validation
 func TestValidateTemplate(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -425,7 +425,7 @@ func TestValidateTemplate(t *testing.T) {
 
 // TestValidateSecurity tests security validation
 func TestValidateSecurity(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	tests := []struct {
 		name     string
@@ -526,7 +526,7 @@ func TestValidateSecurity(t *testing.T) {
 
 // TestLearnWithValidation tests that learning respects validation
 func TestLearnWithValidation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 

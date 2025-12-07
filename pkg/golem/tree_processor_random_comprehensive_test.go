@@ -10,7 +10,7 @@ import (
 // TestRandomTagAIML2Compliance tests that <random> tag behavior complies with AIML2 specification
 // According to AIML2: random tag should return exactly one li element with uniform distribution
 func TestRandomTagAIML2Compliance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -92,7 +92,7 @@ func TestRandomTagAIML2Compliance(t *testing.T) {
 // TestRandomTagUniformDistribution tests that random selections are uniformly distributed
 // According to AIML2 spec: "The distribution of selections should be random uniform"
 func TestRandomTagUniformDistribution(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Test with 3 options
@@ -143,7 +143,7 @@ func TestRandomTagUniformDistribution(t *testing.T) {
 
 // TestRandomTagUniformDistributionFiveOptions tests uniform distribution with 5 options
 func TestRandomTagUniformDistributionFiveOptions(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	template := `<random>
@@ -186,7 +186,7 @@ func TestRandomTagUniformDistributionFiveOptions(t *testing.T) {
 
 // TestRandomTagIntegrationWithAIML tests random tag in complete AIML categories
 func TestRandomTagIntegrationWithAIML(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -285,7 +285,7 @@ func TestRandomTagIntegrationWithAIML(t *testing.T) {
 
 // TestRandomTagWithVariables tests random tag with variables and dynamic content
 func TestRandomTagWithVariables(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -394,7 +394,7 @@ func TestRandomTagWithVariables(t *testing.T) {
 
 // TestRandomTagNestedStructures tests random with nested random and condition tags
 func TestRandomTagNestedStructures(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -495,7 +495,7 @@ func TestRandomTagNestedStructures(t *testing.T) {
 
 // TestRandomTagComprehensiveEdgeCases tests edge cases for random tag
 func TestRandomTagComprehensiveEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -552,7 +552,7 @@ func TestRandomTagComprehensiveEdgeCases(t *testing.T) {
 
 // TestRandomTagAIML2Examples tests examples from AIML2 specification
 func TestRandomTagAIML2Examples(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -657,7 +657,7 @@ func TestRandomTagAIML2Examples(t *testing.T) {
 
 // TestRandomTagComprehensivePerformance tests random tag performance with many options
 func TestRandomTagComprehensivePerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Create random tag with 50 options

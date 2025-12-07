@@ -7,7 +7,7 @@ import (
 
 // TestSetTagEnhancedBasicOperations tests basic set tag operations with enhanced coverage
 func TestSetTagEnhancedBasicOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Test 1: Basic variable assignment (default operation)
@@ -64,7 +64,7 @@ func TestSetTagEnhancedBasicOperations(t *testing.T) {
 
 // TestSetTagEnhancedAddOperations tests set add/insert operations with enhanced coverage
 func TestSetTagEnhancedAddOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -166,7 +166,7 @@ func TestSetTagEnhancedAddOperations(t *testing.T) {
 
 // TestSetTagEnhancedRemoveOperations tests set remove/delete operations with enhanced coverage
 func TestSetTagEnhancedRemoveOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -268,7 +268,7 @@ func TestSetTagEnhancedRemoveOperations(t *testing.T) {
 
 // TestSetTagEnhancedClearOperation tests set clear operation with enhanced coverage
 func TestSetTagEnhancedClearOperation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -336,7 +336,7 @@ func TestSetTagEnhancedClearOperation(t *testing.T) {
 
 // TestSetTagEnhancedSizeOperation tests set size/length operations with enhanced coverage
 func TestSetTagEnhancedSizeOperation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -391,7 +391,7 @@ func TestSetTagEnhancedSizeOperation(t *testing.T) {
 
 // TestSetTagEnhancedContainsOperation tests set contains/has operations with enhanced coverage
 func TestSetTagEnhancedContainsOperation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -458,7 +458,7 @@ func TestSetTagEnhancedContainsOperation(t *testing.T) {
 
 // TestSetTagEnhancedGetOperation tests set get/list operations with enhanced coverage
 func TestSetTagEnhancedGetOperation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -524,7 +524,7 @@ func TestSetTagEnhancedGetOperation(t *testing.T) {
 
 // TestSetTagEnhancedWithWildcards tests set operations with wildcards
 func TestSetTagEnhancedWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -586,7 +586,7 @@ func TestSetTagEnhancedWithWildcards(t *testing.T) {
 
 // TestSetTagEnhancedEdgeCases tests edge cases for set operations
 func TestSetTagEnhancedEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -670,7 +670,7 @@ func TestSetTagEnhancedEdgeCases(t *testing.T) {
 
 // TestSetTagEnhancedMultipleOperations tests multiple set operations in sequence
 func TestSetTagEnhancedMultipleOperations(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -716,7 +716,7 @@ func TestSetTagEnhancedMultipleOperations(t *testing.T) {
 
 // TestSetTagEnhancedIntegration tests set tag integration with other AIML features
 func TestSetTagEnhancedIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `
@@ -782,7 +782,7 @@ func TestSetTagEnhancedIntegration(t *testing.T) {
 
 // TestSetTagEnhancedPerformance tests performance with many set operations
 func TestSetTagEnhancedPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	aimlContent := `

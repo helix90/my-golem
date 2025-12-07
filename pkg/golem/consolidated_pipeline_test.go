@@ -7,7 +7,7 @@ import (
 
 func TestConsolidatedPipeline(t *testing.T) {
 	// Create a new Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Consolidated pipeline is now always enabled
 
@@ -52,7 +52,7 @@ func TestConsolidatedPipeline(t *testing.T) {
 
 func TestConsolidatedPipelineWithComplexTemplate(t *testing.T) {
 	// Create a new Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Consolidated pipeline is now always enabled
 
@@ -76,7 +76,7 @@ func TestConsolidatedPipelineWithComplexTemplate(t *testing.T) {
 
 func TestConsolidatedPipelineMetrics(t *testing.T) {
 	// Create a new Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Consolidated pipeline is now always enabled
 

@@ -8,7 +8,7 @@ import (
 
 // TestFirstTagProcessing tests the <first> tag functionality
 func TestFirstTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()
@@ -105,7 +105,7 @@ func TestFirstTagProcessing(t *testing.T) {
 
 // TestRestTagProcessing tests the <rest> tag functionality
 func TestRestTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()
@@ -207,7 +207,7 @@ func TestRestTagProcessing(t *testing.T) {
 
 // TestFirstRestIntegration tests integration of <first> and <rest> tags
 func TestFirstRestIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()
@@ -271,7 +271,7 @@ func TestFirstRestIntegration(t *testing.T) {
 
 // TestFirstRestWithTemplateProcessing tests <first> and <rest> tags through the full template processing pipeline
 func TestFirstRestWithTemplateProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()
@@ -343,7 +343,7 @@ func TestFirstRestWithTemplateProcessing(t *testing.T) {
 
 // TestFirstRestEdgeCases tests edge cases for <first> and <rest> tags
 func TestFirstRestEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()
@@ -415,7 +415,7 @@ func TestFirstRestEdgeCases(t *testing.T) {
 
 // TestFirstRestPerformance tests performance of <first> and <rest> tags
 func TestFirstRestPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()

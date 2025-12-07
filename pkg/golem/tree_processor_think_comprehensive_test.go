@@ -9,7 +9,7 @@ import (
 // TestThinkTagAIML2Compliance tests that <think> tag behavior complies with AIML2 specification
 // According to AIML2: <think> processes its content but produces no output
 func TestThinkTagAIML2Compliance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -69,7 +69,7 @@ func TestThinkTagAIML2Compliance(t *testing.T) {
 
 // TestThinkTagVariableScopes tests <think> with all variable scopes
 func TestThinkTagVariableScopes(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -125,7 +125,7 @@ func TestThinkTagVariableScopes(t *testing.T) {
 
 // TestThinkTagWithConditions tests <think> containing <condition> tags
 func TestThinkTagWithConditions(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -177,7 +177,7 @@ func TestThinkTagWithConditions(t *testing.T) {
 
 // TestThinkTagWithTopicChanges tests <think> with topic manipulation
 func TestThinkTagWithTopicChanges(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -229,7 +229,7 @@ func TestThinkTagWithTopicChanges(t *testing.T) {
 
 // TestThinkTagWithTextTransformation tests <think> with text processing tags
 func TestThinkTagWithTextTransformation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -288,7 +288,7 @@ func TestThinkTagWithTextTransformation(t *testing.T) {
 
 // TestThinkTagWithCollections tests <think> with map, list, array operations
 func TestThinkTagWithCollections(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Create test map
@@ -339,7 +339,7 @@ func TestThinkTagWithCollections(t *testing.T) {
 
 // TestThinkTagWithDateTime tests <think> with date and time tags
 func TestThinkTagWithDateTime(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -378,7 +378,7 @@ func TestThinkTagWithDateTime(t *testing.T) {
 
 // TestThinkTagNested tests nested <think> tags
 func TestThinkTagNested(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -421,7 +421,7 @@ func TestThinkTagNested(t *testing.T) {
 
 // TestThinkTagWhitespace tests whitespace handling in <think>
 func TestThinkTagWhitespace(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -469,7 +469,7 @@ After`,
 
 // TestThinkTagComplexScenarios tests complex real-world scenarios
 func TestThinkTagComplexScenarios(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -560,7 +560,7 @@ func TestThinkTagComplexScenarios(t *testing.T) {
 
 // TestThinkTagPerformance tests <think> with many operations
 func TestThinkTagPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Build template with many set operations in think
@@ -587,7 +587,7 @@ func TestThinkTagPerformance(t *testing.T) {
 
 // TestThinkTagErrorHandling tests <think> with invalid content
 func TestThinkTagErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	tests := []struct {
@@ -633,7 +633,7 @@ func TestThinkTagErrorHandling(t *testing.T) {
 
 // TestThinkTagWithSRAIChaining tests <think> with complex SRAI chains
 func TestThinkTagWithSRAIChaining(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -678,7 +678,7 @@ func TestThinkTagWithSRAIChaining(t *testing.T) {
 
 // TestThinkTagAIML2Examples tests examples from AIML2 specification
 func TestThinkTagAIML2Examples(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

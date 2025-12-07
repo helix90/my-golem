@@ -69,7 +69,7 @@ func TestPatternMatchingPerformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 
 			// Create knowledge base with specified number of categories
 			aiml := ""
@@ -185,7 +185,7 @@ func TestTemplateProcessingPerformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 
 			// Create AIML with the test template
 			pattern := "test"
@@ -287,7 +287,7 @@ func TestMemoryPerformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 
 			// Create knowledge base with specified parameters
 			aiml := ""
@@ -362,7 +362,7 @@ func TestConcurrentPerformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 
 			// Create a knowledge base with multiple patterns
 			aiml := ""
@@ -452,7 +452,7 @@ func TestScalabilityPerformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 
 			// Create knowledge base with specified number of categories
 			aiml := ""
@@ -541,7 +541,7 @@ func TestLoadTesting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 
 			// Create a knowledge base for load testing
 			aiml := ""
@@ -598,6 +598,7 @@ func TestLoadTesting(t *testing.T) {
 // BenchmarkPatternMatching benchmarks pattern matching performance
 func BenchmarkPatternMatching(b *testing.B) {
 	g := New(false)
+	g.persistentLearning = NewPersistentLearningManager(b.TempDir())
 
 	// Create a large knowledge base
 	aiml := ""
@@ -628,6 +629,7 @@ func BenchmarkPatternMatching(b *testing.B) {
 // BenchmarkTemplateProcessing benchmarks template processing performance
 func BenchmarkTemplateProcessing(b *testing.B) {
 	g := New(false)
+	g.persistentLearning = NewPersistentLearningManager(b.TempDir())
 
 	// Create a template with various operations
 	template := `<uppercase><formal><person><gender>he told me hello world</gender></person></formal></uppercase>`
@@ -655,6 +657,7 @@ func BenchmarkTemplateProcessing(b *testing.B) {
 // BenchmarkConcurrentAccess benchmarks concurrent access performance
 func BenchmarkConcurrentAccess(b *testing.B) {
 	g := New(false)
+	g.persistentLearning = NewPersistentLearningManager(b.TempDir())
 
 	// Create a knowledge base
 	aiml := ""

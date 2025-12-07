@@ -153,7 +153,7 @@ func TestResponseHistoryManagement(t *testing.T) {
 }
 
 func TestProcessRequestTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with some request history
 	session := &ChatSession{
@@ -231,7 +231,7 @@ func TestProcessRequestTags(t *testing.T) {
 }
 
 func TestProcessResponseTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with some response history
 	session := &ChatSession{
@@ -309,7 +309,7 @@ func TestProcessResponseTags(t *testing.T) {
 }
 
 func TestRequestResponseIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -350,7 +350,7 @@ func TestRequestResponseIntegration(t *testing.T) {
 }
 
 func TestRequestResponseWithEmptyHistory(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -377,7 +377,7 @@ func TestRequestResponseWithEmptyHistory(t *testing.T) {
 }
 
 func TestRequestResponseWithRealConversation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 

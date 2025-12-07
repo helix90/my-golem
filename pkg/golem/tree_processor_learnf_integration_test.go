@@ -8,7 +8,7 @@ import (
 
 // TestTreeProcessorLearnfTagIntegration tests learnf in full conversation flow
 func TestTreeProcessorLearnfTagIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML with learnf teaching patterns
@@ -109,7 +109,7 @@ func TestTreeProcessorLearnfTagIntegration(t *testing.T) {
 
 // TestTreeProcessorLearnfTagPersistenceIntegration tests persistence across sessions
 func TestTreeProcessorLearnfTagPersistenceIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML with learning capability
@@ -185,7 +185,7 @@ func TestTreeProcessorLearnfTagPersistenceIntegration(t *testing.T) {
 
 // TestTreeProcessorLearnfTagDynamicIntegration tests dynamic content in learnf
 func TestTreeProcessorLearnfTagDynamicIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML with dynamic learning
@@ -248,7 +248,7 @@ func TestTreeProcessorLearnfTagDynamicIntegration(t *testing.T) {
 
 // TestTreeProcessorLearnfTagWithVariablesIntegration tests learnf with variable manipulation
 func TestTreeProcessorLearnfTagWithVariablesIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML that teaches patterns using variables
@@ -312,7 +312,7 @@ func TestTreeProcessorLearnfTagWithVariablesIntegration(t *testing.T) {
 
 // TestTreeProcessorLearnfTagComplexIntegration tests complex learning scenarios
 func TestTreeProcessorLearnfTagComplexIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML with complex learning
@@ -401,7 +401,7 @@ func TestTreeProcessorLearnfTagComplexIntegration(t *testing.T) {
 
 // TestTreeProcessorLearnfTagWithConditionals tests learnf with conditional logic
 func TestTreeProcessorLearnfTagWithConditionals(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML with conditional learning
@@ -466,7 +466,7 @@ func TestTreeProcessorLearnfTagWithConditionals(t *testing.T) {
 
 // TestTreeProcessorLearnfTagErrorHandling tests error handling
 func TestTreeProcessorLearnfTagErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load AIML that might cause errors

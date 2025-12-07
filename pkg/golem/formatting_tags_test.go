@@ -7,7 +7,7 @@ import (
 
 // TestFormalTagProcessing tests the <formal> tag processing functionality
 func TestFormalTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -79,7 +79,7 @@ func TestFormalTagProcessing(t *testing.T) {
 
 // TestExplodeTagProcessing tests the <explode> tag processing functionality
 func TestExplodeTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -136,7 +136,7 @@ func TestExplodeTagProcessing(t *testing.T) {
 
 // TestCapitalizeTagProcessing tests the <capitalize> tag processing functionality
 func TestCapitalizeTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -203,7 +203,7 @@ func TestCapitalizeTagProcessing(t *testing.T) {
 
 // TestReverseTagProcessing tests the <reverse> tag processing functionality
 func TestReverseTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -265,7 +265,7 @@ func TestReverseTagProcessing(t *testing.T) {
 
 // TestAcronymTagProcessing tests the <acronym> tag processing functionality
 func TestAcronymTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -327,7 +327,7 @@ func TestAcronymTagProcessing(t *testing.T) {
 
 // TestTrimTagProcessing tests the <trim> tag processing functionality
 func TestTrimTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -389,7 +389,7 @@ func TestTrimTagProcessing(t *testing.T) {
 
 // TestSubstringTagProcessing tests the <substring> tag processing functionality
 func TestSubstringTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -456,7 +456,7 @@ func TestSubstringTagProcessing(t *testing.T) {
 
 // TestReplaceTagProcessing tests the <replace> tag processing functionality
 func TestReplaceTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -518,7 +518,7 @@ func TestReplaceTagProcessing(t *testing.T) {
 
 // TestPluralizeTagProcessing tests the <pluralize> tag processing functionality
 func TestPluralizeTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -595,7 +595,7 @@ func TestPluralizeTagProcessing(t *testing.T) {
 
 // TestShuffleTagProcessing tests the <shuffle> tag processing functionality
 func TestShuffleTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	// Test basic shuffle functionality
@@ -670,7 +670,7 @@ func TestShuffleTagProcessing(t *testing.T) {
 
 // TestLengthTagProcessing tests the <length> tag processing functionality
 func TestLengthTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -732,7 +732,7 @@ func TestLengthTagProcessing(t *testing.T) {
 
 // TestCountTagProcessing tests the <count> tag processing functionality
 func TestCountTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -794,7 +794,7 @@ func TestCountTagProcessing(t *testing.T) {
 
 // TestSplitTagProcessing tests the <split> tag processing functionality
 func TestSplitTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -856,7 +856,7 @@ func TestSplitTagProcessing(t *testing.T) {
 
 // TestJoinTagProcessing tests the <join> tag processing functionality
 func TestJoinTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -918,7 +918,7 @@ func TestJoinTagProcessing(t *testing.T) {
 
 // TestIndentTagProcessing tests the <indent> tag processing functionality
 func TestIndentTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -980,7 +980,7 @@ func TestIndentTagProcessing(t *testing.T) {
 
 // TestDedentTagProcessing tests the <dedent> tag processing functionality
 func TestDedentTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -1047,7 +1047,7 @@ func TestDedentTagProcessing(t *testing.T) {
 
 // TestFormattingTagsIntegration tests integration of multiple formatting tags
 func TestFormattingTagsIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {
@@ -1104,7 +1104,7 @@ func TestFormattingTagsIntegration(t *testing.T) {
 
 // TestFormattingTagsEdgeCases tests edge cases for formatting tags
 func TestFormattingTagsEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.createSession("test_session")
 
 	testCases := []struct {

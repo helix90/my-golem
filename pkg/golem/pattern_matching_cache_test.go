@@ -270,7 +270,7 @@ func TestPatternMatchingCacheSetInvalidation(t *testing.T) {
 
 func TestGolemPatternMatchingCacheIntegration(t *testing.T) {
 	// Create a Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that pattern matching cache is initialized
 	if g.patternMatchingCache == nil {
@@ -304,7 +304,7 @@ func TestGolemPatternMatchingCacheIntegration(t *testing.T) {
 
 func TestPatternMatchingCachePerformance(t *testing.T) {
 	// Create a Golem instance
-	g := New(false) // Disable verbose logging
+	g := NewForTesting(t, false) // Disable verbose logging
 
 	// Create test knowledge base
 	kb := &AIMLKnowledgeBase{

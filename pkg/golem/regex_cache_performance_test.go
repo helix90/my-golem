@@ -7,7 +7,7 @@ import (
 
 func TestRegexCachePerformance(t *testing.T) {
 	// Create a Golem instance
-	g := New(false) // Disable verbose logging for cleaner output
+	g := NewForTesting(t, false) // Disable verbose logging for cleaner output
 
 	// Test patterns that will be used repeatedly
 	patterns := []string{
@@ -88,7 +88,7 @@ func TestRegexCachePerformance(t *testing.T) {
 }
 
 func TestRegexCacheMemoryUsage(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Add many patterns to test memory management
 	patterns := make([]string, 100)

@@ -8,7 +8,7 @@ import (
 
 // TestEnhancedContextManagement tests the enhanced context management features
 func TestEnhancedContextManagement(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Test context configuration initialization
@@ -46,7 +46,7 @@ func TestEnhancedContextManagement(t *testing.T) {
 
 // TestEnhancedContextHistoryManagement tests enhanced history management
 func TestEnhancedContextHistoryManagement(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Test enhanced that history management
@@ -94,7 +94,7 @@ func TestEnhancedContextHistoryManagement(t *testing.T) {
 
 // TestContextDepthLimits tests context depth limits
 func TestContextDepthLimits(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Set smaller limits for testing
@@ -132,7 +132,7 @@ func TestContextDepthLimits(t *testing.T) {
 
 // TestContextWeighting tests context weighting system
 func TestContextWeighting(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	tags := []string{"test"}
@@ -160,7 +160,7 @@ func TestContextWeighting(t *testing.T) {
 
 // TestContextSearch tests context search functionality
 func TestContextSearch(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	tags := []string{"test"}
@@ -195,7 +195,7 @@ func TestContextSearch(t *testing.T) {
 
 // TestContextAnalytics tests context analytics
 func TestContextAnalytics(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	tags := []string{"test", "conversation"}
@@ -235,7 +235,7 @@ func TestContextAnalytics(t *testing.T) {
 
 // TestContextPruning tests smart context pruning
 func TestContextPruning(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Set small limits for testing
@@ -266,7 +266,7 @@ func TestContextPruning(t *testing.T) {
 
 // TestContextCompression tests context compression
 func TestContextCompression(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Set compression threshold
@@ -306,7 +306,7 @@ func TestContextCompression(t *testing.T) {
 
 // TestContextWeightingWithAge tests context weighting with age decay
 func TestContextWeightingWithAge(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	tags := []string{"test"}
@@ -334,7 +334,7 @@ func TestContextWeightingWithAge(t *testing.T) {
 
 // TestContextTagManagement tests context tag management
 func TestContextTagManagement(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Add items with different tags
@@ -365,7 +365,7 @@ func TestContextTagManagement(t *testing.T) {
 
 // TestContextMetadataManagement tests context metadata management
 func TestContextMetadataManagement(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Add items with different metadata
@@ -405,7 +405,7 @@ func TestContextMetadataManagement(t *testing.T) {
 
 // TestContextSearchWithWeights tests context search with weight sorting
 func TestContextSearchWithWeights(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	tags := []string{"test"}
@@ -442,7 +442,7 @@ func TestContextSearchWithWeights(t *testing.T) {
 
 // TestContextEdgeCases tests various edge cases
 func TestContextEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test-session")
 
 	// Test empty search

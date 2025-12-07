@@ -7,7 +7,7 @@ import (
 
 // TestSubstitutionIntegration tests that loaded substitutions are actually used in text normalization
 func TestSubstitutionIntegration(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Load a test substitution file
 	substitutionPath, err := filepath.Abs("../../testdata/loader_test/normal.substitution")
@@ -82,7 +82,7 @@ func TestSubstitutionIntegration(t *testing.T) {
 
 // TestSubstitutionWithoutLoading tests that normalization works without substitutions
 func TestSubstitutionWithoutLoading(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that normalization still works without loaded substitutions
 	input := "Hello%20World"
@@ -97,7 +97,7 @@ func TestSubstitutionWithoutLoading(t *testing.T) {
 
 // TestSubstitutionWithEmptyKnowledgeBase tests that normalization works with empty knowledge base
 func TestSubstitutionWithEmptyKnowledgeBase(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 	g.aimlKB = NewAIMLKnowledgeBase() // Empty knowledge base
 
 	// Test that normalization still works with empty substitutions
@@ -113,7 +113,7 @@ func TestSubstitutionWithEmptyKnowledgeBase(t *testing.T) {
 
 // TestApplyLoadedSubstitutionsDirectly tests the applyLoadedSubstitutions function directly
 func TestApplyLoadedSubstitutionsDirectly(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Create test substitutions
 	testSubstitutions := map[string]string{

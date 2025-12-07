@@ -11,7 +11,7 @@ import (
 // TestUserLocationPersistence tests that user location is learned and persists across AIML reloads
 func TestUserLocationPersistence(t *testing.T) {
 	// Create golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	// Load the user persistence AIML file
@@ -198,7 +198,7 @@ func TestUserLocationPersistence(t *testing.T) {
 // TestUserLocationPersistenceMultipleUsers tests that multiple users can have different saved locations
 func TestUserLocationPersistenceMultipleUsers(t *testing.T) {
 	// Create golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")
@@ -328,7 +328,7 @@ func TestAutoLoadLocationForWeather(t *testing.T) {
 	// This test validates that learned patterns can be retrieved via SRAI
 	// which is the core mechanism used by the AUTOLOAD LOCATION FOR WEATHER pattern
 
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")
@@ -468,7 +468,7 @@ func TestUserLocationPersistenceWithFileSystem(t *testing.T) {
 	}()
 
 	// Create first golem instance
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")

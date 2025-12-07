@@ -122,7 +122,7 @@ func TestSRAIXConfigureFromProperties(t *testing.T) {
 }
 
 func TestSRAIXGolemIntegration(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Create a knowledge base with SRAIX properties
 	kb := &AIMLKnowledgeBase{

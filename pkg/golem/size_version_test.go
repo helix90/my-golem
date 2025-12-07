@@ -5,7 +5,7 @@ import (
 )
 
 func TestSizeTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -103,7 +103,7 @@ func TestSizeTagProcessing(t *testing.T) {
 }
 
 func TestVersionTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -186,7 +186,7 @@ func TestVersionTagProcessing(t *testing.T) {
 }
 
 func TestSizeVersionIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -250,7 +250,7 @@ func TestSizeVersionIntegration(t *testing.T) {
 }
 
 func TestSizeVersionWithOtherTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -310,7 +310,7 @@ func TestSizeVersionWithOtherTags(t *testing.T) {
 }
 
 func TestSizeVersionEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -401,7 +401,7 @@ func TestSizeVersionEdgeCases(t *testing.T) {
 }
 
 func TestSizeVersionPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -438,7 +438,7 @@ func TestSizeVersionPerformance(t *testing.T) {
 }
 
 func TestIdTagProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -525,7 +525,7 @@ func TestIdTagProcessing(t *testing.T) {
 }
 
 func TestIdTagWithNoSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -572,7 +572,7 @@ func TestIdTagWithNoSession(t *testing.T) {
 }
 
 func TestIdSizeVersionIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -648,7 +648,7 @@ func TestIdSizeVersionIntegration(t *testing.T) {
 }
 
 func TestIdTagWithBotTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {
@@ -710,7 +710,7 @@ func TestIdTagWithBotTags(t *testing.T) {
 }
 
 func TestIdTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Initialize knowledge base if nil
 	if g.aimlKB == nil {

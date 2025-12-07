@@ -77,7 +77,7 @@ func TestTextFormattingIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 
 			result := g.ProcessTemplateWithContext(tt.template, map[string]string{}, ctx)
@@ -148,7 +148,7 @@ func TestTextProcessingTagIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 
 			result := g.ProcessTemplateWithContext(tt.template, map[string]string{}, ctx)
@@ -196,7 +196,7 @@ func TestCollectionTextIntegration(t *testing.T) {
 			template: `<uppercase><list name="fruits" operation="get"></list></uppercase>`,
 			expected: "APPLE",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<list name="fruits" operation="add">apple</list>`, map[string]string{}, ctx)
 			},
@@ -206,7 +206,7 @@ func TestCollectionTextIntegration(t *testing.T) {
 			template: `<formal><array name="words" index="0"></array></formal>`,
 			expected: "Hello World",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<array name="words" index="0" operation="set">hello world</array>`, map[string]string{}, ctx)
 			},
@@ -216,7 +216,7 @@ func TestCollectionTextIntegration(t *testing.T) {
 			template: `<person><map name="greetings" key="formal"></map></person>`,
 			expected: "you are happy to meet I", // person tag swaps I/you pronouns
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<map name="greetings" key="formal" operation="set">I am happy to meet you</map>`, map[string]string{}, ctx)
 			},
@@ -226,7 +226,7 @@ func TestCollectionTextIntegration(t *testing.T) {
 			template: `<gender><set name="COLORS" operation="get"></set></gender>`,
 			expected: "she likes red",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="COLORS" operation="add">he likes red</set>`, map[string]string{}, ctx)
 			},
@@ -236,7 +236,7 @@ func TestCollectionTextIntegration(t *testing.T) {
 			template: `<uppercase><formal><list name="items" operation="get"></list></formal></uppercase>`,
 			expected: "",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<list name="items" operation="add">hello world</list>`, map[string]string{}, ctx)
 			},
@@ -245,7 +245,7 @@ func TestCollectionTextIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 			// run setup against same instance/session
 			if tt.setup != nil {
@@ -287,7 +287,7 @@ func TestControlFlowIntegration(t *testing.T) {
 			template: `<condition name="test" value="true"><uppercase>hello</uppercase></condition>`,
 			expected: "HELLO",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">true</set>`, map[string]string{}, ctx)
 			},
@@ -297,7 +297,7 @@ func TestControlFlowIntegration(t *testing.T) {
 			template: `<condition name="test" value="true"><formal>hello world</formal></condition>`,
 			expected: "Hello World",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">true</set>`, map[string]string{}, ctx)
 			},
@@ -307,7 +307,7 @@ func TestControlFlowIntegration(t *testing.T) {
 			template: `<condition name="test" value="true"><person>I am going to my house</person></condition>`,
 			expected: "you are going to your house",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">true</set>`, map[string]string{}, ctx)
 			},
@@ -329,7 +329,7 @@ func TestControlFlowIntegration(t *testing.T) {
 			template: `<repeat/><uppercase>hello</uppercase>`,
 			expected: "HELLO",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="last_response">test</set>`, map[string]string{}, ctx)
 			},
@@ -339,7 +339,7 @@ func TestControlFlowIntegration(t *testing.T) {
 			template: `<repeat/><formal>hello world</formal>`,
 			expected: "Hello World",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="last_response">test</set>`, map[string]string{}, ctx)
 			},
@@ -349,7 +349,7 @@ func TestControlFlowIntegration(t *testing.T) {
 			template: `<condition name="test" value="true"><uppercase><formal><person>I am going to my house</person></formal></uppercase></condition>`,
 			expected: "YOU ARE GOING TO YOUR HOUSE",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">true</set>`, map[string]string{}, ctx)
 			},
@@ -358,7 +358,7 @@ func TestControlFlowIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 
 			// Handle specific test cases that need setup
@@ -398,7 +398,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 			template: `<uppercase><get name="test"></get></uppercase>`,
 			expected: "HELLO",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">hello</set>`, map[string]string{}, ctx)
 			},
@@ -408,7 +408,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 			template: `<formal><get name="test"></get></formal>`,
 			expected: "Hello World",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">hello world</set>`, map[string]string{}, ctx)
 			},
@@ -418,7 +418,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 			template: `<person><get name="test"></get></person>`,
 			expected: "you are going to your house",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">I am going to my house</set>`, map[string]string{}, ctx)
 			},
@@ -440,7 +440,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 			template: `<get name="test"></get>`,
 			expected: "HELLO",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test"><uppercase>hello</uppercase></set>`, map[string]string{}, ctx)
 			},
@@ -450,7 +450,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 			template: `<get name="test"></get>`,
 			expected: "Hello World",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test"><formal>hello world</formal></set>`, map[string]string{}, ctx)
 			},
@@ -460,7 +460,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 			template: `<uppercase><formal><person><get name="test"></get></person></formal></uppercase>`,
 			expected: "YOU ARE GOING TO YOUR HOUSE",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">I am going to my house</set>`, map[string]string{}, ctx)
 			},
@@ -469,7 +469,7 @@ func TestVariableWildcardIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 			// Seed per-case state in same instance/session
 			switch tt.name {
@@ -508,7 +508,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<uppercase><formal><list name="data" operation="get"></list></formal></uppercase>`,
 			expected: "HELLO WORLD",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<list name="data" operation="add">hello world</list>`, map[string]string{}, ctx)
 			},
@@ -518,7 +518,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<person><gender><uppercase><get name="user_input"></get></uppercase></gender></person>`,
 			expected: "SHE TOLD ME THAT SHE WOULD HELP ME", // Person tag doesn't work on uppercase text (known limitation)
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="user_input">he told me that he would help me</set>`, map[string]string{}, ctx)
 			},
@@ -528,7 +528,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<length><join delimiter=", "><list name="items" operation="get"></list></join></length>`,
 			expected: "13",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<list name="items" operation="add">apple</list>`, map[string]string{}, ctx)
 				g.ProcessTemplateWithContext(`<list name="items" operation="add">banana</list>`, map[string]string{}, ctx)
@@ -539,7 +539,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<replace search=" " replace="_"><uppercase><formal><get name="text"></get></formal></uppercase></replace>`,
 			expected: "HELLO_WORLD",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="text">hello world</set>`, map[string]string{}, ctx)
 			},
@@ -549,7 +549,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<condition name="format" value="uppercase"><uppercase><get name="message"></get></uppercase></condition>`,
 			expected: "HELLO WORLD",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="format">uppercase</set>`, map[string]string{}, ctx)
 				g.ProcessTemplateWithContext(`<set name="message">hello world</set>`, map[string]string{}, ctx)
@@ -560,7 +560,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<split delimiter=" "><replace search="," replace=""><get name="data"></get></replace></split>`,
 			expected: "applebananacherry",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="data">apple,banana,cherry</set>`, map[string]string{}, ctx)
 			},
@@ -570,7 +570,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<join delimiter=" and "><list name="fruits" operation="get"></list></join>`,
 			expected: "apple and banana",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<list name="fruits" operation="add">apple</list>`, map[string]string{}, ctx)
 				g.ProcessTemplateWithContext(`<list name="fruits" operation="add">banana</list>`, map[string]string{}, ctx)
@@ -581,7 +581,7 @@ func TestComplexWorkflows(t *testing.T) {
 			template: `<condition name="user_type" value="admin"><uppercase><formal><get name="admin_message"></get></formal></uppercase></condition>`,
 			expected: "WELCOME ADMIN",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="user_type">admin</set>`, map[string]string{}, ctx)
 				g.ProcessTemplateWithContext(`<set name="admin_message">welcome admin</set>`, map[string]string{}, ctx)
@@ -591,7 +591,7 @@ func TestComplexWorkflows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 			// Seed per-case state
 			switch tt.name {
@@ -656,7 +656,7 @@ func TestNestedTagScenarios(t *testing.T) {
 			template: `<condition name="test" value="true"><condition name="inner" value="true"><uppercase>hello</uppercase></condition></condition>`,
 			expected: "HELLO",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="test">true</set>`, map[string]string{}, ctx)
 				g.ProcessTemplateWithContext(`<set name="inner">true</set>`, map[string]string{}, ctx)
@@ -667,7 +667,7 @@ func TestNestedTagScenarios(t *testing.T) {
 			template: `<get name="outer"><get name="inner"></get></get>`,
 			expected: "hello",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="inner">hello</set>`, map[string]string{}, ctx)
 			},
@@ -677,7 +677,7 @@ func TestNestedTagScenarios(t *testing.T) {
 			template: `<uppercase><formal><person><gender><get name="message"></get></gender></person></formal></uppercase>`,
 			expected: "SHE TOLD YOU THAT SHE WOULD HELP YOU",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<set name="message">he told me that he would help me</set>`, map[string]string{}, ctx)
 			},
@@ -687,7 +687,7 @@ func TestNestedTagScenarios(t *testing.T) {
 			template: `<uppercase><list name="items" operation="get"></list></uppercase>`,
 			expected: "HELLO WORLD",
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				g.ProcessTemplateWithContext(`<list name="items" operation="add">hello world</list>`, map[string]string{}, ctx)
 			},
@@ -702,7 +702,7 @@ func TestNestedTagScenarios(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			g.EnableTreeProcessing() // Enable AST-based processing
 			ctx := g.createSession("test_session")
 
@@ -746,7 +746,7 @@ func TestPerformanceIntegration(t *testing.T) {
 			template: `<join delimiter=", "><list name="large" operation="get"></list></join>`,
 			expected: strings.Repeat("item, ", 99) + "item", // List returns all 100 items, join with delimiter
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				for i := 0; i < 100; i++ {
 					g.ProcessTemplateWithContext(`<list name="large" operation="add">item</list>`, map[string]string{}, ctx)
@@ -764,7 +764,7 @@ func TestPerformanceIntegration(t *testing.T) {
 			template: `<list name="result" operation="get"></list>`,
 			expected: "processed_item", // List get operation returns the contents
 			setup: func() {
-				g := New(false)
+				g := NewForTesting(t, false)
 				ctx := g.createSession("test_session")
 				// Add items to multiple collections
 				for i := 0; i < 50; i++ {
@@ -778,7 +778,7 @@ func TestPerformanceIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 
 			// Handle specific test cases that need setup
@@ -866,7 +866,7 @@ func TestEdgeCaseIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			ctx := g.createSession("test_session")
 
 			result := g.ProcessTemplateWithContext(tt.template, map[string]string{}, ctx)

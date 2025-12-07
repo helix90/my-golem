@@ -7,7 +7,7 @@ import (
 
 // TestTreeProcessorSRTagBasic tests basic <sr/> tag processing
 func TestTreeProcessorSRTagBasic(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base with patterns
 	kb := NewAIMLKnowledgeBase()
@@ -105,7 +105,7 @@ func TestTreeProcessorSRTagBasic(t *testing.T) {
 
 // TestTreeProcessorSRTagNoMatch tests SR tag when pattern doesn't match
 func TestTreeProcessorSRTagNoMatch(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base with limited patterns
 	kb := NewAIMLKnowledgeBase()
@@ -165,7 +165,7 @@ func TestTreeProcessorSRTagNoMatch(t *testing.T) {
 
 // TestTreeProcessorSRTagNoWildcard tests SR tag when no wildcard is available
 func TestTreeProcessorSRTagNoWildcard(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base
 	kb := NewAIMLKnowledgeBase()
@@ -214,7 +214,7 @@ func TestTreeProcessorSRTagNoWildcard(t *testing.T) {
 
 // TestTreeProcessorSRTagNoKnowledgeBase tests SR tag without knowledge base
 func TestTreeProcessorSRTagNoKnowledgeBase(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create a session with star1 wildcard
 	session := &ChatSession{
@@ -259,7 +259,7 @@ func TestTreeProcessorSRTagNoKnowledgeBase(t *testing.T) {
 
 // TestTreeProcessorSRTagNoSession tests SR tag without session
 func TestTreeProcessorSRTagNoSession(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base
 	kb := NewAIMLKnowledgeBase()
@@ -298,7 +298,7 @@ func TestTreeProcessorSRTagNoSession(t *testing.T) {
 
 // TestTreeProcessorSRTagRecursion tests SR tag recursion behavior
 func TestTreeProcessorSRTagRecursion(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base with recursive patterns
 	kb := NewAIMLKnowledgeBase()
@@ -363,7 +363,7 @@ func TestTreeProcessorSRTagRecursion(t *testing.T) {
 
 // TestTreeProcessorSRTagWithNestedTags tests SR tag with other nested tags
 func TestTreeProcessorSRTagWithNestedTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base
 	kb := NewAIMLKnowledgeBase()
@@ -446,7 +446,7 @@ func TestTreeProcessorSRTagWithNestedTags(t *testing.T) {
 
 // TestTreeProcessorSRTagMaxRecursionDepth tests SR tag with max recursion depth
 func TestTreeProcessorSRTagMaxRecursionDepth(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Create knowledge base with recursive pattern
 	kb := NewAIMLKnowledgeBase()

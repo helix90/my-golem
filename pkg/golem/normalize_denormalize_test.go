@@ -6,7 +6,7 @@ import (
 
 // TestNormalizeTagProcessing tests the <normalize> tag processing
 func TestNormalizeTagProcessing(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -87,7 +87,7 @@ func TestNormalizeTagProcessing(t *testing.T) {
 
 // TestDenormalizeTagProcessing tests the <denormalize> tag processing
 func TestDenormalizeTagProcessing(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -158,7 +158,7 @@ func TestDenormalizeTagProcessing(t *testing.T) {
 
 // TestNormalizeDenormalizeIntegration tests the integration of normalize and denormalize tags
 func TestNormalizeDenormalizeIntegration(t *testing.T) {
-	g := New(false)          // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false)          // Disable verbose mode for cleaner test output
 	g.EnableTreeProcessing() // Enable AST-based processing for nested tag support
 
 	tests := []struct {
@@ -200,7 +200,7 @@ func TestNormalizeDenormalizeIntegration(t *testing.T) {
 
 // TestNormalizeDenormalizeWithWildcards tests normalize and denormalize with wildcards
 func TestNormalizeDenormalizeWithWildcards(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name      string
@@ -252,7 +252,7 @@ func TestNormalizeDenormalizeWithWildcards(t *testing.T) {
 
 // TestNormalizeDenormalizeWithVariables tests normalize and denormalize with variables
 func TestNormalizeDenormalizeWithVariables(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 	kb := NewAIMLKnowledgeBase()
 
 	// Add a category that uses variables
@@ -327,7 +327,7 @@ func TestNormalizeDenormalizeWithVariables(t *testing.T) {
 
 // TestNormalizeDenormalizeEdgeCases tests edge cases for normalize and denormalize
 func TestNormalizeDenormalizeEdgeCases(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	tests := []struct {
 		name     string
@@ -383,7 +383,7 @@ func TestNormalizeDenormalizeEdgeCases(t *testing.T) {
 
 // TestNormalizeDenormalizePerformance tests performance with multiple tags
 func TestNormalizeDenormalizePerformance(t *testing.T) {
-	g := New(false) // Disable verbose mode for cleaner test output
+	g := NewForTesting(t, false) // Disable verbose mode for cleaner test output
 
 	// Create a template with many normalize and denormalize tags
 	template := ""

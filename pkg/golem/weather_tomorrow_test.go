@@ -65,7 +65,7 @@ func TestWeatherFormatTomorrow(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(true)
+			g := NewForTesting(t, true)
 
 			// Create AST node with day attribute
 			node := &ASTNode{
@@ -172,7 +172,7 @@ func TestWeatherFormatTomorrowEdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false) // Disable verbose for cleaner test output
+			g := NewForTesting(t, false) // Disable verbose for cleaner test output
 
 			node := &ASTNode{
 				TagName: "weatherformat",
@@ -212,7 +212,7 @@ func TestWeatherFormatTomorrowEdgeCases(t *testing.T) {
 
 // TestWeatherTomorrowAIMLPatterns tests the AIML patterns for tomorrow queries
 func TestWeatherTomorrowAIMLPatterns(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load weather AIML
 	kb, err := g.LoadAIML("../../testdata/weather.aiml")

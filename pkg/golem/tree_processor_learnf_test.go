@@ -8,7 +8,7 @@ import (
 
 // TestTreeProcessorLearnfTagBasic tests basic <learnf> tag processing with AST
 func TestTreeProcessorLearnfTagBasic(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing() // Use AST processor
 
 	// Initialize knowledge base
@@ -98,7 +98,7 @@ func TestTreeProcessorLearnfTagBasic(t *testing.T) {
 
 // TestTreeProcessorLearnfTagMultiple tests multiple learnf tags
 func TestTreeProcessorLearnfTagMultiple(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
@@ -160,7 +160,7 @@ func TestTreeProcessorLearnfTagMultiple(t *testing.T) {
 
 // TestTreeProcessorLearnfTagWithDynamicContent tests learnf with dynamic evaluation
 func TestTreeProcessorLearnfTagWithDynamicContent(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
@@ -212,7 +212,7 @@ func TestTreeProcessorLearnfTagWithDynamicContent(t *testing.T) {
 
 // TestTreeProcessorLearnfTagPersistence tests that learnf persists across sessions
 func TestTreeProcessorLearnfTagPersistence(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
@@ -267,7 +267,7 @@ func TestTreeProcessorLearnfTagPersistence(t *testing.T) {
 
 // TestTreeProcessorLearnfTagVsLearn tests difference between learn and learnf
 func TestTreeProcessorLearnfTagVsLearn(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
@@ -347,7 +347,7 @@ func TestTreeProcessorLearnfTagVsLearn(t *testing.T) {
 
 // TestTreeProcessorLearnfTagWithFormatting tests learnf with formatted content
 func TestTreeProcessorLearnfTagWithFormatting(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
@@ -389,7 +389,7 @@ func TestTreeProcessorLearnfTagWithFormatting(t *testing.T) {
 
 // TestTreeProcessorLearnfTagEdgeCases tests edge cases
 func TestTreeProcessorLearnfTagEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
@@ -446,7 +446,7 @@ func TestTreeProcessorLearnfTagEdgeCases(t *testing.T) {
 
 // TestTreeProcessorLearnfTagNoContext tests learnf without context
 func TestTreeProcessorLearnfTagNoContext(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()

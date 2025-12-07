@@ -17,7 +17,7 @@ func getKeys(m map[string]string) []string {
 
 func TestEnhancedDirectoryLoading(t *testing.T) {
 	// Test loading the test data directory
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Get the absolute path to test data directory
 	testDataPath, err := filepath.Abs("../../testdata/loader_test")
@@ -105,7 +105,7 @@ func TestEnhancedDirectoryLoading(t *testing.T) {
 }
 
 func TestLoadSubstitutionFile(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Get the absolute path to the substitution file
 	substitutionPath, err := filepath.Abs("../../testdata/loader_test/normal.substitution")
@@ -140,7 +140,7 @@ func TestLoadSubstitutionFile(t *testing.T) {
 }
 
 func TestLoadPropertiesFile(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Get the absolute path to the properties file
 	propertiesPath, err := filepath.Abs("../../testdata/loader_test/test.properties")
@@ -175,7 +175,7 @@ func TestLoadPropertiesFile(t *testing.T) {
 }
 
 func TestLoadPDefaultsFile(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Get the absolute path to the pdefaults file
 	pdefaultsPath, err := filepath.Abs("../../testdata/loader_test/test.pdefaults")
@@ -210,7 +210,7 @@ func TestLoadPDefaultsFile(t *testing.T) {
 }
 
 func TestLoadAllRelatedFiles(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Get the absolute path to the AIML file
 	aimlPath, err := filepath.Abs("../../testdata/loader_test/test.aiml")

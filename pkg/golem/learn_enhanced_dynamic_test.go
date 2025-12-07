@@ -8,7 +8,7 @@ import (
 
 // TestLearnTagDynamicEvaluation tests the enhanced learn tag with dynamic evaluation
 func TestLearnTagDynamicEvaluation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -49,7 +49,7 @@ func TestLearnTagDynamicEvaluation(t *testing.T) {
 
 // TestLearnTagMultipleDynamicCategories tests learning multiple categories (AST behavior)
 func TestLearnTagMultipleDynamicCategories(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -99,7 +99,7 @@ func TestLearnTagMultipleDynamicCategories(t *testing.T) {
 
 // TestLearnTagWithComplexEval tests learn tag with eval and formatting (AST behavior)
 func TestLearnTagWithComplexEval(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -141,7 +141,7 @@ func TestLearnTagWithComplexEval(t *testing.T) {
 
 // TestLearnTagWithWildcards tests learn tag with wildcard patterns (AST behavior)
 func TestLearnTagWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -178,7 +178,7 @@ func TestLearnTagWithWildcards(t *testing.T) {
 
 // TestLearnTagWithConditionalEval tests learn tag with eval for dynamic values (AST behavior)
 func TestLearnTagWithConditionalEval(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -218,7 +218,7 @@ func TestLearnTagWithConditionalEval(t *testing.T) {
 
 // TestLearnTagErrorHandling tests error handling in dynamic learn tags
 func TestLearnTagErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -257,7 +257,7 @@ func TestLearnTagErrorHandling(t *testing.T) {
 
 // TestLearnfTagDynamicEvaluation tests the enhanced learnf tag with dynamic evaluation
 func TestLearnfTagDynamicEvaluation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -294,7 +294,7 @@ func TestLearnfTagDynamicEvaluation(t *testing.T) {
 
 // TestLearnTagIntegrationWithOtherTags tests integration with other tag types
 func TestLearnTagIntegrationWithOtherTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -334,7 +334,7 @@ func TestLearnTagIntegrationWithOtherTags(t *testing.T) {
 
 // TestLearnTagPerformance tests performance with multiple dynamic categories
 func TestLearnTagPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 

@@ -115,7 +115,7 @@ func TestRDFTagsProcessing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -191,7 +191,7 @@ func TestRDFTagsWithOtherTags(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -281,7 +281,7 @@ func TestRDFTagsIntegration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -385,7 +385,7 @@ func TestRDFTagsEdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()
@@ -413,7 +413,7 @@ func TestRDFTagsEdgeCases(t *testing.T) {
 }
 
 func TestRDFTagsPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	// Ensure knowledge base is initialized
 	if g.aimlKB == nil {
 		g.aimlKB = NewAIMLKnowledgeBase()
@@ -472,7 +472,7 @@ func TestRDFTagsWithConditionals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			// Ensure knowledge base is initialized
 			if g.aimlKB == nil {
 				g.aimlKB = NewAIMLKnowledgeBase()

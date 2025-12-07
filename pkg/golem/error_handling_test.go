@@ -96,7 +96,7 @@ func TestMalformedAIMLSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			err := g.LoadAIMLFromString(tt.aiml)
 			// AIML loader is lenient and doesn't return errors for malformed AIML
 			// This is expected behavior - the loader attempts to process what it can
@@ -179,7 +179,7 @@ func TestInvalidPatternMatching(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			aiml := `<category>
 				<pattern>` + tt.pattern + `</pattern>
 				<template>response</template>
@@ -211,7 +211,7 @@ func TestMemoryAndResourceLimits(t *testing.T) {
 		{
 			name: "Very large template",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				largeTemplate := strings.Repeat("word ", 10000)
 				aiml := `<category>
 					<pattern>test</pattern>
@@ -226,7 +226,7 @@ func TestMemoryAndResourceLimits(t *testing.T) {
 		{
 			name: "Very deep nesting",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				nested := ""
 				for i := 0; i < 1000; i++ {
 					nested += "<uppercase>"
@@ -248,7 +248,7 @@ func TestMemoryAndResourceLimits(t *testing.T) {
 		{
 			name: "Many categories",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				aiml := ""
 				for i := 0; i < 1000; i++ {
 					aiml += `<category>
@@ -265,7 +265,7 @@ func TestMemoryAndResourceLimits(t *testing.T) {
 		{
 			name: "Large sets",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				kb := g.GetKnowledgeBase()
 				if kb == nil {
 					kb = NewAIMLKnowledgeBase()
@@ -284,7 +284,7 @@ func TestMemoryAndResourceLimits(t *testing.T) {
 		{
 			name: "Large maps",
 			setup: func() *Golem {
-				g := New(false)
+				g := NewForTesting(t, false)
 				kb := g.GetKnowledgeBase()
 				if kb == nil {
 					kb = NewAIMLKnowledgeBase()
@@ -381,7 +381,7 @@ func TestInputValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			aiml := `<category>
 				<pattern>test</pattern>
 				<template>response</template>
@@ -499,7 +499,7 @@ func TestErrorRecoveryAndFallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := New(false)
+			g := NewForTesting(t, false)
 			err := g.LoadAIMLFromString(tt.aiml)
 			if err != nil {
 				// Some malformed AIML might not load, which is expected

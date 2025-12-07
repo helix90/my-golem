@@ -6,7 +6,7 @@ import (
 
 // TestVariableContextMaintenance tests that proper session context is maintained throughout processing
 func TestVariableContextMaintenance(t *testing.T) {
-	g := New(false) // Disable verbose logging for tests
+	g := NewForTesting(t, false) // Disable verbose logging for tests
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -91,7 +91,7 @@ func TestVariableContextMaintenance(t *testing.T) {
 
 // TestVariableContextScopeHierarchy tests the variable scope resolution hierarchy
 func TestVariableContextScopeHierarchy(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -141,7 +141,7 @@ func TestVariableContextScopeHierarchy(t *testing.T) {
 
 // TestVariableContextInSRAI tests that variable context is maintained in SRAI calls
 func TestVariableContextInSRAI(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -206,7 +206,7 @@ func TestVariableContextInSRAI(t *testing.T) {
 
 // TestVariableContextInRecursiveProcessing tests variable context in recursive processing
 func TestVariableContextInRecursiveProcessing(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -295,7 +295,7 @@ func TestVariableContextInRecursiveProcessing(t *testing.T) {
 
 // TestVariableContextPersistence tests that variables persist across multiple interactions
 func TestVariableContextPersistence(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
@@ -373,7 +373,7 @@ func TestVariableContextPersistence(t *testing.T) {
 
 // TestVariableContextInComplexTemplates tests variable context in complex templates with multiple tags
 func TestVariableContextInComplexTemplates(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories

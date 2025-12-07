@@ -148,25 +148,19 @@
 <category>
 <pattern>AUTOLOAD LOCATION FOR WEATHER</pattern>
 <template>
-  <think>
-    <!-- Check if location is already set in this session -->
-    <set var="current_location"><get name="location"/></set>
-    <set var="telegram_user"><get name="telegram_user"/></set>
-  </think>
-
-  <condition var="current_location">
+  <condition name="location">
     <li value="">
       <!-- No location in session - try to load saved location -->
-      <condition var="telegram_user">
+      <condition name="telegram_user">
         <li value="">
           <!-- No Telegram user - can't load -->
         </li>
         <li>
           <think>
             <!-- Try to load saved location -->
-            <set var="saved_location"><srai>GET LOCATION FOR <get var="telegram_user"/></srai></set>
-            <set var="saved_lat"><srai>GET LATITUDE FOR <get var="telegram_user"/></srai></set>
-            <set var="saved_lon"><srai>GET LONGITUDE FOR <get var="telegram_user"/></srai></set>
+            <set var="saved_location"><srai>GET LOCATION FOR <get name="telegram_user"/></srai></set>
+            <set var="saved_lat"><srai>GET LATITUDE FOR <get name="telegram_user"/></srai></set>
+            <set var="saved_lon"><srai>GET LONGITUDE FOR <get name="telegram_user"/></srai></set>
 
             <!-- Load into session if valid -->
             <condition var="saved_location">
@@ -184,16 +178,16 @@
     </li>
     <li value="Virtual">
       <!-- Default location set - override with saved location if available -->
-      <condition var="telegram_user">
+      <condition name="telegram_user">
         <li value="">
           <!-- No Telegram user - can't load -->
         </li>
         <li>
           <think>
             <!-- Try to load saved location -->
-            <set var="saved_location"><srai>GET LOCATION FOR <get var="telegram_user"/></srai></set>
-            <set var="saved_lat"><srai>GET LATITUDE FOR <get var="telegram_user"/></srai></set>
-            <set var="saved_lon"><srai>GET LONGITUDE FOR <get var="telegram_user"/></srai></set>
+            <set var="saved_location"><srai>GET LOCATION FOR <get name="telegram_user"/></srai></set>
+            <set var="saved_lat"><srai>GET LATITUDE FOR <get name="telegram_user"/></srai></set>
+            <set var="saved_lon"><srai>GET LONGITUDE FOR <get name="telegram_user"/></srai></set>
 
             <!-- Load into session if valid -->
             <condition var="saved_location">
@@ -273,34 +267,17 @@
 <pattern>WHAT IS MY LOCATION</pattern>
 <template>
   <think>
-    <set var="current_location"><get name="location"/></set>
-    <set var="telegram_user"><get name="telegram_user"/></set>
+    <!-- Auto-load saved location if not already set -->
+    <srai>AUTOLOAD LOCATION FOR WEATHER</srai>
   </think>
 
-  <condition var="current_location">
+  <!-- Check if location is set after auto-load -->
+  <condition name="location">
     <li value="">
-      <!-- No location in session - check for saved -->
-      <condition var="telegram_user">
-        <li value="">
-          You haven't set your location yet. Tell me your location by saying "My location is [city name]".
-        </li>
-        <li>
-          <think>
-            <set var="saved_location"><srai>GET LOCATION FOR <get var="telegram_user"/></srai></set>
-          </think>
-          <condition var="saved_location">
-            <li value="">
-              You don't have a saved location. Tell me your location by saying "My location is [city name]".
-            </li>
-            <li value="GET LOCATION FOR *">
-              You don't have a saved location. Tell me your location by saying "My location is [city name]".
-            </li>
-            <li>
-              You have a saved location (<get var="saved_location"/>), but it's not loaded in this session. Say "load my location" to use it.
-            </li>
-          </condition>
-        </li>
-      </condition>
+      You haven't set your location yet. Tell me your location by saying "My location is [city name]".
+    </li>
+    <li value="Virtual">
+      You haven't set your location yet. Tell me your location by saying "My location is [city name]".
     </li>
     <li>
       Your location is set to <get name="location"/> (coordinates: <get name="latitude"/>, <get name="longitude"/>).

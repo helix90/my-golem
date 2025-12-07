@@ -7,7 +7,7 @@ import (
 
 // TestListOperationsAdvanced tests advanced <list> tag functionality
 func TestListOperationsAdvanced(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -132,7 +132,7 @@ func TestListOperationsAdvanced(t *testing.T) {
 
 // TestArrayOperationsAdvanced tests advanced <array> tag functionality
 func TestArrayOperationsAdvanced(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -263,7 +263,7 @@ func TestArrayOperationsAdvanced(t *testing.T) {
 
 // TestMapOperationsAdvanced tests advanced <map> tag functionality
 func TestMapOperationsAdvanced(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -562,7 +562,7 @@ func TestSetOperationsAdvanced(t *testing.T) {
 
 // TestCollectionOperationsIntegration tests integration of multiple collection types
 func TestCollectionOperationsIntegration(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -633,7 +633,7 @@ func TestCollectionOperationsIntegration(t *testing.T) {
 
 // TestCollectionOperationsEdgeCases tests edge cases for collection operations
 func TestCollectionOperationsEdgeCases(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -758,7 +758,7 @@ func TestCollectionOperationsEdgeCases(t *testing.T) {
 
 // TestCollectionOperationsPerformance tests performance of collection operations
 func TestCollectionOperationsPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -789,7 +789,7 @@ func TestCollectionOperationsPerformance(t *testing.T) {
 
 // TestCollectionOperationsWithVariables tests collection operations with variable context
 func TestCollectionOperationsWithVariables(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {
@@ -863,7 +863,7 @@ func TestCollectionOperationsWithVariables(t *testing.T) {
 
 // TestCollectionOperationsWithWildcards tests collection operations with wildcard context
 func TestCollectionOperationsWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	session := g.CreateSession("test_session")
 	kb := g.GetKnowledgeBase()
 	if kb == nil {

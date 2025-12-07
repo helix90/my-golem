@@ -6,7 +6,7 @@ import (
 )
 
 func TestThatTagWithIndex(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags using index attributes
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -130,7 +130,7 @@ func TestThatTagWithIndex(t *testing.T) {
 }
 
 func TestThatTagEnhancedNormalization(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags that test normalization
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -244,7 +244,7 @@ func TestThatTagEnhancedNormalization(t *testing.T) {
 }
 
 func TestThatTagEnhancedWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags containing wildcards
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -333,7 +333,7 @@ func TestThatTagEnhancedWithWildcards(t *testing.T) {
 }
 
 func TestThatTagPriorityMatching(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with multiple that patterns to test priority
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -420,7 +420,7 @@ func TestThatTagPriorityMatching(t *testing.T) {
 }
 
 func TestThatTagValidation(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Test invalid that patterns
 	invalidAIML := `<?xml version="1.0" encoding="UTF-8"?>
@@ -469,7 +469,7 @@ func TestThatTagValidation(t *testing.T) {
 }
 
 func TestThatTagIndexBoundaries(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags using various index values
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -599,7 +599,7 @@ func TestThatTagIndexBoundaries(t *testing.T) {
 }
 
 func TestThatTagContractionNormalization(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags testing contraction normalization
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

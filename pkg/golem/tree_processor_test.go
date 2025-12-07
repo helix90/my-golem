@@ -77,7 +77,7 @@ func TestASTParser(t *testing.T) {
 }
 
 func TestTreeProcessor(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -162,7 +162,7 @@ func TestTreeProcessor(t *testing.T) {
 }
 
 func TestTreeProcessorNestedTags(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -231,7 +231,7 @@ func TestTreeProcessorNestedTags(t *testing.T) {
 }
 
 func TestTreeProcessorPerformance(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories
@@ -275,7 +275,7 @@ func TestTreeProcessorPerformance(t *testing.T) {
 }
 
 func TestTreeProcessorErrorHandling(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 
 	// Add test categories

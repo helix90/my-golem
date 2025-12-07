@@ -7,7 +7,7 @@ import (
 )
 
 func TestThatTagMatching(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -78,7 +78,7 @@ func TestThatTagMatching(t *testing.T) {
 }
 
 func TestTopicTagMatching(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with topic tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -186,7 +186,7 @@ func TestTopicTagMatching(t *testing.T) {
 }
 
 func TestThatAndTopicCombined(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with both that and topic tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -346,7 +346,7 @@ func TestTopicManagement(t *testing.T) {
 }
 
 func TestThatTagWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with that tags containing wildcards
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -407,7 +407,7 @@ func TestThatTagWithWildcards(t *testing.T) {
 }
 
 func TestTopicTagWithWildcards(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with topic tags containing wildcards
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -470,7 +470,7 @@ func TestTopicTagWithWildcards(t *testing.T) {
 }
 
 func TestThatTopicRegression(t *testing.T) {
-	g := New(false)
+	g := NewForTesting(t, false)
 
 	// Load test AIML with various tags to ensure no regression
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

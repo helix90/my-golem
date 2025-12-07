@@ -138,7 +138,7 @@ func TestRegexCacheInvalidPattern(t *testing.T) {
 
 func TestGolemRegexCacheIntegration(t *testing.T) {
 	// Create a Golem instance
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test that regex caches are initialized
 	if g.patternRegexCache == nil {
@@ -170,7 +170,7 @@ func TestGolemRegexCacheIntegration(t *testing.T) {
 }
 
 func TestGetCachedRegexHelper(t *testing.T) {
-	g := New(true)
+	g := NewForTesting(t, true)
 
 	// Test with different cache types
 	patterns := []string{
