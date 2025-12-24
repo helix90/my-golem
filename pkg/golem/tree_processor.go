@@ -2977,6 +2977,7 @@ func (tp *TreeProcessor) processWeatherFormatTag(node *ASTNode, content string) 
 func (tp *TreeProcessor) formatTodayWeather(data map[string]interface{}) string {
 	// Extract weather data for today
 	var result strings.Builder
+	var warnings []string
 
 	// Get currently data
 	currently, hasCurrently := data["currently"].(map[string]interface{})
@@ -3028,6 +3029,159 @@ func (tp *TreeProcessor) formatTodayWeather(data map[string]interface{}) string 
 		result.WriteString(summary)
 	}
 
+	// Get wind information
+	windSpeed := 0.0
+	windGust := 0.0
+	hasWind := false
+	hasGust := false
+
+	if windVal, exists := currently["windSpeed"]; exists {
+		switch v := windVal.(type) {
+		case float64:
+			windSpeed = v
+			hasWind = true
+		case int:
+			windSpeed = float64(v)
+			hasWind = true
+		}
+	}
+
+	if gustVal, exists := currently["windGust"]; exists {
+		switch v := gustVal.(type) {
+		case float64:
+			windGust = v
+			hasGust = true
+		case int:
+			windGust = float64(v)
+			hasGust = true
+		}
+	}
+
+	// Convert wind from m/s to mph (1 m/s = 2.237 mph) and km/h
+	if hasWind {
+		windMph := windSpeed * 2.237
+		windKmh := windSpeed * 3.6
+
+		if hasGust {
+			gustMph := windGust * 2.237
+			gustKmh := windGust * 3.6
+			result.WriteString(fmt.Sprintf(". Wind: %.0f mph (%.0f km/h) with gusts up to %.0f mph (%.0f km/h)",
+				windMph, windKmh, gustMph, gustKmh))
+
+			// Add wind warnings
+			if gustMph >= 40 {
+				warnings = append(warnings, "HIGH WIND WARNING: Gusts may cause damage and make driving hazardous")
+			} else if gustMph >= 25 {
+				warnings = append(warnings, "Windy conditions: Exercise caution outdoors")
+			}
+		} else {
+			result.WriteString(fmt.Sprintf(". Wind: %.0f mph (%.0f km/h)", windMph, windKmh))
+
+			if windMph >= 25 {
+				warnings = append(warnings, "Windy conditions: Exercise caution outdoors")
+			}
+		}
+	}
+
+	// Get precipitation information
+	precipProb := 0.0
+	precipIntensity := 0.0
+	precipType := ""
+
+	if probVal, exists := currently["precipProbability"]; exists {
+		switch v := probVal.(type) {
+		case float64:
+			precipProb = v * 100 // Convert to percentage
+		case int:
+			precipProb = float64(v) * 100
+		}
+	}
+
+	if intensityVal, exists := currently["precipIntensity"]; exists {
+		switch v := intensityVal.(type) {
+		case float64:
+			precipIntensity = v
+		case int:
+			precipIntensity = float64(v)
+		}
+	}
+
+	if typeVal, exists := currently["precipType"]; exists {
+		precipType = fmt.Sprintf("%v", typeVal)
+	}
+
+	// Report precipitation if probability is significant
+	if precipProb >= 20 {
+		if precipType != "" && precipType != "none" {
+			// Capitalize precipitation type
+			precipTypeCapitalized := strings.Title(strings.ToLower(precipType))
+			result.WriteString(fmt.Sprintf(". %s: %.0f%% chance", precipTypeCapitalized, precipProb))
+		} else {
+			result.WriteString(fmt.Sprintf(". Precipitation: %.0f%% chance", precipProb))
+		}
+
+		if precipIntensity > 0 {
+			intensityMmh := precipIntensity // Already in mm/h
+			if intensityMmh >= 10 {
+				result.WriteString(" (heavy)")
+			} else if intensityMmh >= 2.5 {
+				result.WriteString(" (moderate)")
+			} else {
+				result.WriteString(" (light)")
+			}
+		}
+	}
+
+	// Get humidity
+	humidity := 0.0
+	if humVal, exists := currently["humidity"]; exists {
+		switch v := humVal.(type) {
+		case float64:
+			humidity = v * 100 // Convert to percentage
+		case int:
+			humidity = float64(v) * 100
+		}
+
+		if humidity >= 80 {
+			result.WriteString(fmt.Sprintf(". Humidity: %.0f%% (very humid)", humidity))
+		} else if humidity <= 30 {
+			result.WriteString(fmt.Sprintf(". Humidity: %.0f%% (dry)", humidity))
+		}
+	}
+
+	// Get UV Index
+	uvIndex := 0.0
+	if uvVal, exists := currently["uvIndex"]; exists {
+		switch v := uvVal.(type) {
+		case float64:
+			uvIndex = v
+		case int:
+			uvIndex = float64(v)
+		}
+
+		if uvIndex >= 8 {
+			warnings = append(warnings, fmt.Sprintf("VERY HIGH UV INDEX (%.0f): Seek shade, wear sunscreen and protective clothing", uvIndex))
+		} else if uvIndex >= 6 {
+			warnings = append(warnings, fmt.Sprintf("High UV Index (%.0f): Use sunscreen", uvIndex))
+		}
+	}
+
+	// Get visibility
+	visibility := 0.0
+	if visVal, exists := currently["visibility"]; exists {
+		switch v := visVal.(type) {
+		case float64:
+			visibility = v
+		case int:
+			visibility = float64(v)
+		}
+
+		if visibility < 1 {
+			visMiles := visibility * 0.621371
+			warnings = append(warnings, fmt.Sprintf("Low visibility: %.1f km (%.1f miles)", visibility, visMiles))
+		}
+	}
+
 	// Try to get daily high/low
 	if daily, hasDaily := data["daily"].(map[string]interface{}); hasDaily {
 		if dailyData, hasData := daily["data"].([]interface{}); hasData && len(dailyData) > 0 {
@@ -3077,12 +3231,20 @@ func (tp *TreeProcessor) formatTodayWeather(data map[string]interface{}) string 
 
 	result.WriteString(".")
 
+	// Add warnings if any
+	if len(warnings) > 0 {
+		result.WriteString(" ⚠️ ")
+		result.WriteString(strings.Join(warnings, ". "))
+		result.WriteString(".")
+	}
+
 	return result.String()
 }
 
 func (tp *TreeProcessor) formatTomorrowWeather(data map[string]interface{}) string {
 	// Extract weather forecast for tomorrow from daily data
 	var result strings.Builder
+	var warnings []string
 
 	// Get daily forecast data
 	daily, hasDaily := data["daily"].(map[string]interface{})
@@ -3159,7 +3321,113 @@ func (tp *TreeProcessor) formatTomorrowWeather(data map[string]interface{}) stri
 		result.WriteString(fmt.Sprintf(" with a low of %.0f°F (%.0f°C)", lowF, lowTemp))
 	}
 
+	// Get wind information for tomorrow
+	windSpeed := 0.0
+	windGust := 0.0
+	hasWind := false
+	hasGust := false
+
+	if windVal, exists := tomorrow["windSpeed"]; exists {
+		switch v := windVal.(type) {
+		case float64:
+			windSpeed = v
+			hasWind = true
+		case int:
+			windSpeed = float64(v)
+			hasWind = true
+		}
+	}
+
+	if gustVal, exists := tomorrow["windGust"]; exists {
+		switch v := gustVal.(type) {
+		case float64:
+			windGust = v
+			hasGust = true
+		case int:
+			windGust = float64(v)
+			hasGust = true
+		}
+	}
+
+	// Convert wind from m/s to mph and km/h
+	if hasWind {
+		windMph := windSpeed * 2.237
+		windKmh := windSpeed * 3.6
+
+		if hasGust {
+			gustMph := windGust * 2.237
+			gustKmh := windGust * 3.6
+			result.WriteString(fmt.Sprintf(". Wind: %.0f mph (%.0f km/h) with gusts up to %.0f mph (%.0f km/h)",
+				windMph, windKmh, gustMph, gustKmh))
+
+			// Add wind warnings
+			if gustMph >= 40 {
+				warnings = append(warnings, "HIGH WIND WARNING: Gusts may cause damage and make driving hazardous")
+			} else if gustMph >= 25 {
+				warnings = append(warnings, "Windy conditions expected: Exercise caution outdoors")
+			}
+		} else {
+			result.WriteString(fmt.Sprintf(". Wind: %.0f mph (%.0f km/h)", windMph, windKmh))
+
+			if windMph >= 25 {
+				warnings = append(warnings, "Windy conditions expected: Exercise caution outdoors")
+			}
+		}
+	}
+
+	// Get precipitation probability
+	precipProb := 0.0
+	precipType := ""
+
+	if probVal, exists := tomorrow["precipProbability"]; exists {
+		switch v := probVal.(type) {
+		case float64:
+			precipProb = v * 100 // Convert to percentage
+		case int:
+			precipProb = float64(v) * 100
+		}
+	}
+
+	if typeVal, exists := tomorrow["precipType"]; exists {
+		precipType = fmt.Sprintf("%v", typeVal)
+	}
+
+	// Report precipitation if probability is significant
+	if precipProb >= 20 {
+		if precipType != "" && precipType != "none" {
+			// Capitalize precipitation type
+			precipTypeCapitalized := strings.Title(strings.ToLower(precipType))
+			result.WriteString(fmt.Sprintf(". %s: %.0f%% chance", precipTypeCapitalized, precipProb))
+		} else {
+			result.WriteString(fmt.Sprintf(". Precipitation: %.0f%% chance", precipProb))
+		}
+	}
+
+	// Get UV Index for tomorrow
+	uvIndex := 0.0
+	if uvVal, exists := tomorrow["uvIndex"]; exists {
+		switch v := uvVal.(type) {
+		case float64:
+			uvIndex = v
+		case int:
+			uvIndex = float64(v)
+		}
+
+		if uvIndex >= 8 {
+			warnings = append(warnings, fmt.Sprintf("VERY HIGH UV INDEX (%.0f): Seek shade, wear sunscreen and protective clothing", uvIndex))
+		} else if uvIndex >= 6 {
+			warnings = append(warnings, fmt.Sprintf("High UV Index (%.0f): Use sunscreen", uvIndex))
+		}
+	}
+
 	result.WriteString(".")
+
+	// Add warnings if any
+	if len(warnings) > 0 {
+		result.WriteString(" ⚠️ ")
+		result.WriteString(strings.Join(warnings, ". "))
+		result.WriteString(".")
+	}
 
 	return result.String()
 }
