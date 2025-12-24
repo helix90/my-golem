@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+  User Name Persistence using <learnf>
+
+  This file provides persistent storage of user name information
+  keyed by Telegram user ID. Name data persists across bot restarts.
+
+  Usage from Telegram bot:
+  1. Pass the Telegram user ID as a session variable: "telegram_user"
+  2. User sets name: "My name is Alice"
+  3. Bot learns the name tied to their user ID using <learnf>
+  4. Name persists in learned_categories/ directory
+  5. Next session: Bot automatically loads user's saved name
+
+  IMPORTANT: Use Telegram user ID, not username!
+  Not all Telegram users have a username (@handle), but every user has a unique ID.
+
+  Example session variable setup in Telegram bot:
+    session.Variables["telegram_user"] = fmt.Sprintf("%d", update.Message.From.ID)
+-->
+
+<!-- Set user's name with persistence -->
+<category>
+<pattern>MY NAME IS *</pattern>
+<template>
+  <think>
+    <!-- Store name in session for immediate use -->
+    <set name="user_name"><star/></set>
+
+    <!-- Get the user's Telegram user ID from session -->
+    <set var="telegram_user"><get name="telegram_user"/></set>
+
+    <!-- Persist user's name using learnf (if telegram_user is set) -->
+    <condition name="telegram_user">
+      <li value="">
+        <!-- No Telegram user ID - skip persistence -->
+      </li>
+      <li>
+        <!-- Learn name for this specific user -->
+        <learnf>
+          <category>
+            <pattern>GET NAME FOR <get var="telegram_user"/></pattern>
+            <template><get name="user_name"/></template>
+          </category>
+        </learnf>
+      </li>
+    </condition>
+  </think>
+
+  Nice to meet you, <get name="user_name"/>!<condition name="telegram_user"> I've saved your name to your profile.</condition>
+</template>
+</category>
+
+<category>
+<pattern>SET MY NAME TO *</pattern>
+<template><srai>MY NAME IS <star/></srai></template>
+</category>
+
+<category>
+<pattern>CALL ME *</pattern>
+<template><srai>MY NAME IS <star/></srai></template>
+</category>
+
+<category>
+<pattern>I AM *</pattern>
+<template><srai>MY NAME IS <star/></srai></template>
+</category>
+
+<category>
+<pattern>I M *</pattern>
+<template><srai>MY NAME IS <star/></srai></template>
+</category>
+
+<!-- Load user's saved name into session -->
+<category>
+<pattern>LOAD MY NAME</pattern>
+<template>
+  <think>
+    <set var="telegram_user"><get name="telegram_user"/></set>
+  </think>
+
+  <condition var="telegram_user">
+    <li value="">
+      You need to be logged in via Telegram to load saved names.
+    </li>
+    <li>
+      <think>
+        <!-- Retrieve saved name for this user directly into session -->
+        <set name="user_name"><srai>GET NAME FOR <get var="telegram_user"/></srai></set>
+      </think>
+
+      <!-- Confirm to user -->
+      <condition name="user_name">
+        <li value="">
+          You haven't told me your name yet. Tell me your name by saying "My name is [your name]".
+        </li>
+        <li>
+          Welcome back, <get name="user_name"/>! I've loaded your saved name.
+        </li>
+      </condition>
+    </li>
+  </condition>
+</template>
+</category>
+
+<!-- Auto-load name when needed (if not already set) -->
+<category>
+<pattern>AUTOLOAD NAME</pattern>
+<template>
+  <think>
+    <!-- Only load if user_name is not already set -->
+    <!-- Use a marker to track if name is already set -->
+    <set name="_already_set"><condition name="user_name">yes</condition></set>
+
+    <!-- Only proceed if NOT already set -->
+    <condition name="_already_set">
+      <li value="yes"><!-- Name already set, do nothing --></li>
+      <li>
+        <!-- No name in session - try to load if telegram_user exists -->
+        <set name="_telegram_id"><get name="telegram_user"/></set>
+        <condition name="_telegram_id">
+          <!-- Try to load saved name only if telegram_id exists -->
+          <set name="user_name"><srai>GET NAME FOR <get name="_telegram_id"/></srai></set>
+        </condition>
+      </li>
+    </condition>
+  </think>
+</template>
+</category>
+
+<!-- Clear user's saved name -->
+<category>
+<pattern>FORGET MY NAME</pattern>
+<template>
+  <think>
+    <!-- Clear from session -->
+    <set name="user_name"></set>
+
+    <!-- Get telegram_user for checking -->
+    <set var="telegram_user"><get name="telegram_user"/></set>
+  </think>
+
+  <condition var="telegram_user">
+    <li value="">
+      Your name has been cleared from this session.
+    </li>
+    <li>
+      <think>
+        <!-- Unlearn the saved pattern for this user -->
+        <unlearnf>
+          <category>
+            <pattern>GET NAME FOR <get var="telegram_user"/></pattern>
+            <template>*</template>
+          </category>
+        </unlearnf>
+      </think>
+      Your name has been cleared from this session and removed from your saved profile.
+    </li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>CLEAR MY NAME</pattern>
+<template><srai>FORGET MY NAME</srai></template>
+</category>
+
+<!-- Show current/saved name -->
+<category>
+<pattern>WHAT IS MY NAME</pattern>
+<template>
+  <think>
+    <!-- Auto-load saved name if not already set -->
+    <srai>AUTOLOAD NAME</srai>
+  </think>
+
+  <!-- Use Type 3 condition: shows content only if user_name is not empty -->
+  <condition name="user_name">Your name is <get name="user_name"/>.</condition><think><set name="_has_name"><condition name="user_name">yes</condition></set></think><condition name="_has_name">
+    <li value="yes"></li>
+    <li>You haven't told me your name yet. Tell me your name by saying "My name is [your name]".</li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>WHO AM I</pattern>
+<template><srai>WHAT IS MY NAME</srai></template>
+</category>
+
+<category>
+<pattern>WHAT S MY NAME</pattern>
+<template><srai>WHAT IS MY NAME</srai></template>
+</category>
+
+<category>
+<pattern>DO YOU KNOW MY NAME</pattern>
+<template><srai>WHAT IS MY NAME</srai></template>
+</category>
+
+<category>
+<pattern>DO YOU REMEMBER MY NAME</pattern>
+<template><srai>WHAT IS MY NAME</srai></template>
+</category>
+
+<!-- Catchall pattern for GET NAME FOR - returns empty if no learned pattern exists -->
+<category>
+<pattern>GET NAME FOR *</pattern>
+<template></template>
+</category>
+
+</aiml>

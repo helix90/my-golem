@@ -592,3 +592,411 @@ func TestUserLocationPersistenceWithFileSystem(t *testing.T) {
 		}
 	}
 }
+
+// TestUserNamePersistence tests basic user name persistence
+func TestUserNamePersistence(t *testing.T) {
+	tempDir := t.TempDir()
+	learnedCategoriesDir := filepath.Join(tempDir, "learned_categories")
+
+	t.Run("Set and retrieve name", func(t *testing.T) {
+		g := NewForTesting(t, false)
+		g.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+		kb, err := g.LoadAIMLFromDirectory("../../testdata")
+		if err != nil {
+			t.Fatalf("Failed to load AIML: %v", err)
+		}
+		g.SetKnowledgeBase(kb)
+
+		session := &ChatSession{
+			ID:        "test_session",
+			Variables: make(map[string]string),
+		}
+		session.Variables["telegram_user"] = "5144973670"
+
+		// Set name
+		response, err := g.ProcessInput("My name is Alice", session)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Nice to meet you, Alice") {
+			t.Errorf("Expected greeting with name, got: %s", response)
+		}
+
+		if !strings.Contains(response, "saved your name") {
+			t.Errorf("Expected confirmation of saving, got: %s", response)
+		}
+
+		// Verify name is in session
+		if session.Variables["user_name"] != "Alice" {
+			t.Errorf("Expected user_name='Alice', got: %s", session.Variables["user_name"])
+		}
+
+		// Query name
+		response, err = g.ProcessInput("What is my name", session)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Alice") {
+			t.Errorf("Expected name in response, got: %s", response)
+		}
+	})
+
+	t.Run("Reload and auto-load name", func(t *testing.T) {
+		// Create new instance to simulate restart
+		g2 := NewForTesting(t, false)
+		g2.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+		kb, err := g2.LoadAIMLFromDirectory("../../testdata")
+		if err != nil {
+			t.Fatalf("Failed to load AIML: %v", err)
+		}
+		g2.SetKnowledgeBase(kb) // Triggers auto-load of learned categories
+
+		newSession := &ChatSession{
+			ID:        "new_session",
+			Variables: make(map[string]string),
+		}
+		newSession.Variables["telegram_user"] = "5144973670"
+		// user_name is NOT set in session
+
+		// Query name - should auto-load from persistent storage
+		response, err := g2.ProcessInput("What is my name", newSession)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Alice") {
+			t.Errorf("Expected auto-loaded name in response, got: %s", response)
+		}
+
+		// Verify name was loaded into session
+		if newSession.Variables["user_name"] != "Alice" {
+			t.Errorf("Expected user_name='Alice' after auto-load, got: %s", newSession.Variables["user_name"])
+		}
+	})
+}
+
+// TestUserNameVariations tests various name-setting patterns
+func TestUserNameVariations(t *testing.T) {
+	tempDir := t.TempDir()
+	learnedCategoriesDir := filepath.Join(tempDir, "learned_categories")
+
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"MY NAME IS", "My name is Bob", "Bob"},
+		{"SET MY NAME TO", "Set my name to Charlie", "Charlie"},
+		{"CALL ME", "Call me David", "David"},
+		{"I AM", "I am Eve", "Eve"},
+		{"I M (contraction)", "I m Frank", "Frank"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewForTesting(t, false)
+			g.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+			kb, err := g.LoadAIMLFromDirectory("../../testdata")
+			if err != nil {
+				t.Fatalf("Failed to load AIML: %v", err)
+			}
+			g.SetKnowledgeBase(kb)
+
+			session := &ChatSession{
+				ID:        "test_session",
+				Variables: make(map[string]string),
+			}
+			session.Variables["telegram_user"] = "test_user_123"
+
+			// Set name using variation
+			response, err := g.ProcessInput(tc.input, session)
+			if err != nil {
+				t.Fatalf("ProcessInput failed: %v", err)
+			}
+
+			if !strings.Contains(response, tc.expected) {
+				t.Errorf("Expected name '%s' in response, got: %s", tc.expected, response)
+			}
+
+			// Verify name is stored
+			if session.Variables["user_name"] != tc.expected {
+				t.Errorf("Expected user_name='%s', got: %s", tc.expected, session.Variables["user_name"])
+			}
+		})
+	}
+}
+
+// TestUserNameQueryVariations tests various name query patterns
+func TestUserNameQueryVariations(t *testing.T) {
+	tempDir := t.TempDir()
+	learnedCategoriesDir := filepath.Join(tempDir, "learned_categories")
+
+	g := NewForTesting(t, false)
+	g.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+	kb, err := g.LoadAIMLFromDirectory("../../testdata")
+	if err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	g.SetKnowledgeBase(kb)
+
+	session := &ChatSession{
+		ID:        "test_session",
+		Variables: make(map[string]string),
+	}
+	session.Variables["telegram_user"] = "test_user_456"
+
+	// Set a name first
+	_, err = g.ProcessInput("My name is Grace", session)
+	if err != nil {
+		t.Fatalf("ProcessInput failed: %v", err)
+	}
+
+	queryPatterns := []string{
+		"What is my name",
+		"Who am I",
+		"What s my name",
+		"Do you know my name",
+		"Do you remember my name",
+	}
+
+	for _, pattern := range queryPatterns {
+		t.Run(pattern, func(t *testing.T) {
+			response, err := g.ProcessInput(pattern, session)
+			if err != nil {
+				t.Fatalf("ProcessInput failed: %v", err)
+			}
+
+			if !strings.Contains(response, "Grace") {
+				t.Errorf("Pattern '%s': Expected 'Grace' in response, got: %s", pattern, response)
+			}
+		})
+	}
+}
+
+// TestUserNameForget tests clearing saved name
+func TestUserNameForget(t *testing.T) {
+	tempDir := t.TempDir()
+	learnedCategoriesDir := filepath.Join(tempDir, "learned_categories")
+
+	g := NewForTesting(t, false)
+	g.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+	kb, err := g.LoadAIMLFromDirectory("../../testdata")
+	if err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	g.SetKnowledgeBase(kb)
+
+	session := &ChatSession{
+		ID:        "test_session",
+		Variables: make(map[string]string),
+	}
+	session.Variables["telegram_user"] = "test_user_789"
+
+	// Set name
+	_, err = g.ProcessInput("My name is Helen", session)
+	if err != nil {
+		t.Fatalf("ProcessInput failed: %v", err)
+	}
+
+	// Verify name is set
+	if session.Variables["user_name"] != "Helen" {
+		t.Errorf("Expected user_name='Helen', got: %s", session.Variables["user_name"])
+	}
+
+	// Forget name
+	response, err := g.ProcessInput("Forget my name", session)
+	if err != nil {
+		t.Fatalf("ProcessInput failed: %v", err)
+	}
+
+	if !strings.Contains(response, "cleared") && !strings.Contains(response, "removed") {
+		t.Errorf("Expected confirmation of clearing, got: %s", response)
+	}
+
+	// Verify name is cleared from session
+	if session.Variables["user_name"] != "" {
+		t.Errorf("Expected empty user_name, got: %s", session.Variables["user_name"])
+	}
+
+	// Create new session and verify name is not persisted
+	g2 := NewForTesting(t, false)
+	g2.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+	kb2, err := g2.LoadAIMLFromDirectory("../../testdata")
+	if err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	g2.SetKnowledgeBase(kb2)
+
+	newSession := &ChatSession{
+		ID:        "new_session",
+		Variables: make(map[string]string),
+	}
+	newSession.Variables["telegram_user"] = "test_user_789"
+
+	response, err = g2.ProcessInput("What is my name", newSession)
+	if err != nil {
+		t.Fatalf("ProcessInput failed: %v", err)
+	}
+
+	if strings.Contains(response, "Helen") {
+		t.Errorf("Expected name to be forgotten, but got: %s", response)
+	}
+
+	if !strings.Contains(response, "haven't told me your name") && !strings.Contains(response, "haven't told me your name") {
+		t.Errorf("Expected 'no name' message, got: %s", response)
+	}
+}
+
+// TestUserNameWithoutTelegramID tests behavior when no telegram_user is set
+func TestUserNameWithoutTelegramID(t *testing.T) {
+	g := NewForTesting(t, false)
+
+	kb, err := g.LoadAIMLFromDirectory("../../testdata")
+	if err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	g.SetKnowledgeBase(kb)
+
+	session := &ChatSession{
+		ID:        "test_session",
+		Variables: make(map[string]string),
+	}
+	// Note: telegram_user is NOT set
+
+	// Set name
+	response, err := g.ProcessInput("My name is Isaac", session)
+	if err != nil {
+		t.Fatalf("ProcessInput failed: %v", err)
+	}
+
+	// Should still greet but not mention saving to profile
+	if !strings.Contains(response, "Isaac") {
+		t.Errorf("Expected name in response, got: %s", response)
+	}
+
+	if strings.Contains(response, "saved your name") || strings.Contains(response, "saved to your profile") {
+		t.Errorf("Should not mention saving without telegram_user, got: %s", response)
+	}
+
+	// Verify name is in session (but not persisted)
+	if session.Variables["user_name"] != "Isaac" {
+		t.Errorf("Expected user_name='Isaac', got: %s", session.Variables["user_name"])
+	}
+}
+
+// TestUserNameIntegration tests the complete name persistence workflow
+func TestUserNameIntegration(t *testing.T) {
+	tempDir := t.TempDir()
+	learnedCategoriesDir := filepath.Join(tempDir, "learned_categories")
+
+	t.Run("Complete workflow with persistence", func(t *testing.T) {
+		// Step 1: Set name
+		g := NewForTesting(t, false)
+		g.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+		kb, err := g.LoadAIMLFromDirectory("../../testdata")
+		if err != nil {
+			t.Fatalf("Failed to load AIML: %v", err)
+		}
+		g.SetKnowledgeBase(kb)
+
+		session := &ChatSession{
+			ID:        "session1",
+			Variables: make(map[string]string),
+		}
+		session.Variables["telegram_user"] = "integration_test_user"
+
+		response, err := g.ProcessInput("Call me Julia", session)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Julia") {
+			t.Errorf("Expected name in response, got: %s", response)
+		}
+
+		// Step 2: Query name in same session
+		response, err = g.ProcessInput("What is my name", session)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Julia") {
+			t.Errorf("Expected 'Julia', got: %s", response)
+		}
+
+		// Step 3: Simulate bot restart - new instance
+		g2 := NewForTesting(t, false)
+		g2.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+		kb2, err := g2.LoadAIMLFromDirectory("../../testdata")
+		if err != nil {
+			t.Fatalf("Failed to load AIML: %v", err)
+		}
+		g2.SetKnowledgeBase(kb2)
+
+		newSession := &ChatSession{
+			ID:        "session2",
+			Variables: make(map[string]string),
+		}
+		newSession.Variables["telegram_user"] = "integration_test_user"
+
+		// Step 4: Query name - should auto-load
+		response, err = g2.ProcessInput("Do you remember my name", newSession)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Julia") {
+			t.Errorf("Expected auto-loaded name 'Julia', got: %s", response)
+		}
+
+		// Step 5: Update name
+		response, err = g2.ProcessInput("My name is Katherine", newSession)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Katherine") {
+			t.Errorf("Expected new name 'Katherine', got: %s", response)
+		}
+
+		// Step 6: Another restart
+		g3 := NewForTesting(t, false)
+		g3.persistentLearning = NewPersistentLearningManager(learnedCategoriesDir)
+
+		kb3, err := g3.LoadAIMLFromDirectory("../../testdata")
+		if err != nil {
+			t.Fatalf("Failed to load AIML: %v", err)
+		}
+		g3.SetKnowledgeBase(kb3)
+
+		session3 := &ChatSession{
+			ID:        "session3",
+			Variables: make(map[string]string),
+		}
+		session3.Variables["telegram_user"] = "integration_test_user"
+
+		// Step 7: Verify updated name persisted
+		response, err = g3.ProcessInput("What is my name", session3)
+		if err != nil {
+			t.Fatalf("ProcessInput failed: %v", err)
+		}
+
+		if !strings.Contains(response, "Katherine") {
+			t.Errorf("Expected updated name 'Katherine', got: %s", response)
+		}
+
+		if strings.Contains(response, "Julia") {
+			t.Errorf("Should not contain old name 'Julia', got: %s", response)
+		}
+	})
+}
