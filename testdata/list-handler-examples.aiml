@@ -53,8 +53,12 @@
     <category>
         <pattern>LIST CREATE *</pattern>
         <template>
+            <think>
+                <!-- Try to auto-login with saved credentials if not already logged in -->
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="list_name"><star/></set>
@@ -87,8 +91,11 @@
     <category>
         <pattern>LIST CREATE * DESCRIPTION *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="list_name"><star index="1"/></set>
@@ -108,8 +115,11 @@
     <category>
         <pattern>LIST SHOW ALL</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="lists_response"><sraix service="list_get_all"></sraix></set>
@@ -148,8 +158,11 @@
     <category>
         <pattern>LIST SHOW *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="target_list_id"><star/></set>
@@ -175,8 +188,11 @@
     <category>
         <pattern>LIST DELETE *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="delete_list_id"><star/></set>
@@ -209,8 +225,11 @@
     <category>
         <pattern>LIST * ADD *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
@@ -237,8 +256,11 @@
     <category>
         <pattern>LIST * ITEMS</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="target_list_id"><star/></set>
@@ -264,8 +286,11 @@
     <category>
         <pattern>LIST * DELETE ITEM *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
@@ -292,8 +317,11 @@
     <category>
         <pattern>LIST * TOGGLE ITEM *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
@@ -334,8 +362,11 @@
     <category>
         <pattern>LIST * UPDATE ITEM * TO *</pattern>
         <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+            </think>
             <condition name="list_access_token">
-                <li value="">Please login first using 'list login username password'</li>
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
                 <li>
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
