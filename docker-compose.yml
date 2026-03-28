@@ -1,0 +1,15 @@
+services:
+  golem-telegram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AIML_PATH=/app/testdata
+      - VERBOSE=${VERBOSE:-false}
+    volumes:
+      - golem-learned:/app/learned_categories
+
+volumes:
+  golem-learned:
