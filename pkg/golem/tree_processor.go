@@ -1464,11 +1464,17 @@ func (tp *TreeProcessor) processConditionTag(node *ASTNode, _ string) string {
 
 	// Get the variable name and expected value from attributes
 	varName, hasName := node.Attributes["name"]
+	localVarName, hasVar := node.Attributes["var"]
 	expectedValue, hasExpectedValue := node.Attributes["value"]
 
 	// Get the actual variable value
 	var actualValue string
-	if hasName {
+	if hasVar {
+		// <condition var="X"> checks a local variable
+		if tp.ctx != nil && tp.ctx.LocalVars != nil {
+			actualValue = tp.ctx.LocalVars[localVarName]
+		}
+	} else if hasName {
 		actualValue = tp.golem.resolveVariable(varName, tp.ctx)
 	}
 
@@ -1491,8 +1497,8 @@ func (tp *TreeProcessor) processConditionTag(node *ASTNode, _ string) string {
 		if child.Type == NodeTypeTag && child.TagName == "li" {
 			liValue, hasValue := child.Attributes["value"]
 
-			// If no value, this is the default case - save it for later
-			if !hasValue || liValue == "" {
+			// If no value attribute, this is the default/fallback case - save it for later
+			if !hasValue {
 				defaultLi = child
 				continue
 			}

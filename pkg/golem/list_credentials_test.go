@@ -30,7 +30,11 @@ func TestListCredentialsSaveAndRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := NewForTesting(t, false)
+			// Both instances share the same storage dir to simulate a bot restart
+			// while retaining the same on-disk learned categories.
+			storageDir := t.TempDir()
+
+			g := NewForTestingWithDir(t, false, storageDir)
 			g.EnableTreeProcessing()
 
 			// Load test AIML files
@@ -60,8 +64,8 @@ func TestListCredentialsSaveAndRetrieve(t *testing.T) {
 				t.Errorf("Expected list_username=%s, got: %s", tt.username, session.Variables["list_username"])
 			}
 
-			// Create new Golem instance to simulate bot restart
-			g2 := NewForTesting(t, false)
+			// Create new Golem instance to simulate bot restart (same storage dir)
+			g2 := NewForTestingWithDir(t, false, storageDir)
 			g2.EnableTreeProcessing()
 
 			kb2, err := g2.LoadAIMLFromDirectory("../../testdata")
