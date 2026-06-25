@@ -953,7 +953,7 @@ func (p *ComprehensiveDataProcessor) findNestedTags(template, tagName string) []
 }
 
 // processLoopTags processes <loop/> tags for loop control
-func (p *ComprehensiveDataProcessor) processLoopTags(template string, ctx *VariableContext) string {
+func (p *ComprehensiveDataProcessor) processLoopTags(template string, _ *VariableContext) string {
 	// Find all <loop/> tags (self-closing)
 	loopRegex := regexp.MustCompile(`<loop\s*/>`)
 	matches := loopRegex.FindAllStringSubmatch(template, -1)

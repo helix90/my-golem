@@ -546,7 +546,7 @@ func (tp *TreeProcessor) processSelfClosingTag(node *ASTNode) string {
 
 // Tag processing methods
 
-func (tp *TreeProcessor) processSRAITag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 	// Process SRAI tag - recursive AIML processing (Symbolic Reduction and Inference)
 	// Check recursion depth to prevent infinite recursion
 	if tp.ctx == nil || tp.ctx.RecursionDepth >= MaxSRAIRecursionDepth {
@@ -774,7 +774,7 @@ func (tp *TreeProcessor) generateSRAIXFallback(query, serviceName, botName strin
 	}
 }
 
-func (tp *TreeProcessor) processThinkTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThinkTag(_ *ASTNode, content string) string {
 	// Process think tag - evaluates content but produces no output
 	// The content parameter already contains the fully processed result of all child nodes
 	// (variables have been set, operations performed, etc.)
@@ -915,7 +915,7 @@ func (tp *TreeProcessor) processSetTag(node *ASTNode, content string) string {
 	return ""
 }
 
-func (tp *TreeProcessor) processSetCollectionTag(node *ASTNode, name string, operation string, content string) string {
+func (tp *TreeProcessor) processSetCollectionTag(_ *ASTNode, name string, operation string, content string) string {
 	// Process Set collection operations (unique values with insertion order)
 	// Check for required knowledge base
 	if tp.ctx == nil || tp.ctx.KnowledgeBase == nil || tp.ctx.KnowledgeBase.SetCollections == nil {
@@ -1098,7 +1098,7 @@ func (tp *TreeProcessor) processBotTag(node *ASTNode, content string) string {
 	return ""
 }
 
-func (tp *TreeProcessor) processStarTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processStarTag(node *ASTNode, _ string) string {
 	// Process star tag - wildcard reference
 	// <star/> without index always refers to star1 (first wildcard)
 	// <star index="2"/> refers to star2 (second wildcard), etc.
@@ -1148,7 +1148,7 @@ func (tp *TreeProcessor) processStarTag(node *ASTNode, content string) string {
 	return ""
 }
 
-func (tp *TreeProcessor) processSRTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processSRTag(_ *ASTNode, _ string) string {
 	// Process SR tag - shorthand for <srai><star/></srai>
 	// SR recursively processes the first wildcard (star1)
 
@@ -1279,7 +1279,7 @@ func (tp *TreeProcessor) processSRTag(node *ASTNode, content string) string {
 	return result
 }
 
-func (tp *TreeProcessor) processThatTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThatTag(node *ASTNode, _ string) string {
 	// Process that tag - previous response reference
 	// <that/> or <that> with no index returns the most recent response (index 1)
 	// <that index="N"/> returns the Nth most recent response
@@ -1304,29 +1304,29 @@ func (tp *TreeProcessor) processThatTag(node *ASTNode, content string) string {
 	return response
 }
 
-func (tp *TreeProcessor) processThatStarTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThatStarTag(node *ASTNode, _ string) string {
 	// Process that_star tag - wildcard reference from that pattern
 	// <that_star1/> refers to the first star wildcard in the that pattern
 	// <that_star index="2"/> refers to the second star wildcard, etc.
 	return tp.processThatWildcardTag(node, "that_star")
 }
 
-func (tp *TreeProcessor) processThatUnderscoreTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThatUnderscoreTag(node *ASTNode, _ string) string {
 	// Process that_underscore tag - underscore wildcard from that pattern
 	return tp.processThatWildcardTag(node, "that_underscore")
 }
 
-func (tp *TreeProcessor) processThatCaretTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThatCaretTag(node *ASTNode, _ string) string {
 	// Process that_caret tag - caret wildcard from that pattern
 	return tp.processThatWildcardTag(node, "that_caret")
 }
 
-func (tp *TreeProcessor) processThatHashTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThatHashTag(node *ASTNode, _ string) string {
 	// Process that_hash tag - hash wildcard from that pattern
 	return tp.processThatWildcardTag(node, "that_hash")
 }
 
-func (tp *TreeProcessor) processThatDollarTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processThatDollarTag(node *ASTNode, _ string) string {
 	// Process that_dollar tag - dollar wildcard from that pattern
 	return tp.processThatWildcardTag(node, "that_dollar")
 }
@@ -1408,7 +1408,7 @@ func (tp *TreeProcessor) processThatWildcardWithEmbeddedIndex(node *ASTNode, wil
 	return ""
 }
 
-func (tp *TreeProcessor) processTopicTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processTopicTag(node *ASTNode, _ string) string {
 	// Process topic tag - topic reference
 	index := 1
 	if idx, exists := node.Attributes["index"]; exists {
@@ -1450,7 +1450,7 @@ func (tp *TreeProcessor) processRandomTag(node *ASTNode, content string) string 
 	return items[index]
 }
 
-func (tp *TreeProcessor) processListItemTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processListItemTag(node *ASTNode, _ string) string {
 	// Process list item tag - process and return children
 	var result strings.Builder
 	for _, child := range node.Children {
@@ -1459,7 +1459,7 @@ func (tp *TreeProcessor) processListItemTag(node *ASTNode, content string) strin
 	return result.String()
 }
 
-func (tp *TreeProcessor) processConditionTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processConditionTag(node *ASTNode, _ string) string {
 	// Process condition tag - conditional logic (native implementation)
 
 	// Get the variable name and expected value from attributes
@@ -1579,17 +1579,8 @@ func (tp *TreeProcessor) processMapTag(node *ASTNode, content string) string {
 	case "set", "assign":
 		// Set a key-value pair
 		if key != "" {
-			// Use content as value
-			value := strings.TrimSpace(content)
-			if hasKeyAttr {
-				// Key was in attribute, content is the value
-				value = content
-			} else {
-				// Key was in content, value is also content (for now)
-				value = content
-			}
-			tp.ctx.KnowledgeBase.Maps[name][key] = strings.TrimSpace(value)
-			tp.golem.LogInfo("Set map '%s'['%s'] = '%s'", name, key, strings.TrimSpace(value))
+			tp.ctx.KnowledgeBase.Maps[name][key] = strings.TrimSpace(content)
+			tp.golem.LogInfo("Set map '%s'['%s'] = '%s'", name, key, strings.TrimSpace(content))
 			tp.golem.LogInfo("After set: map '%s' = %v", name, tp.ctx.KnowledgeBase.Maps[name])
 			return "" // Set operations don't return content
 		}
@@ -1942,7 +1933,7 @@ func (tp *TreeProcessor) processArrayTag(node *ASTNode, content string) string {
 	}
 }
 
-func (tp *TreeProcessor) processLearnTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processLearnTag(node *ASTNode, _ string) string {
 	// Process learn tag - dynamic learning (session-specific)
 	// Process content while evaluating wildcards to capture teaching values
 	// This evaluates tags like <get>, <uppercase>, <star/> (when wildcards exist)
@@ -1962,7 +1953,7 @@ func (tp *TreeProcessor) processLearnTag(node *ASTNode, content string) string {
 	return tp.golem.processLearnTagsWithContext(fmt.Sprintf("<learn>%s</learn>", processedContent), learnCtx)
 }
 
-func (tp *TreeProcessor) processLearnfTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processLearnfTag(node *ASTNode, _ string) string {
 	// Process learnf tag - persistent learning
 	// The <learnf> tag adds categories to the persistent knowledge base
 	// Unlike <learn>, these persist across sessions
@@ -2169,7 +2160,7 @@ func (tp *TreeProcessor) processTagWithContent(node *ASTNode, content string) st
 
 // Text processing tags
 
-func (tp *TreeProcessor) processUppercaseTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processUppercaseTag(_ *ASTNode, content string) string {
 	// Process content directly - convert to uppercase
 	tp.trackMetric("format") // Track format processor usage
 	processedContent := strings.ToUpper(content)
@@ -2186,7 +2177,7 @@ func (tp *TreeProcessor) processUppercaseTag(node *ASTNode, content string) stri
 	return processedContent
 }
 
-func (tp *TreeProcessor) processLowercaseTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processLowercaseTag(_ *ASTNode, content string) string {
 	// Process content directly - convert to lowercase
 	tp.trackMetric("format") // Track format processor usage
 	processedContent := strings.ToLower(content)
@@ -2203,7 +2194,7 @@ func (tp *TreeProcessor) processLowercaseTag(node *ASTNode, content string) stri
 	return processedContent
 }
 
-func (tp *TreeProcessor) processFormalTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processFormalTag(_ *ASTNode, content string) string {
 	// Process content directly - capitalize first letter of each word
 	tp.trackMetric("format") // Track format processor usage
 	words := strings.Fields(content)
@@ -2220,7 +2211,7 @@ func (tp *TreeProcessor) processFormalTag(node *ASTNode, content string) string 
 	return strings.Join(result, " ")
 }
 
-func (tp *TreeProcessor) processCapitalizeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processCapitalizeTag(_ *ASTNode, content string) string {
 	// Process content directly - capitalize first letter, lowercase the rest (AIML spec)
 	if content == "" {
 		return content
@@ -2259,7 +2250,7 @@ func (tp *TreeProcessor) processCapitalizeTag(node *ASTNode, content string) str
 	return string(runes)
 }
 
-func (tp *TreeProcessor) processExplodeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processExplodeTag(_ *ASTNode, content string) string {
 	// Process content directly - add spaces between characters
 	var result strings.Builder
 	for i, char := range content {
@@ -2271,7 +2262,7 @@ func (tp *TreeProcessor) processExplodeTag(node *ASTNode, content string) string
 	return result.String()
 }
 
-func (tp *TreeProcessor) processReverseTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processReverseTag(_ *ASTNode, content string) string {
 	// Process content directly - reverse the string
 	runes := []rune(content)
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
@@ -2280,7 +2271,7 @@ func (tp *TreeProcessor) processReverseTag(node *ASTNode, content string) string
 	return string(runes)
 }
 
-func (tp *TreeProcessor) processAcronymTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processAcronymTag(_ *ASTNode, content string) string {
 	// Process content directly - convert to acronym (first letter of each word, uppercase)
 	words := strings.Fields(content)
 	var acronym strings.Builder
@@ -2294,7 +2285,7 @@ func (tp *TreeProcessor) processAcronymTag(node *ASTNode, content string) string
 	return acronym.String()
 }
 
-func (tp *TreeProcessor) processTrimTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processTrimTag(_ *ASTNode, content string) string {
 	// Process content directly - trim whitespace
 	return strings.TrimSpace(content)
 }
@@ -2375,12 +2366,12 @@ func (tp *TreeProcessor) processReplaceTag(node *ASTNode, content string) string
 	return result
 }
 
-func (tp *TreeProcessor) processPluralizeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processPluralizeTag(_ *ASTNode, content string) string {
 	// Use the existing pluralize processing method
 	return tp.golem.processPluralizeTagsWithContext(fmt.Sprintf("<pluralize>%s</pluralize>", content), tp.ctx)
 }
 
-func (tp *TreeProcessor) processShuffleTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processShuffleTag(_ *ASTNode, content string) string {
 	// Use the existing shuffle processing method
 	return tp.golem.processShuffleTagsWithContext(fmt.Sprintf("<shuffle>%s</shuffle>", content), tp.ctx)
 }
@@ -2523,7 +2514,7 @@ func (tp *TreeProcessor) processDedentTag(node *ASTNode, content string) string 
 	return tp.golem.processDedentTagsWithContext(tag, tp.ctx)
 }
 
-func (tp *TreeProcessor) processRepeatTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processRepeatTag(node *ASTNode, _ string) string {
 	// <repeat/> returns the most recent user request from history
 	// <repeat times="3"/> repeats it 3 times
 	if tp.ctx == nil || tp.ctx.Session == nil {
@@ -2560,7 +2551,7 @@ func (tp *TreeProcessor) processRepeatTag(node *ASTNode, content string) string 
 	return strings.Join(result, " ")
 }
 
-func (tp *TreeProcessor) processFirstTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processFirstTag(_ *ASTNode, content string) string {
 	// Get first word
 	words := strings.Fields(content)
 	if len(words) == 0 {
@@ -2569,7 +2560,7 @@ func (tp *TreeProcessor) processFirstTag(node *ASTNode, content string) string {
 	return words[0]
 }
 
-func (tp *TreeProcessor) processRestTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processRestTag(_ *ASTNode, content string) string {
 	// Get all words except the first
 	words := strings.Fields(content)
 	if len(words) <= 1 {
@@ -2578,12 +2569,12 @@ func (tp *TreeProcessor) processRestTag(node *ASTNode, content string) string {
 	return strings.Join(words[1:], " ")
 }
 
-func (tp *TreeProcessor) processLoopTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processLoopTag(_ *ASTNode, _ string) string {
 	// Loop tag - just return empty for now
 	return ""
 }
 
-func (tp *TreeProcessor) processInputTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processInputTag(_ *ASTNode, _ string) string {
 	// Process input tag - returns the most recent user input
 	// <input/> always returns the current/most recent user input (last item in RequestHistory)
 	// This is different from <request> which can take an index attribute
@@ -2607,7 +2598,7 @@ func (tp *TreeProcessor) processInputTag(node *ASTNode, content string) string {
 	return currentInput
 }
 
-func (tp *TreeProcessor) processEvalTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processEvalTag(_ *ASTNode, content string) string {
 	// Process eval tag - evaluates AIML code dynamically
 	// The <eval> tag causes its content to be evaluated as AIML template code
 	// In the AST, child nodes are already processed before reaching this point,
@@ -2632,7 +2623,7 @@ func (tp *TreeProcessor) processEvalTag(node *ASTNode, content string) string {
 	return content
 }
 
-func (tp *TreeProcessor) processPersonTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processPersonTag(_ *ASTNode, content string) string {
 	// Process person tag - pronoun substitution (1st/2nd person swap)
 	// Normalize whitespace
 	content = strings.TrimSpace(content)
@@ -2655,7 +2646,7 @@ func (tp *TreeProcessor) processPersonTag(node *ASTNode, content string) string 
 	return substitutedContent
 }
 
-func (tp *TreeProcessor) processPerson2Tag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processPerson2Tag(_ *ASTNode, content string) string {
 	// Process person2 tag - first-to-third person pronoun substitution
 	// Normalize whitespace
 	content = strings.TrimSpace(content)
@@ -2678,7 +2669,7 @@ func (tp *TreeProcessor) processPerson2Tag(node *ASTNode, content string) string
 	return substitutedContent
 }
 
-func (tp *TreeProcessor) processGenderTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processGenderTag(_ *ASTNode, content string) string {
 	// Process gender tag - swap masculine/feminine pronouns
 	// Normalize whitespace
 	content = strings.TrimSpace(content)
@@ -3432,7 +3423,7 @@ func (tp *TreeProcessor) formatTomorrowWeather(data map[string]interface{}) stri
 	return result.String()
 }
 
-func (tp *TreeProcessor) processSentenceTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processSentenceTag(_ *ASTNode, content string) string {
 	// Process sentence tag - capitalize first letter of each sentence
 	content = strings.TrimSpace(content)
 
@@ -3447,7 +3438,7 @@ func (tp *TreeProcessor) processSentenceTag(node *ASTNode, content string) strin
 	return processedContent
 }
 
-func (tp *TreeProcessor) processWordTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processWordTag(_ *ASTNode, content string) string {
 	// Process word tag - capitalize first letter of each word (Title Case)
 	content = strings.TrimSpace(content)
 
@@ -3462,7 +3453,7 @@ func (tp *TreeProcessor) processWordTag(node *ASTNode, content string) string {
 	return processedContent
 }
 
-func (tp *TreeProcessor) processDateTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processDateTag(node *ASTNode, _ string) string {
 	// Date tag - current date
 	tp.trackMetric("data") // Track data processor usage
 	format := "Monday, January 2, 2006"
@@ -3474,7 +3465,7 @@ func (tp *TreeProcessor) processDateTag(node *ASTNode, content string) string {
 	return time.Now().Format(goFormat)
 }
 
-func (tp *TreeProcessor) processTimeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processTimeTag(node *ASTNode, _ string) string {
 	// Time tag - current time
 	tp.trackMetric("data") // Track data processor usage
 	defaultFormat := "3:04 PM"
@@ -3496,7 +3487,7 @@ func (tp *TreeProcessor) processTimeTag(node *ASTNode, content string) string {
 
 // System tags
 
-func (tp *TreeProcessor) processSizeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processSizeTag(_ *ASTNode, _ string) string {
 	// Size tag - knowledge base size
 	if tp.ctx != nil && tp.ctx.KnowledgeBase != nil {
 		return strconv.Itoa(len(tp.ctx.KnowledgeBase.Categories))
@@ -3504,7 +3495,7 @@ func (tp *TreeProcessor) processSizeTag(node *ASTNode, content string) string {
 	return "0"
 }
 
-func (tp *TreeProcessor) processVersionTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processVersionTag(_ *ASTNode, _ string) string {
 	// Version tag - bot version
 	if tp.ctx != nil && tp.ctx.KnowledgeBase != nil {
 		if version, exists := tp.ctx.KnowledgeBase.Properties["version"]; exists {
@@ -3514,7 +3505,7 @@ func (tp *TreeProcessor) processVersionTag(node *ASTNode, content string) string
 	return "1.0"
 }
 
-func (tp *TreeProcessor) processIdTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processIdTag(_ *ASTNode, _ string) string {
 	// ID tag - bot ID
 	if tp.ctx != nil && tp.ctx.KnowledgeBase != nil {
 		if id, exists := tp.ctx.KnowledgeBase.Properties["id"]; exists {
@@ -3524,7 +3515,7 @@ func (tp *TreeProcessor) processIdTag(node *ASTNode, content string) string {
 	return "golem"
 }
 
-func (tp *TreeProcessor) processRequestTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processRequestTag(node *ASTNode, _ string) string {
 	// Request tag - previous request
 	// Index 1 = most recent, index 2 = 2nd most recent, etc.
 	index := 1
@@ -3541,7 +3532,7 @@ func (tp *TreeProcessor) processRequestTag(node *ASTNode, content string) string
 	return ""
 }
 
-func (tp *TreeProcessor) processResponseTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processResponseTag(node *ASTNode, _ string) string {
 	// Response tag - previous response (index 1 = most recent)
 	index := 1
 	if idx, exists := node.Attributes["index"]; exists {
@@ -3560,13 +3551,13 @@ func (tp *TreeProcessor) processResponseTag(node *ASTNode, content string) strin
 
 // Text processing tags
 
-func (tp *TreeProcessor) processNormalizeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processNormalizeTag(_ *ASTNode, content string) string {
 	// Normalize tag - text normalization
 	// Process the content directly using the normalization function
 	return tp.golem.normalizeTextForOutput(content)
 }
 
-func (tp *TreeProcessor) processDenormalizeTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processDenormalizeTag(_ *ASTNode, content string) string {
 	// Denormalize tag - text denormalization
 	// Process the content directly using the denormalization function
 	return tp.golem.denormalizeText(content)
@@ -3574,13 +3565,13 @@ func (tp *TreeProcessor) processDenormalizeTag(node *ASTNode, content string) st
 
 // Learning tags
 
-func (tp *TreeProcessor) processUnlearnTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processUnlearnTag(_ *ASTNode, content string) string {
 	// Unlearn tag - remove learned categories
 	// Use the existing unlearn processing method
 	return tp.golem.processUnlearnTagsWithContext(fmt.Sprintf("<unlearn>%s</unlearn>", content), tp.ctx)
 }
 
-func (tp *TreeProcessor) processUnlearnfTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processUnlearnfTag(_ *ASTNode, content string) string {
 	// Unlearnf tag - remove categories from persistent storage
 	if tp.golem.aimlKB == nil {
 		tp.golem.LogWarn("Unlearnf: No knowledge base available")
@@ -3633,25 +3624,25 @@ func (tp *TreeProcessor) processVarTag(node *ASTNode, content string) string {
 	return ""
 }
 
-func (tp *TreeProcessor) processGossipTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processGossipTag(_ *ASTNode, _ string) string {
 	// Gossip tag - gossip processing
 	// For now, return empty string as this functionality needs to be implemented
 	return ""
 }
 
-func (tp *TreeProcessor) processJavascriptTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processJavascriptTag(_ *ASTNode, _ string) string {
 	// Javascript tag - JavaScript execution
 	// For now, return empty string as this functionality needs to be implemented
 	return ""
 }
 
-func (tp *TreeProcessor) processSystemTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processSystemTag(_ *ASTNode, _ string) string {
 	// System tag - system command execution
 	// For now, return empty string as this functionality needs to be implemented
 	return ""
 }
 
-func (tp *TreeProcessor) processSubjTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processSubjTag(_ *ASTNode, content string) string {
 	// Subj tag - RDF subject
 	// Process content and add trailing space for RDF readability
 	content = strings.TrimSpace(content)
@@ -3661,7 +3652,7 @@ func (tp *TreeProcessor) processSubjTag(node *ASTNode, content string) string {
 	return content + " "
 }
 
-func (tp *TreeProcessor) processPredTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processPredTag(_ *ASTNode, content string) string {
 	// Pred tag - RDF predicate
 	// Process content and add trailing space for RDF readability
 	content = strings.TrimSpace(content)
@@ -3671,14 +3662,14 @@ func (tp *TreeProcessor) processPredTag(node *ASTNode, content string) string {
 	return content + " "
 }
 
-func (tp *TreeProcessor) processObjTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processObjTag(_ *ASTNode, content string) string {
 	// Obj tag - RDF object
 	// Process content without trailing space (it's the last element)
 	content = strings.TrimSpace(content)
 	return content
 }
 
-func (tp *TreeProcessor) processUniqTag(node *ASTNode, content string) string {
+func (tp *TreeProcessor) processUniqTag(_ *ASTNode, content string) string {
 	// Uniq tag - RDF unique/triple container
 	// Process content and format with proper spacing
 	content = strings.TrimSpace(content)

@@ -360,7 +360,7 @@ func TestASTNodeHelpers(t *testing.T) {
 	// Test FindFirstTagByName
 	randomTag := ast.FindFirstTagByName("random")
 	if randomTag == nil {
-		t.Error("Expected to find random tag")
+		t.Fatal("Expected to find random tag")
 	}
 
 	if randomTag.TagName != "random" {

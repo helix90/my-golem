@@ -344,7 +344,7 @@ func (p *ASTParser) parseTag() *ASTNode {
 }
 
 // parseClosingTag parses a closing tag
-func (p *ASTParser) parseClosingTag(startPos int) *ASTNode {
+func (p *ASTParser) parseClosingTag(_ int) *ASTNode {
 	p.consume('/')
 	tagName := p.parseTagName()
 	if tagName == "" {

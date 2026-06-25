@@ -318,7 +318,7 @@ func (cd *ConflictDetection) generateAmbiguitySuggestions(pattern1, pattern2 str
 	}
 }
 
-func (cd *ConflictDetection) generatePrioritySuggestions(pattern1, pattern2 string) []string {
+func (cd *ConflictDetection) generatePrioritySuggestions(_, _ string) []string {
 	return []string{
 		"Reorder patterns by specificity",
 		"Add priority indicators",
@@ -327,7 +327,7 @@ func (cd *ConflictDetection) generatePrioritySuggestions(pattern1, pattern2 stri
 	}
 }
 
-func (cd *ConflictDetection) generateWildcardSuggestions(pattern1, pattern2 string) []string {
+func (cd *ConflictDetection) generateWildcardSuggestions(_, _ string) []string {
 	return []string{
 		"Use consistent wildcard types",
 		"Limit wildcard usage",
@@ -336,7 +336,7 @@ func (cd *ConflictDetection) generateWildcardSuggestions(pattern1, pattern2 stri
 	}
 }
 
-func (cd *ConflictDetection) generateSpecificitySuggestions(pattern1, pattern2 string) []string {
+func (cd *ConflictDetection) generateSpecificitySuggestions(_, _ string) []string {
 	return []string{
 		"Balance pattern specificity",
 		"Use consistent pattern complexity",

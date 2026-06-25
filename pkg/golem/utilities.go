@@ -159,23 +159,6 @@ func (u *Utilities) convertToGoTimeFormat(format string) string {
 	return result
 }
 
-// isCustomTimeFormat checks if a format is a custom time format
-func (u *Utilities) isCustomTimeFormat(format string) bool {
-	customFormats := []string{
-		"HH:mm:ss", "HH:mm", "h:mm:ss a", "h:mm a", "h:mm",
-		"HH:mm:ss a", "HH:mm a", "yyyy-MM-dd", "MM/dd/yyyy",
-		"dd/MM/yyyy", "MMMM dd, yyyy", "MMM dd, yyyy",
-		"dd MMM yyyy", "yyyy", "MM", "dd", "HH", "mm", "ss", "a", "aa", "aaa",
-	}
-
-	for _, custom := range customFormats {
-		if format == custom {
-			return true
-		}
-	}
-	return false
-}
-
 // looksLikeGoTimeFormat checks if a format looks like a Go time format
 func (u *Utilities) looksLikeGoTimeFormat(format string) bool {
 	goTimeChars := "20060102150405"

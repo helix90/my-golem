@@ -1,6 +1,7 @@
 package golem
 
 import (
+	"container/list"
 	"fmt"
 	"io"
 	"log"
@@ -100,8 +101,10 @@ type RegexCache struct {
 	MaxSize     int                       `json:"max_size"`
 	TTL         int64                     `json:"ttl_seconds"`
 	Timestamps  map[string]time.Time      `json:"timestamps"`
-	AccessOrder []string                  `json:"access_order"` // For LRU eviction
+	AccessOrder []string                  `json:"access_order"` // Kept for JSON compat; not populated
 	mutex       sync.RWMutex              // Mutex for thread-safe access
+	lruList     *list.List                // O(1) LRU ordering
+	lruIndex    map[string]*list.Element  // O(1) element lookup
 }
 
 // TextNormalizationCache represents a cache for text normalization results
@@ -112,9 +115,11 @@ type TextNormalizationCache struct {
 	MaxSize     int                  `json:"max_size"`
 	TTL         int64                `json:"ttl_seconds"`
 	Timestamps  map[string]time.Time `json:"timestamps"`
-	AccessOrder []string             `json:"access_order"` // For LRU eviction
+	AccessOrder []string             `json:"access_order"` // Kept for JSON compat; not populated
 	// Mutex for thread safety
-	mutex sync.RWMutex
+	mutex    sync.RWMutex
+	lruList  *list.List
+	lruIndex map[string]*list.Element
 }
 
 // VariableResolutionCache represents a cache for variable resolution results
@@ -125,9 +130,11 @@ type VariableResolutionCache struct {
 	MaxSize     int                  `json:"max_size"`
 	TTL         int64                `json:"ttl_seconds"`
 	Timestamps  map[string]time.Time `json:"timestamps"`
-	AccessOrder []string             `json:"access_order"` // For LRU eviction
+	AccessOrder []string             `json:"access_order"` // Kept for JSON compat; not populated
 	// Scope tracking for cache invalidation
-	ScopeHashes map[string]string `json:"scope_hashes"` // Maps cache key to scope hash
+	ScopeHashes map[string]string        `json:"scope_hashes"` // Maps cache key to scope hash
+	lruList     *list.List
+	lruIndex    map[string]*list.Element
 }
 
 // TemplateTagProcessingCache represents a cache for template tag processing results
@@ -138,13 +145,15 @@ type TemplateTagProcessingCache struct {
 	MaxSize     int                  `json:"max_size"`
 	TTL         int64                `json:"ttl_seconds"`
 	Timestamps  map[string]time.Time `json:"timestamps"`
-	AccessOrder []string             `json:"access_order"` // For LRU eviction
+	AccessOrder []string             `json:"access_order"` // Kept for JSON compat; not populated
 	// Tag type tracking for cache invalidation
 	TagTypes map[string]string `json:"tag_types"` // Maps cache key to tag type
 	// Context tracking for cache invalidation
 	ContextHashes map[string]string `json:"context_hashes"` // Maps cache key to context hash
 	// Mutex for thread safety
-	mutex sync.RWMutex
+	mutex    sync.RWMutex
+	lruList  *list.List
+	lruIndex map[string]*list.Element
 }
 
 // PatternMatchingCache represents a cache for pattern matching results
@@ -163,13 +172,15 @@ type PatternMatchingCache struct {
 	MaxSize     int                  `json:"max_size"`
 	TTL         int64                `json:"ttl_seconds"`
 	Timestamps  map[string]time.Time `json:"timestamps"`
-	AccessOrder []string             `json:"access_order"` // For LRU eviction
+	AccessOrder []string             `json:"access_order"` // Kept for JSON compat; not populated
 	// Knowledge base state tracking for invalidation
 	KnowledgeBaseHash string `json:"knowledge_base_hash"`
 	// Set state tracking for invalidation
 	SetHashes map[string]string `json:"set_hashes"` // Maps set name to content hash
 	// Mutex for thread safety
-	mutex sync.RWMutex
+	mutex    sync.RWMutex
+	lruList  *list.List
+	lruIndex map[string]*list.Element
 }
 
 // WildcardMatchResult represents the result of a wildcard pattern match
@@ -297,13 +308,13 @@ type Golem struct {
 // NewRegexCache creates a new regex cache
 func NewRegexCache(maxSize int, ttlSeconds int64) *RegexCache {
 	return &RegexCache{
-		Patterns:    make(map[string]*regexp.Regexp),
-		Hits:        make(map[string]int),
-		Misses:      0,
-		MaxSize:     maxSize,
-		TTL:         ttlSeconds,
-		Timestamps:  make(map[string]time.Time),
-		AccessOrder: make([]string, 0),
+		Patterns:   make(map[string]*regexp.Regexp),
+		Hits:       make(map[string]int),
+		MaxSize:    maxSize,
+		TTL:        ttlSeconds,
+		Timestamps: make(map[string]time.Time),
+		lruList:    list.New(),
+		lruIndex:   make(map[string]*list.Element),
 	}
 }
 
@@ -348,18 +359,14 @@ func (cache *RegexCache) GetCompiledRegex(pattern string) (*regexp.Regexp, error
 	return compiled, nil
 }
 
-// updateAccessOrder updates the LRU access order
+// updateAccessOrder updates the LRU access order in O(1).
 // Note: This method assumes the caller holds the appropriate lock
 func (cache *RegexCache) updateAccessOrder(pattern string) {
-	// Remove from current position
-	for i, p := range cache.AccessOrder {
-		if p == pattern {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[pattern]; ok {
+		cache.lruList.MoveToBack(elem)
+	} else {
+		cache.lruIndex[pattern] = cache.lruList.PushBack(pattern)
 	}
-	// Add to end (most recently used)
-	cache.AccessOrder = append(cache.AccessOrder, pattern)
 }
 
 // setPattern adds a pattern to the cache with LRU eviction
@@ -381,26 +388,20 @@ func (cache *RegexCache) removePattern(pattern string) {
 	delete(cache.Patterns, pattern)
 	delete(cache.Timestamps, pattern)
 	delete(cache.Hits, pattern)
-
-	// Remove from access order
-	for i, p := range cache.AccessOrder {
-		if p == pattern {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[pattern]; ok {
+		cache.lruList.Remove(elem)
+		delete(cache.lruIndex, pattern)
 	}
 }
 
-// evictLRU removes the least recently used pattern
+// evictLRU removes the least recently used pattern in O(1).
 // Note: This method assumes the caller holds the appropriate lock
 func (cache *RegexCache) evictLRU() {
-	if len(cache.AccessOrder) == 0 {
+	front := cache.lruList.Front()
+	if front == nil {
 		return
 	}
-
-	// Remove the first (oldest) pattern
-	oldestPattern := cache.AccessOrder[0]
-	cache.removePattern(oldestPattern)
+	cache.removePattern(front.Value.(string))
 }
 
 // GetCacheStats returns cache statistics
@@ -432,19 +433,20 @@ func (cache *RegexCache) ClearCache() {
 	cache.Hits = make(map[string]int)
 	cache.Misses = 0
 	cache.Timestamps = make(map[string]time.Time)
-	cache.AccessOrder = make([]string, 0)
+	cache.lruList = list.New()
+	cache.lruIndex = make(map[string]*list.Element)
 }
 
 // NewTextNormalizationCache creates a new text normalization cache
 func NewTextNormalizationCache(maxSize int, ttlSeconds int64) *TextNormalizationCache {
 	return &TextNormalizationCache{
-		Results:     make(map[string]string),
-		Hits:        make(map[string]int),
-		Misses:      0,
-		MaxSize:     maxSize,
-		TTL:         ttlSeconds,
-		Timestamps:  make(map[string]time.Time),
-		AccessOrder: make([]string, 0),
+		Results:    make(map[string]string),
+		Hits:       make(map[string]int),
+		MaxSize:    maxSize,
+		TTL:        ttlSeconds,
+		Timestamps: make(map[string]time.Time),
+		lruList:    list.New(),
+		lruIndex:   make(map[string]*list.Element),
 	}
 }
 
@@ -508,17 +510,13 @@ func (cache *TextNormalizationCache) GetNormalizedText(golem *Golem, input strin
 	return result, nil
 }
 
-// updateAccessOrder updates the LRU access order
+// updateAccessOrder updates the LRU access order in O(1).
 func (cache *TextNormalizationCache) updateAccessOrder(key string) {
-	// Remove from current position
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.MoveToBack(elem)
+	} else {
+		cache.lruIndex[key] = cache.lruList.PushBack(key)
 	}
-	// Add to end (most recently used)
-	cache.AccessOrder = append(cache.AccessOrder, key)
 }
 
 // setResult adds a result to the cache with LRU eviction
@@ -539,25 +537,19 @@ func (cache *TextNormalizationCache) removeResult(key string) {
 	delete(cache.Results, key)
 	delete(cache.Timestamps, key)
 	delete(cache.Hits, key)
-
-	// Remove from access order
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.Remove(elem)
+		delete(cache.lruIndex, key)
 	}
 }
 
-// evictLRU removes the least recently used result
+// evictLRU removes the least recently used result in O(1).
 func (cache *TextNormalizationCache) evictLRU() {
-	if len(cache.AccessOrder) == 0 {
+	front := cache.lruList.Front()
+	if front == nil {
 		return
 	}
-
-	// Remove the first (oldest) result
-	oldestKey := cache.AccessOrder[0]
-	cache.removeResult(oldestKey)
+	cache.removeResult(front.Value.(string))
 }
 
 // GetCacheStats returns cache statistics
@@ -589,7 +581,8 @@ func (cache *TextNormalizationCache) ClearCache() {
 	cache.Hits = make(map[string]int)
 	cache.Misses = 0
 	cache.Timestamps = make(map[string]time.Time)
-	cache.AccessOrder = make([]string, 0)
+	cache.lruList = list.New()
+	cache.lruIndex = make(map[string]*list.Element)
 }
 
 // NewVariableResolutionCache creates a new variable resolution cache
@@ -597,12 +590,12 @@ func NewVariableResolutionCache(maxSize int, ttlSeconds int64) *VariableResoluti
 	return &VariableResolutionCache{
 		Results:     make(map[string]string),
 		Hits:        make(map[string]int),
-		Misses:      0,
 		MaxSize:     maxSize,
 		TTL:         ttlSeconds,
 		Timestamps:  make(map[string]time.Time),
-		AccessOrder: make([]string, 0),
 		ScopeHashes: make(map[string]string),
+		lruList:     list.New(),
+		lruIndex:    make(map[string]*list.Element),
 	}
 }
 
@@ -700,17 +693,13 @@ func (cache *VariableResolutionCache) generateScopeHash(ctx *VariableContext) st
 	return strings.Join(scopeData, "|")
 }
 
-// updateAccessOrder updates the LRU access order
+// updateAccessOrder updates the LRU access order in O(1).
 func (cache *VariableResolutionCache) updateAccessOrder(key string) {
-	// Remove from current position
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.MoveToBack(elem)
+	} else {
+		cache.lruIndex[key] = cache.lruList.PushBack(key)
 	}
-	// Add to end (most recently used)
-	cache.AccessOrder = append(cache.AccessOrder, key)
 }
 
 // setResult adds a result to the cache with LRU eviction
@@ -732,25 +721,19 @@ func (cache *VariableResolutionCache) removeResult(key string) {
 	delete(cache.Timestamps, key)
 	delete(cache.Hits, key)
 	delete(cache.ScopeHashes, key)
-
-	// Remove from access order
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.Remove(elem)
+		delete(cache.lruIndex, key)
 	}
 }
 
-// evictLRU removes the least recently used result
+// evictLRU removes the least recently used result in O(1).
 func (cache *VariableResolutionCache) evictLRU() {
-	if len(cache.AccessOrder) == 0 {
+	front := cache.lruList.Front()
+	if front == nil {
 		return
 	}
-
-	// Remove the first (oldest) result
-	oldestKey := cache.AccessOrder[0]
-	cache.removeResult(oldestKey)
+	cache.removeResult(front.Value.(string))
 }
 
 // GetCacheStats returns cache statistics
@@ -783,8 +766,9 @@ func (cache *VariableResolutionCache) ClearCache() {
 	cache.Hits = make(map[string]int)
 	cache.Misses = 0
 	cache.Timestamps = make(map[string]time.Time)
-	cache.AccessOrder = make([]string, 0)
 	cache.ScopeHashes = make(map[string]string)
+	cache.lruList = list.New()
+	cache.lruIndex = make(map[string]*list.Element)
 }
 
 // NewTemplateTagProcessingCache creates a new template tag processing cache
@@ -792,13 +776,13 @@ func NewTemplateTagProcessingCache(maxSize int, ttlSeconds int64) *TemplateTagPr
 	return &TemplateTagProcessingCache{
 		Results:       make(map[string]string),
 		Hits:          make(map[string]int),
-		Misses:        0,
 		MaxSize:       maxSize,
 		TTL:           ttlSeconds,
 		Timestamps:    make(map[string]time.Time),
-		AccessOrder:   make([]string, 0),
 		TagTypes:      make(map[string]string),
 		ContextHashes: make(map[string]string),
+		lruList:       list.New(),
+		lruIndex:      make(map[string]*list.Element),
 	}
 }
 
@@ -928,18 +912,14 @@ func (cache *TemplateTagProcessingCache) generateContextHash(ctx *VariableContex
 	return strings.Join(contextData, "|")
 }
 
-// updateAccessOrder updates the LRU access order
+// updateAccessOrder updates the LRU access order in O(1).
 // Note: This method assumes the caller holds the appropriate lock
 func (cache *TemplateTagProcessingCache) updateAccessOrder(key string) {
-	// Remove from current position
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.MoveToBack(elem)
+	} else {
+		cache.lruIndex[key] = cache.lruList.PushBack(key)
 	}
-	// Add to end (most recently used)
-	cache.AccessOrder = append(cache.AccessOrder, key)
 }
 
 // setResult adds a result to the cache with LRU eviction
@@ -965,26 +945,20 @@ func (cache *TemplateTagProcessingCache) removeResult(key string) {
 	delete(cache.Hits, key)
 	delete(cache.TagTypes, key)
 	delete(cache.ContextHashes, key)
-
-	// Remove from access order
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.Remove(elem)
+		delete(cache.lruIndex, key)
 	}
 }
 
-// evictLRU removes the least recently used result
+// evictLRU removes the least recently used result in O(1).
 // Note: This method assumes the caller holds the appropriate lock
 func (cache *TemplateTagProcessingCache) evictLRU() {
-	if len(cache.AccessOrder) == 0 {
+	front := cache.lruList.Front()
+	if front == nil {
 		return
 	}
-
-	// Remove the first (oldest) result
-	oldestKey := cache.AccessOrder[0]
-	cache.removeResult(oldestKey)
+	cache.removeResult(front.Value.(string))
 }
 
 // GetCacheStats returns cache statistics
@@ -1024,9 +998,10 @@ func (cache *TemplateTagProcessingCache) ClearCache() {
 	cache.Hits = make(map[string]int)
 	cache.Misses = 0
 	cache.Timestamps = make(map[string]time.Time)
-	cache.AccessOrder = make([]string, 0)
 	cache.TagTypes = make(map[string]string)
 	cache.ContextHashes = make(map[string]string)
+	cache.lruList = list.New()
+	cache.lruIndex = make(map[string]*list.Element)
 }
 
 // InvalidateTagType invalidates cache entries for a specific tag type
@@ -2771,13 +2746,12 @@ func NewPatternMatchingCache(maxSize int, ttlSeconds int64) *PatternMatchingCach
 		SetRegexes:        make(map[string]string),
 		ExactMatchKeys:    make(map[string]string),
 		Hits:              make(map[string]int),
-		Misses:            0,
 		MaxSize:           maxSize,
 		TTL:               ttlSeconds,
 		Timestamps:        make(map[string]time.Time),
-		AccessOrder:       make([]string, 0),
-		KnowledgeBaseHash: "",
 		SetHashes:         make(map[string]string),
+		lruList:           list.New(),
+		lruIndex:          make(map[string]*list.Element),
 	}
 }
 
@@ -2957,17 +2931,13 @@ func (cache *PatternMatchingCache) generateExactMatchKey(input, topic, that stri
 	return fmt.Sprintf("%s|%s|%s|%d", input, topic, that, thatIndex)
 }
 
-// updateAccessOrder updates the LRU access order
+// updateAccessOrder updates the LRU access order in O(1).
 func (cache *PatternMatchingCache) updateAccessOrder(key string) {
-	// Remove from current position
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.MoveToBack(elem)
+	} else {
+		cache.lruIndex[key] = cache.lruList.PushBack(key)
 	}
-	// Add to end (most recently used)
-	cache.AccessOrder = append(cache.AccessOrder, key)
 }
 
 // removePatternPriority removes a pattern priority from the cache
@@ -3003,26 +2973,22 @@ func (cache *PatternMatchingCache) removeExactMatchKey(cacheKey string) {
 	cache.removeFromAccessOrder(cacheKey)
 }
 
-// removeFromAccessOrder removes a key from the access order
+// removeFromAccessOrder removes a key from the LRU list in O(1).
 func (cache *PatternMatchingCache) removeFromAccessOrder(key string) {
-	for i, k := range cache.AccessOrder {
-		if k == key {
-			cache.AccessOrder = append(cache.AccessOrder[:i], cache.AccessOrder[i+1:]...)
-			break
-		}
+	if elem, ok := cache.lruIndex[key]; ok {
+		cache.lruList.Remove(elem)
+		delete(cache.lruIndex, key)
 	}
 }
 
-// evictLRU removes the least recently used item
+// evictLRU removes the least recently used item in O(1).
 func (cache *PatternMatchingCache) evictLRU() {
-	if len(cache.AccessOrder) == 0 {
+	front := cache.lruList.Front()
+	if front == nil {
 		return
 	}
-
-	// Remove the first (oldest) item
-	oldestKey := cache.AccessOrder[0]
-
-	// Remove from all caches
+	oldestKey := front.Value.(string)
+	// Remove from all sub-caches; removeFromAccessOrder is called inside each remove*.
 	cache.removePatternPriority(oldestKey)
 	cache.removeWildcardMatch(oldestKey)
 	cache.removeSetRegex(oldestKey)
@@ -3066,9 +3032,10 @@ func (cache *PatternMatchingCache) ClearCache() {
 	cache.Hits = make(map[string]int)
 	cache.Misses = 0
 	cache.Timestamps = make(map[string]time.Time)
-	cache.AccessOrder = make([]string, 0)
 	cache.KnowledgeBaseHash = ""
 	cache.SetHashes = make(map[string]string)
+	cache.lruList = list.New()
+	cache.lruIndex = make(map[string]*list.Element)
 }
 
 // InvalidateKnowledgeBase invalidates all caches when knowledge base changes

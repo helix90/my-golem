@@ -296,39 +296,6 @@ func (f *FuzzyContextMatcher) stemWord(word string) string {
 	return word
 }
 
-// calculateWordSimilarity calculates similarity between two individual words
-func (f *FuzzyContextMatcher) calculateWordSimilarity(word1, word2 string) float64 {
-	// Normalize both words
-	norm1 := f.normalizeString(word1)
-	norm2 := f.normalizeString(word2)
-
-	// Try exact match first
-	if norm1 == norm2 {
-		return 1.0
-	}
-
-	// Calculate edit distance similarity
-	editDistance := f.levenshteinDistance(norm1, norm2)
-	maxLen := math.Max(float64(len(norm1)), float64(len(norm2)))
-
-	if maxLen == 0 {
-		return 1.0
-	}
-
-	editSimilarity := 1.0 - (float64(editDistance) / maxLen)
-
-	// Calculate phonetic similarity
-	phoneticSimilarity := 0.0
-	if f.PhoneticMatching {
-		phoneticSimilarity = f.calculatePhoneticSimilarity(norm1, norm2)
-	}
-
-	// Combine similarities
-	similarity := (editSimilarity * 0.7) + (phoneticSimilarity * 0.3)
-
-	return similarity
-}
-
 // SemanticContextMatcher provides semantic similarity matching
 type SemanticContextMatcher struct {
 	Synonyms       map[string][]string

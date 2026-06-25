@@ -6,15 +6,6 @@ import (
 	"testing"
 )
 
-// Helper function to get keys from a map
-func getKeys(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 func TestEnhancedDirectoryLoading(t *testing.T) {
 	// Test loading the test data directory
 	g := NewForTesting(t, true)

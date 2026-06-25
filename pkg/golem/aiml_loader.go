@@ -116,16 +116,6 @@ func (al *AIMLLoader) parseAIML(content string) (*AIML, error) {
 	return &aiml, nil
 }
 
-// parseCategory parses a single category
-func (al *AIMLLoader) parseCategory(content string) (Category, error) {
-	var category Category
-	err := xml.Unmarshal([]byte(content), &category)
-	if err != nil {
-		return category, fmt.Errorf("category parsing error: %v", err)
-	}
-	return category, nil
-}
-
 // removeComments removes XML comments from content
 func (al *AIMLLoader) removeComments(content string) string {
 	commentPattern := regexp.MustCompile(`<!--.*?-->`)

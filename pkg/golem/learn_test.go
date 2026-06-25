@@ -6,14 +6,6 @@ import (
 	"testing"
 )
 
-// normalizeWhitespace normalizes whitespace for comparison
-func normalizeWhitespace(s string) string {
-	// Replace multiple spaces with single space
-	s = regexp.MustCompile(`\s+`).ReplaceAllString(s, " ")
-	// Trim leading/trailing whitespace
-	return strings.TrimSpace(s)
-}
-
 // TestLearnTagProcessing tests basic learn tag processing
 func TestLearnTagProcessing(t *testing.T) {
 	g := NewForTesting(t, false) // Disable verbose logging for tests

@@ -15,6 +15,13 @@ import (
 	"unicode"
 )
 
+// Package-level compiled regexes — avoids re-compilation inside hot paths.
+var (
+	patternSetTagRe   = regexp.MustCompile(`<set>([^<]+)</set>`)
+	patternTopicTagRe = regexp.MustCompile(`<topic>([^<]+)</topic>`)
+	whitespaceNormRe  = regexp.MustCompile(`\s+`)
+)
+
 // AIML represents the root AIML document
 type AIML struct {
 	Version    string
@@ -1744,18 +1751,15 @@ func matchPatternWithWildcardsAndSetsCasePreservingCached(g *Golem, normalizedIn
 func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalizedInput, originalInput, pattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
 	wildcards := make(map[string]string)
 
-	// Convert pattern to regex with set support
-	// If the pattern is lowercase, we need to make the regex case-insensitive
+	// Convert pattern to regex with set support.
+	// If the pattern is lowercase, make the regex case-insensitive.
 	regexPattern := patternToRegexWithSetsCached(g, pattern, kb)
-
-	// If the pattern is lowercase, make the regex case-insensitive
 	if pattern != strings.ToUpper(pattern) {
-		// Make the regex case-insensitive by adding (?i) flag
 		regexPattern = "(?i)" + regexPattern
 	}
 
-	re, err := regexp.Compile(regexPattern)
-	if err != nil {
+	re := getCompiledRegex(g, regexPattern)
+	if re == nil {
 		return false, nil
 	}
 
@@ -1764,23 +1768,21 @@ func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalized
 		return false, nil
 	}
 
-	// First extract wildcards from normalized input (fallback/default behavior)
+	// Extract wildcards from normalized input (fallback/default behaviour).
 	starIndex := 1
 	for _, match := range matches[1:] {
 		wildcards[fmt.Sprintf("star%d", starIndex)] = match
 		starIndex++
 	}
 
-	// If original input is different from normalized input, try case-preserving extraction
+	// If original input is different from normalized input, try case-preserving extraction.
 	if originalInput != normalizedInput {
-		// First try: Extract from case-preserved (but still punctuation-normalized) input
+		// First try: extract from case-preserved (punctuation-normalised) input.
 		originalNormalized := NormalizeForMatchingCasePreserving(originalInput)
 		lowercasePattern := strings.ToLower(pattern)
 		lowercaseRegexPattern := patternToRegexWithSetsCached(g, lowercasePattern, kb)
-		lowercaseRe, err := regexp.Compile(lowercaseRegexPattern)
-		if err == nil {
-			casePreservedMatches := lowercaseRe.FindStringSubmatch(originalNormalized)
-			if len(casePreservedMatches) > 1 {
+		if lowercaseRe := getCompiledRegex(g, lowercaseRegexPattern); lowercaseRe != nil {
+			if casePreservedMatches := lowercaseRe.FindStringSubmatch(originalNormalized); len(casePreservedMatches) > 1 {
 				starIndex := 1
 				for _, match := range casePreservedMatches[1:] {
 					wildcards[fmt.Sprintf("star%d", starIndex)] = match
@@ -1789,24 +1791,16 @@ func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalized
 			}
 		}
 
-		// Second try: Extract from completely unnormalized input to preserve punctuation
-		// This is done by creating a regex that's very lenient (case-insensitive, whitespace-flexible)
-		// Build a lenient regex from the pattern
+		// Second try: extract from completely unnormalised input to preserve punctuation.
 		lenientPattern := strings.ToLower(pattern)
-		// Replace wildcards with a pattern that captures everything (including punctuation)
 		lenientPattern = strings.ReplaceAll(lenientPattern, "*", "(.+?)")
 		lenientPattern = strings.ReplaceAll(lenientPattern, "_", "([\\w]+)")
-		// Make whitespace flexible
-		lenientPattern = regexp.MustCompile(`\s+`).ReplaceAllString(lenientPattern, `\s+`)
-		// Make it case-insensitive and add anchors
-		lenientRegex, err := regexp.Compile("(?i)^\\s*" + lenientPattern + "\\s*$")
-		if err == nil {
-			unnormalizedMatches := lenientRegex.FindStringSubmatch(originalInput)
-			if len(unnormalizedMatches) > 1 {
-				// Overwrite with completely unnormalized values (preserving punctuation)
+		lenientPattern = whitespaceNormRe.ReplaceAllString(lenientPattern, `\s+`)
+		lenientRegexStr := "(?i)^\\s*" + lenientPattern + "\\s*$"
+		if lenientRe := getCompiledRegex(g, lenientRegexStr); lenientRe != nil {
+			if unnormalizedMatches := lenientRe.FindStringSubmatch(originalInput); len(unnormalizedMatches) > 1 {
 				starIndex := 1
 				for _, match := range unnormalizedMatches[1:] {
-					// Trim whitespace from wildcard values
 					wildcards[fmt.Sprintf("star%d", starIndex)] = strings.TrimSpace(match)
 					starIndex++
 				}
@@ -1816,15 +1810,30 @@ func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalized
 	return true, wildcards
 }
 
+// getCompiledRegex returns a cached *regexp.Regexp for the given regex string, compiling it if necessary.
+// When g is nil (no Golem context), it compiles without caching.
+func getCompiledRegex(g *Golem, regexStr string) *regexp.Regexp {
+	if g != nil && g.patternRegexCache != nil {
+		re, err := g.patternRegexCache.GetCompiledRegex(regexStr)
+		if err != nil {
+			return nil
+		}
+		return re
+	}
+	re, err := regexp.Compile(regexStr)
+	if err != nil {
+		return nil
+	}
+	return re
+}
+
 // patternToRegex converts AIML pattern to regex with enhanced set and topic matching
 func patternToRegex(pattern string) string {
 	// Handle set matching first (before escaping)
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	pattern = setPattern.ReplaceAllString(pattern, "([^\\s]*)")
+	pattern = patternSetTagRe.ReplaceAllString(pattern, "([^\\s]*)")
 
 	// Handle topic matching (before escaping)
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	pattern = topicPattern.ReplaceAllString(pattern, "([^\\s]*)")
+	pattern = patternTopicTagRe.ReplaceAllString(pattern, "([^\\s]*)")
 
 	// Build regex pattern by processing each character
 	var result strings.Builder
@@ -1878,18 +1887,12 @@ func patternToRegex(pattern string) string {
 	return "^" + result.String() + "$"
 }
 
-// patternToRegexWithSets converts AIML pattern to regex with proper set matching
-func patternToRegexWithSets(pattern string, kb *AIMLKnowledgeBase) string {
-	return patternToRegexWithSetsCached(nil, pattern, kb)
-}
-
 // patternToRegexWithSetsCached converts AIML pattern to regex with proper set matching and caching
 func patternToRegexWithSetsCached(g *Golem, pattern string, kb *AIMLKnowledgeBase) string {
 	// Handle set matching with proper set validation
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	pattern = setPattern.ReplaceAllStringFunc(pattern, func(match string) string {
+	pattern = patternSetTagRe.ReplaceAllStringFunc(pattern, func(match string) string {
 		// Extract set name using regex groups
-		matches := setPattern.FindStringSubmatch(match)
+		matches := patternSetTagRe.FindStringSubmatch(match)
 		if len(matches) < 2 {
 			return "([^\\s]*)"
 		}
@@ -1940,8 +1943,7 @@ func patternToRegexWithSetsCached(g *Golem, pattern string, kb *AIMLKnowledgeBas
 	})
 
 	// Handle topic matching
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	pattern = topicPattern.ReplaceAllString(pattern, "([^\\s]*)")
+	pattern = patternTopicTagRe.ReplaceAllString(pattern, "([^\\s]*)")
 
 	// Build regex pattern by processing each character
 	var result strings.Builder
@@ -2204,7 +2206,7 @@ func (g *Golem) processGenderTagsWithContext(template string, ctx *VariableConte
 }
 
 // processPerson2TagsWithContext processes <person2> tags for first-to-third person pronoun substitution
-func (g *Golem) processPerson2TagsWithContext(template string, ctx *VariableContext) string {
+func (g *Golem) processPerson2TagsWithContext(template string, _ *VariableContext) string {
 	// Find all <person2> tags (including multiline content)
 	person2TagRegex := regexp.MustCompile(`(?s)<person2>(.*?)</person2>`)
 	matches := person2TagRegex.FindAllStringSubmatch(template, -1)
@@ -2587,7 +2589,7 @@ func (g *Golem) processSRAITagsWithContext(template string, ctx *VariableContext
 
 // processSentenceTagsWithContext processes <sentence> tags for sentence-level processing
 // <sentence> tag capitalizes the first letter of each sentence
-func (g *Golem) processSentenceTagsWithContext(template string, ctx *VariableContext) string {
+func (g *Golem) processSentenceTagsWithContext(template string, _ *VariableContext) string {
 	// Find all <sentence> tags (including multiline content)
 	sentenceTagRegex := regexp.MustCompile(`(?s)<sentence>(.*?)</sentence>`)
 	matches := sentenceTagRegex.FindAllStringSubmatch(template, -1)
@@ -2618,7 +2620,7 @@ func (g *Golem) processSentenceTagsWithContext(template string, ctx *VariableCon
 
 // processWordTagsWithContext processes <word> tags for word-level processing
 // <word> tag capitalizes the first letter of each word
-func (g *Golem) processWordTagsWithContext(template string, ctx *VariableContext) string {
+func (g *Golem) processWordTagsWithContext(template string, _ *VariableContext) string {
 	// Find all <word> tags (including multiline content)
 	wordTagRegex := regexp.MustCompile(`(?s)<word>(.*?)</word>`)
 	matches := wordTagRegex.FindAllStringSubmatch(template, -1)
@@ -2693,7 +2695,7 @@ func (g *Golem) processUppercaseTagsWithContext(template string, ctx *VariableCo
 }
 
 // processLowercaseTagsWithContext processes <lowercase> tags for lowercasing text
-func (g *Golem) processLowercaseTagsWithContext(template string, ctx *VariableContext) string {
+func (g *Golem) processLowercaseTagsWithContext(template string, _ *VariableContext) string {
 	// Find all <lowercase> tags (including multiline content)
 	lowercaseTagRegex := regexp.MustCompile(`(?s)<lowercase>(.*?)</lowercase>`)
 	matches := lowercaseTagRegex.FindAllStringSubmatch(template, -1)
@@ -3766,33 +3768,6 @@ func (g *Golem) countOccurrences(content, search string) string {
 	return strconv.Itoa(count)
 }
 
-// splitSentences splits text into sentences based on sentence-ending punctuation
-func (g *Golem) splitSentences(text string) []string {
-	if text == "" {
-		return []string{}
-	}
-
-	// Split by sentence-ending punctuation followed by whitespace or end of string
-	// This handles . ! ? followed by space, newline, or end of string
-	sentenceRegex := regexp.MustCompile(`[.!?]+(?:\s+|$)`)
-	parts := sentenceRegex.Split(text, -1)
-
-	var sentences []string
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part != "" {
-			sentences = append(sentences, part)
-		}
-	}
-
-	// If no sentence-ending punctuation found, treat the whole text as one sentence
-	if len(sentences) == 0 {
-		sentences = append(sentences, strings.TrimSpace(text))
-	}
-
-	return sentences
-}
-
 // processSplitTagsWithContext processes <split> tags for text splitting
 // <split> tag splits text by delimiter with optional limit parameter
 func (g *Golem) processSplitTagsWithContext(template string, ctx *VariableContext) string {
@@ -4239,7 +4214,7 @@ func (g *Golem) randomInt(max int) int {
 
 // processNormalizeTagsWithContext processes <normalize> tags for text normalization
 // <normalize> tag normalizes text using the same logic as pattern matching
-func (g *Golem) processNormalizeTagsWithContext(template string, ctx *VariableContext) string {
+func (g *Golem) processNormalizeTagsWithContext(template string, _ *VariableContext) string {
 	// Process normalize tags iteratively until no more changes occur
 	// Note: For nested normalize tags, use tree processing (EnableTreeProcessing)
 	prevTemplate := ""
@@ -4274,7 +4249,7 @@ func (g *Golem) processNormalizeTagsWithContext(template string, ctx *VariableCo
 
 // processDenormalizeTagsWithContext processes <denormalize> tags for text denormalization
 // <denormalize> tag reverses the normalization process to restore more natural text
-func (g *Golem) processDenormalizeTagsWithContext(template string, ctx *VariableContext) string {
+func (g *Golem) processDenormalizeTagsWithContext(template string, _ *VariableContext) string {
 	// Process denormalize tags iteratively until no more changes occur
 	// Note: For nested denormalize tags, use tree processing (EnableTreeProcessing)
 	prevTemplate := ""
@@ -4763,7 +4738,7 @@ func (g *Golem) processConditionTagsWithContext(template string, ctx *VariableCo
 }
 
 // processConditionContentWithContext processes the content inside <condition> tags with variable context
-func (g *Golem) processConditionContentWithContext(content string, varName, actualValue, expectedValue string, ctx *VariableContext) string {
+func (g *Golem) processConditionContentWithContext(content string, _, actualValue, expectedValue string, ctx *VariableContext) string {
 	// Handle different condition types
 
 	// Type 1: Simple condition with value attribute
@@ -5271,45 +5246,6 @@ func (g *Golem) processThatTagsWithContext(template string, ctx *VariableContext
 	return template
 }
 
-// processSRAITags processes <srai> tags recursively
-func (g *Golem) processSRAITags(template string, session *ChatSession) string {
-	if g.aimlKB == nil {
-		return template
-	}
-
-	// Find all <srai> tags
-	sraiRegex := regexp.MustCompile(`<srai>(.*?)</srai>`)
-	matches := sraiRegex.FindAllStringSubmatch(template, -1)
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			sraiInput := strings.TrimSpace(match[1])
-			g.LogInfo("Processing SRAI: '%s'", sraiInput)
-
-			// Match the SRAI input as a new pattern
-			category, wildcards, err := g.aimlKB.MatchPattern(sraiInput)
-			if err != nil {
-				// If no match found, use the original SRAI text
-				g.LogInfo("SRAI no match for: '%s'", sraiInput)
-				continue
-			}
-
-			// Process the matched template
-			var sraiResponse string
-			if session != nil {
-				sraiResponse = g.ProcessTemplateWithSession(category.Template, wildcards, session)
-			} else {
-				sraiResponse = g.ProcessTemplate(category.Template, wildcards)
-			}
-
-			// Replace the SRAI tag with the processed response
-			template = strings.ReplaceAll(template, match[0], sraiResponse)
-		}
-	}
-
-	return template
-}
-
 // processThinkTags processes <think> tags for internal processing without output
 func (g *Golem) processThinkTags(template string, session *ChatSession) string {
 	// Find all <think> tags
@@ -5406,7 +5342,7 @@ func (g *Golem) processConditionTags(template string, session *ChatSession) stri
 }
 
 // processConditionContent processes the content inside <condition> tags
-func (g *Golem) processConditionContent(content string, varName, actualValue, expectedValue string, session *ChatSession) string {
+func (g *Golem) processConditionContent(content string, _, actualValue, expectedValue string, session *ChatSession) string {
 	// Handle different condition types
 
 	// Type 1: Simple condition with value attribute
@@ -6815,7 +6751,7 @@ func (session *ChatSession) AddToResponseHistoryEnhanced(response string, tags [
 }
 
 // updateContextAnalytics updates context analytics data
-func (session *ChatSession) updateContextAnalytics(contextType, content string, tags []string, metadata map[string]interface{}) {
+func (session *ChatSession) updateContextAnalytics(_, content string, tags []string, metadata map[string]interface{}) {
 	// Update usage count
 	session.ContextUsage[content]++
 
@@ -8663,16 +8599,6 @@ func (g *Golem) capitalizeFirstLetter(word string) string {
 	return string(runes)
 }
 
-// isWord checks if a string contains alphabetic characters (not just punctuation)
-func (g *Golem) isWord(s string) bool {
-	for _, r := range s {
-		if unicode.IsLetter(r) {
-			return true
-		}
-	}
-	return false
-}
-
 // GetWordBoundaries returns the positions of word boundaries in text
 func (wbd *WordBoundaryDetector) GetWordBoundaries(text string) []int {
 	var boundaries []int
@@ -9353,66 +9279,6 @@ func expandPatternWithTopics(pattern string, kb *AIMLKnowledgeBase) []string {
 	return expandedPatterns
 }
 
-// thatPatternToRegex converts a that pattern to regex with enhanced wildcard support
-func thatPatternToRegex(pattern string) string {
-	// Handle set matching first (before escaping)
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	pattern = setPattern.ReplaceAllString(pattern, "([^\\s]*)")
-
-	// Handle topic matching (before escaping)
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	pattern = topicPattern.ReplaceAllString(pattern, "([^\\s]*)")
-
-	// Build regex pattern by processing each character
-	var result strings.Builder
-	for i, char := range pattern {
-		switch char {
-		case '*':
-			// Zero+ wildcard: matches zero or more words
-			result.WriteString("(.*?)")
-		case '_':
-			// Single wildcard: matches exactly one word
-			result.WriteString("([^\\s]+)")
-		case '^':
-			// Caret wildcard: matches zero or more words (AIML2)
-			result.WriteString("(.*?)")
-		case '#':
-			// Hash wildcard: matches zero or more words with high priority (AIML2)
-			result.WriteString("(.*?)")
-		case '$':
-			// Dollar wildcard: highest priority exact match (AIML2)
-			// For regex purposes, treat as exact match (no wildcard capture)
-			continue
-		case ' ':
-			// Check if this space is followed by a wildcard or preceded by a wildcard
-			if (i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')) ||
-				(i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')) {
-				// This space is adjacent to a wildcard, make it optional
-				result.WriteString(" ?")
-			} else {
-				// Regular space
-				result.WriteRune(' ')
-			}
-		case '(', ')', '[', ']', '{', '}', '?', '+', '.':
-			// Escape special regex characters (but not | as it's needed for alternation)
-			result.WriteRune('\\')
-			result.WriteRune(char)
-		case '|':
-			// Don't escape pipe character as it's needed for alternation in sets
-			result.WriteRune('|')
-		default:
-			// Escape other special characters
-			if char < 32 || char > 126 {
-				result.WriteString(fmt.Sprintf("\\x%02x", char))
-			} else {
-				result.WriteRune(char)
-			}
-		}
-	}
-
-	return result.String()
-}
-
 // thatPatternToRegexWordBased converts a that pattern to regex using word-based processing
 func thatPatternToRegexWordBased(pattern string) string {
 	// Handle set matching first (before escaping)
@@ -9814,7 +9680,7 @@ func (g *Golem) processDynamicTemplate(templateContent string, ctx *VariableCont
 	// If we have wildcards from the teaching pattern, evaluate <star/> tags
 	// These refer to the wildcards from the OUTER pattern that triggered the learning
 	// Otherwise, preserve <star/> tags for runtime evaluation by the learned pattern
-	if ctx.Wildcards != nil && len(ctx.Wildcards) > 0 {
+	if len(ctx.Wildcards) > 0 {
 		// Process <star index="N"/> tags
 		starIndexRegex := regexp.MustCompile(`<star\s+index="(\d+)"\s*/>`)
 		starIndexMatches := starIndexRegex.FindAllStringSubmatch(processed, -1)
@@ -11637,55 +11503,6 @@ func (detector *ThatPatternConflictDetector) patternsAreAmbiguous(pattern1, patt
 	return false
 }
 
-// patternsHavePriorityConflict checks if patterns have unclear priority
-func (detector *ThatPatternConflictDetector) patternsHavePriorityConflict(pattern1, pattern2 string) bool {
-	// Check if patterns have similar priority but different specificity
-	specificity1 := detector.calculatePatternSpecificity(pattern1)
-	specificity2 := detector.calculatePatternSpecificity(pattern2)
-
-	// If specificity is very different but both could match, it's a priority conflict
-	if absFloat(specificity1-specificity2) > 0.5 {
-		// Check if both could match the same input
-		testCases := []string{"HELLO", "HELLO WORLD", "GOOD MORNING"}
-		for _, testCase := range testCases {
-			if detector.testPatternMatch(pattern1, testCase) && detector.testPatternMatch(pattern2, testCase) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// patternsHaveWildcardConflict checks for wildcard-related conflicts
-func (detector *ThatPatternConflictDetector) patternsHaveWildcardConflict(pattern1, pattern2 string) bool {
-	// Check for conflicting wildcard usage
-	wildcards1 := detector.countWildcards(pattern1)
-	wildcards2 := detector.countWildcards(pattern2)
-
-	// If one pattern has many wildcards and the other has few, it could be a conflict
-	if abs(wildcards1-wildcards2) > 3 {
-		// Check if they could match the same input
-		testCases := []string{"HELLO", "HELLO WORLD", "GOOD MORNING"}
-		for _, testCase := range testCases {
-			if detector.testPatternMatch(pattern1, testCase) && detector.testPatternMatch(pattern2, testCase) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// patternsHaveSpecificityConflict checks for specificity conflicts
-func (detector *ThatPatternConflictDetector) patternsHaveSpecificityConflict(pattern1, pattern2 string) bool {
-	specificity1 := detector.calculatePatternSpecificity(pattern1)
-	specificity2 := detector.calculatePatternSpecificity(pattern2)
-
-	// If specificity is very different, it might be a conflict
-	return absFloat(specificity1-specificity2) > 0.7
-}
-
 // Helper functions for conflict detection
 func (detector *ThatPatternConflictDetector) testPatternMatch(pattern, input string) bool {
 	// Simplified pattern matching for conflict detection
@@ -11796,7 +11613,7 @@ func (detector *ThatPatternConflictDetector) generateOverlapSuggestions(pattern1
 	}
 }
 
-func (detector *ThatPatternConflictDetector) generateAmbiguitySuggestions(pattern1, pattern2 string) []string {
+func (detector *ThatPatternConflictDetector) generateAmbiguitySuggestions(_, _ string) []string {
 	return []string{
 		"Reorder patterns to ensure proper priority",
 		"Make one pattern more specific than the other",
@@ -11805,7 +11622,7 @@ func (detector *ThatPatternConflictDetector) generateAmbiguitySuggestions(patter
 	}
 }
 
-func (detector *ThatPatternConflictDetector) generatePrioritySuggestions(pattern1, pattern2 string) []string {
+func (detector *ThatPatternConflictDetector) generatePrioritySuggestions(_, _ string) []string {
 	return []string{
 		"Reorder patterns to ensure more specific patterns come first",
 		"Use different wildcard types to create clear priority",
@@ -11814,7 +11631,7 @@ func (detector *ThatPatternConflictDetector) generatePrioritySuggestions(pattern
 	}
 }
 
-func (detector *ThatPatternConflictDetector) generateWildcardSuggestions(pattern1, pattern2 string) []string {
+func (detector *ThatPatternConflictDetector) generateWildcardSuggestions(_, _ string) []string {
 	return []string{
 		"Use consistent wildcard strategies across patterns",
 		"Consider using different wildcard types for different purposes",
@@ -11823,7 +11640,7 @@ func (detector *ThatPatternConflictDetector) generateWildcardSuggestions(pattern
 	}
 }
 
-func (detector *ThatPatternConflictDetector) generateSpecificitySuggestions(pattern1, pattern2 string) []string {
+func (detector *ThatPatternConflictDetector) generateSpecificitySuggestions(_, _ string) []string {
 	return []string{
 		"Adjust pattern specificity to create clear differentiation",
 		"Use more specific words in one pattern",
