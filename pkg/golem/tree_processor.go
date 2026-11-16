@@ -147,6 +147,13 @@ func (tp *TreeProcessor) trackMetric(processorName string) {
 
 // ProcessTemplate processes a template using tree-based approach
 func (tp *TreeProcessor) ProcessTemplate(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
+	// Nested calls (e.g. <srai>, <sr/>) reuse this processor, so restore the
+	// caller's context (and its recursion depth) when this call returns
+	oldCtx := tp.ctx
+	defer func() {
+		tp.ctx = oldCtx
+	}()
+
 	// Reset star counter for auto-incrementing <star/> tags
 	tp.starCounter = 0
 

@@ -137,6 +137,43 @@ func TestTreeProcessorSRAITag(t *testing.T) {
 	}
 }
 
+// TestTreeProcessorSRAIRestoresCallerState verifies that a nested <srai> does not
+// leak its context or recursion depth back into the calling template
+func TestTreeProcessorSRAIRestoresCallerState(t *testing.T) {
+	g := NewForTesting(t, false)
+	g.EnableTreeProcessing()
+	aiml := `
+<aiml version="2.0">
+    <category>
+        <pattern>A * B *</pattern>
+        <template>[<star/>|<srai>INNER</srai>|<star index="2"/>]</template>
+    </category>
+    <category>
+        <pattern>MANY</pattern>
+        <template>` + strings.Repeat("<srai>INNER</srai>", 20) + `</template>
+    </category>
+    <category>
+        <pattern>INNER</pattern>
+        <template>i</template>
+    </category>
+</aiml>`
+	if err := g.LoadAIMLFromString(aiml); err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	session := g.CreateSession("test-session")
+
+	response, _ := g.ProcessInput("a x b y", session)
+	if expected := "[x|i|y]"; response != expected {
+		t.Errorf("Wildcards after SRAI: expected '%s', got '%s'", expected, response)
+	}
+
+	// Sequential SRAIs must not accumulate recursion depth
+	response, _ = g.ProcessInput("many", session)
+	if expected := strings.Repeat("i", 20); response != expected {
+		t.Errorf("Sequential SRAIs: expected '%s', got '%s'", expected, response)
+	}
+}
+
 // TestTreeProcessorSRAIRecursion tests recursion depth handling
 func TestTreeProcessorSRAIRecursion(t *testing.T) {
 	g := NewForTesting(t, false)
