@@ -912,7 +912,7 @@ func TestUserNameIntegration(t *testing.T) {
 			ID:        "session1",
 			Variables: make(map[string]string),
 		}
-		session.Variables["telegram_user"] = "integration_test_user"
+		session.Variables["telegram_user"] = "7777777777"
 
 		response, err := g.ProcessInput("Call me Julia", session)
 		if err != nil {
@@ -947,7 +947,7 @@ func TestUserNameIntegration(t *testing.T) {
 			ID:        "session2",
 			Variables: make(map[string]string),
 		}
-		newSession.Variables["telegram_user"] = "integration_test_user"
+		newSession.Variables["telegram_user"] = "7777777777"
 
 		// Step 4: Query name - should auto-load
 		response, err = g2.ProcessInput("Do you remember my name", newSession)
@@ -983,7 +983,7 @@ func TestUserNameIntegration(t *testing.T) {
 			ID:        "session3",
 			Variables: make(map[string]string),
 		}
-		session3.Variables["telegram_user"] = "integration_test_user"
+		session3.Variables["telegram_user"] = "7777777777"
 
 		// Step 7: Verify updated name persisted
 		response, err = g3.ProcessInput("What is my name", session3)

@@ -279,7 +279,7 @@ func TestEdgeCaseErrorHandling(t *testing.T) {
 				<template>hello &amp; world</template>
 			</category>`,
 			input:    "test",
-			expected: "hello &amp; world", // Template content is returned as-is
+			expected: "hello & world", // XML entities are decoded in output
 		},
 		{
 			name: "Pattern with mixed scripts",

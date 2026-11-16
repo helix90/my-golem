@@ -1117,10 +1117,7 @@ func New(verbose bool) *Golem {
 	// Create pattern matching cache
 	patternMatchingCache := NewPatternMatchingCache(2000, 3600) // 2000 results, 1 hour TTL
 
-	// Create tree processor (will be initialized after Golem is created)
-	var treeProcessor *TreeProcessor
-
-	return &Golem{
+	g := &Golem{
 		verbose:                    verbose,
 		logLevel:                   logLevel,
 		logger:                     logger,
@@ -1142,9 +1139,12 @@ func New(verbose bool) *Golem {
 		templateTagProcessingCache: templateTagProcessingCache,
 		patternMatchingCache:       patternMatchingCache,
 		persistentLearning:         persistentLearning,
-		treeProcessor:              treeProcessor,
 		useTreeProcessing:          true, // Tree-based AST processing is now the default (correct AIML behavior)
 	}
+	// Created up front so concurrent template processing never races to
+	// initialize it
+	g.treeProcessor = NewTreeProcessor(g)
+	return g
 }
 
 // LogError logs an error message
@@ -1234,17 +1234,7 @@ func (g *Golem) LoadPersistentCategories() error {
 
 	// Add categories to the knowledge base
 	for _, category := range categories {
-		normalizedPattern := NormalizePattern(category.Pattern)
-
-		// Check if category already exists
-		if existingCategory, exists := g.aimlKB.Patterns[normalizedPattern]; exists {
-			// Update existing category
-			*existingCategory = category
-		} else {
-			// Add new category
-			g.aimlKB.Categories = append(g.aimlKB.Categories, category)
-			g.aimlKB.Patterns[normalizedPattern] = &g.aimlKB.Categories[len(g.aimlKB.Categories)-1]
-		}
+		g.aimlKB.addOrUpdateCategory(category)
 	}
 
 	g.LogInfo("Loaded %d persistent categories", len(categories))
@@ -1261,7 +1251,7 @@ func (g *Golem) SavePersistentCategories(source string) error {
 		return fmt.Errorf("no knowledge base available")
 	}
 
-	return g.persistentLearning.SavePersistentCategories(g.aimlKB.Categories, source)
+	return g.persistentLearning.SavePersistentCategories(g.aimlKB.snapshotCategories(), source)
 }
 
 // GetSessionLearningStats returns learning statistics for a session
@@ -1306,16 +1296,7 @@ func (g *Golem) ClearSessionLearning(sessionID string) error {
 
 	// Remove all session-learned categories from knowledge base
 	for _, category := range session.LearnedCategories {
-		normalizedPattern := NormalizePattern(category.Pattern)
-		delete(g.aimlKB.Patterns, normalizedPattern)
-
-		// Remove from categories slice
-		for i, cat := range g.aimlKB.Categories {
-			if NormalizePattern(cat.Pattern) == normalizedPattern {
-				g.aimlKB.Categories = append(g.aimlKB.Categories[:i], g.aimlKB.Categories[i+1:]...)
-				break
-			}
-		}
+		g.aimlKB.removeCategoryByKey(categoryKey(category))
 	}
 
 	// Clear session learning data
@@ -1338,7 +1319,7 @@ func (g *Golem) ClearSessionLearning(sessionID string) error {
 func (g *Golem) GetLearningSummary() map[string]interface{} {
 	summary := map[string]interface{}{
 		"total_sessions":   len(g.sessions),
-		"total_categories": len(g.aimlKB.Categories),
+		"total_categories": g.aimlKB.categoryCount(),
 		"session_stats":    make(map[string]interface{}),
 		"global_stats": map[string]interface{}{
 			"total_learned":     0,
@@ -2729,7 +2710,7 @@ func (g *Golem) generateKnowledgeBaseHash() string {
 	}
 
 	// Create a simple hash based on pattern count and set count
-	patternCount := len(g.aimlKB.Patterns)
+	patternCount := g.aimlKB.patternCount()
 	setCount := 0
 	if g.aimlKB.Sets != nil {
 		setCount = len(g.aimlKB.Sets)
@@ -2849,6 +2830,9 @@ func (cache *PatternMatchingCache) SetWildcardMatch(input, pattern string, resul
 
 // GetSetRegex returns a cached set regex
 func (cache *PatternMatchingCache) GetSetRegex(setName string, setContent []string) (string, bool) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
 	// Create content hash for set validation
 	contentHash := cache.generateSetContentHash(setContent)
 
@@ -2870,6 +2854,9 @@ func (cache *PatternMatchingCache) GetSetRegex(setName string, setContent []stri
 
 // SetSetRegex caches a set regex
 func (cache *PatternMatchingCache) SetSetRegex(setName string, setContent []string, regex string) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
 	contentHash := cache.generateSetContentHash(setContent)
 
 	// Evict if cache is full
@@ -2885,6 +2872,9 @@ func (cache *PatternMatchingCache) SetSetRegex(setName string, setContent []stri
 
 // GetExactMatchKey returns a cached exact match key
 func (cache *PatternMatchingCache) GetExactMatchKey(input, topic, that string, thatIndex int) (string, bool) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
 	cacheKey := cache.generateExactMatchKey(input, topic, that, thatIndex)
 
 	if key, exists := cache.ExactMatchKeys[cacheKey]; exists {
@@ -2905,6 +2895,9 @@ func (cache *PatternMatchingCache) GetExactMatchKey(input, topic, that string, t
 
 // SetExactMatchKey caches an exact match key
 func (cache *PatternMatchingCache) SetExactMatchKey(input, topic, that string, thatIndex int, key string) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
 	cacheKey := cache.generateExactMatchKey(input, topic, that, thatIndex)
 
 	// Evict if cache is full
@@ -2997,6 +2990,9 @@ func (cache *PatternMatchingCache) evictLRU() {
 
 // GetCacheStats returns cache statistics
 func (cache *PatternMatchingCache) GetCacheStats() map[string]interface{} {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+
 	totalRequests := cache.Misses
 	for _, hits := range cache.Hits {
 		totalRequests += hits
@@ -3025,6 +3021,13 @@ func (cache *PatternMatchingCache) GetCacheStats() map[string]interface{} {
 
 // ClearCache clears the pattern matching cache
 func (cache *PatternMatchingCache) ClearCache() {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	cache.clear()
+}
+
+// clear empties the cache. The caller must hold cache.mutex.
+func (cache *PatternMatchingCache) clear() {
 	cache.PatternPriorities = make(map[string]PatternPriorityInfo)
 	cache.WildcardMatches = make(map[string]WildcardMatchResult)
 	cache.SetRegexes = make(map[string]string)
@@ -3040,14 +3043,18 @@ func (cache *PatternMatchingCache) ClearCache() {
 
 // InvalidateKnowledgeBase invalidates all caches when knowledge base changes
 func (cache *PatternMatchingCache) InvalidateKnowledgeBase(newHash string) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	if cache.KnowledgeBaseHash != newHash {
-		cache.ClearCache()
+		cache.clear()
 		cache.KnowledgeBaseHash = newHash
 	}
 }
 
 // InvalidateSet invalidates set-related caches when a set changes
 func (cache *PatternMatchingCache) InvalidateSet(setName string) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	cache.removeSetRegex(setName)
 	// Also invalidate wildcard matches that might use this set
 	for key := range cache.WildcardMatches {

@@ -521,7 +521,7 @@ func TestRandomTagComprehensiveEdgeCases(t *testing.T) {
 		{
 			name:         "Random with special characters",
 			template:     `<random><li>&amp;</li><li>&lt;</li><li>&gt;</li></random>`,
-			validOptions: []string{"&amp;", "&lt;", "&gt;"}, // XML entities are preserved in output
+			validOptions: []string{"&", "<", ">"}, // XML entities are decoded in output
 		},
 		{
 			name:         "Random with long content",

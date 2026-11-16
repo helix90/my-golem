@@ -2,6 +2,8 @@ package golem
 
 import (
 	"fmt"
+	"html"
+	"sort"
 	"strings"
 )
 
@@ -29,6 +31,10 @@ type ASTNode struct {
 }
 
 // ASTParser handles parsing of AIML templates into AST
+//
+// DO NOT replace this with encoding/xml (xml.Unmarshal, xml.Decoder, or its
+// tokenizer). That approach has been tried and fails badly on AIML-specific
+// structures. Fix bugs within this hand-written parser instead.
 type ASTParser struct {
 	input string
 	pos   int
@@ -51,61 +57,67 @@ func (p *ASTParser) Parse() (*ASTNode, error) {
 		Children: []*ASTNode{},
 	}
 
-	p.parseChildren(root)
-
-	// If root has children, change its type to indicate it's a container
-	if len(root.Children) > 0 {
-		root.Type = NodeTypeText // Keep as text but handle in String method
-	}
+	p.parseNodes(root, "")
 
 	return root, nil
 }
 
-// parseChildren parses all children of a node
-func (p *ASTParser) parseChildren(parent *ASTNode) {
+// implicitlySelfClosingTags are treated as self-closing when written without
+// a slash and never closed (e.g. <get name="x">)
+var implicitlySelfClosingTags = map[string]bool{
+	"star":     true,
+	"sr":       true,
+	"get":      true,
+	"bot":      true,
+	"that":     true,
+	"input":    true,
+	"loop":     true,
+	"date":     true,
+	"time":     true,
+	"size":     true,
+	"version":  true,
+	"id":       true,
+	"request":  true,
+	"response": true,
+	"repeat":   true,
+	"topic":    true,
+	"subj":     true,
+	"pred":     true,
+	"obj":      true,
+	"uniq":     true,
+}
+
+// parseNodes parses nodes into parent until the end of input or, when
+// closeTag is set, until that tag's closing tag, which it consumes. It returns
+// whether the closing tag was found. Other closing tags are dropped.
+func (p *ASTParser) parseNodes(parent *ASTNode, closeTag string) bool {
 	for p.pos < p.len {
+		if p.peek(2) == "</" {
+			p.pos += 2
+			name := p.parseTagName()
+			if closeTag != "" && name == closeTag {
+				p.consume('>')
+				return true
+			}
+			// Not this element's closing tag: drop it
+			if name != "" {
+				p.consume('>')
+			}
+			continue
+		}
+
 		oldPos := p.pos
-
-		// Parse whitespace as text content
-		if p.isWhitespace() {
-			node := p.parseText()
-			if node != nil {
-				parent.Children = append(parent.Children, node)
-			}
-			continue
+		var node *ASTNode
+		switch {
+		case p.peek(4) == "<!--":
+			node = p.parseComment()
+		case p.peek(9) == "<![CDATA[":
+			node = p.parseCDATA()
+		case p.peek(1) == "<":
+			node = p.parseTag()
+		default:
+			node = p.parseText()
 		}
-
-		// Check for comment
-		if p.peek(4) == "<!--" {
-			node := p.parseComment()
-			if node != nil {
-				parent.Children = append(parent.Children, node)
-			}
-			continue
-		}
-
-		// Check for CDATA
-		if p.peek(9) == "<![CDATA[" {
-			node := p.parseCDATA()
-			if node != nil {
-				parent.Children = append(parent.Children, node)
-			}
-			continue
-		}
-
-		// Check for opening tag
-		if p.peek(1) == "<" && !p.isAtEnd() {
-			node := p.parseTag()
-			if node != nil {
-				parent.Children = append(parent.Children, node)
-			}
-			// Continue parsing even if parseTag() returned nil (for closing tags)
-			// This ensures we parse any text that follows the closing tag
-			continue
-		}
-
-		// Parse text content
-		node := p.parseText()
 		if node != nil {
 			parent.Children = append(parent.Children, node)
 		}
@@ -115,20 +127,16 @@ func (p *ASTParser) parseChildren(parent *ASTNode) {
 			break
 		}
 	}
+	return false
 }
 
-// parseTag parses a tag (opening, closing, or self-closing)
+// parseTag parses a tag (opening or self-closing) and its content
 func (p *ASTParser) parseTag() *ASTNode {
 	startPos := p.pos
 
 	// Consume opening '<'
 	if !p.consume('<') {
 		return nil
-	}
-
-	// Check for closing tag
-	if p.peek(1) == "/" {
-		return p.parseClosingTag(startPos)
 	}
 
 	// Parse tag name
@@ -157,65 +165,12 @@ func (p *ASTParser) parseTag() *ASTNode {
 		}
 	}
 
-	// Check if this is an implicitly self-closing tag
-	implicitlySelfClosing := map[string]bool{
-		"star":     true,
-		"sr":       true,
-		"get":      true,
-		"bot":      true,
-		"that":     true,
-		"input":    true,
-		"loop":     true,
-		"date":     true,
-		"time":     true,
-		"size":     true,
-		"version":  true,
-		"id":       true,
-		"request":  true,
-		"response": true,
-		"repeat":   true,
-		"topic":    true,
-		"subj":     true,
-		"pred":     true,
-		"obj":      true,
-		"uniq":     true,
-	}
-
-	// If this is an implicitly self-closing tag and we're at the end or next non-whitespace is '<'
-	if implicitlySelfClosing[tagName] {
-		// Save current position
-		savedPos := p.pos
-
-		// Skip whitespace
-		for p.pos < p.len && p.isWhitespace() {
-			p.pos++
-		}
-
-		// If we're at the end or the next character is '<', treat as self-closing
-		if p.pos >= p.len || p.peek(1) == "<" {
-			// Consume the '>' character
-			if p.consume('>') {
-				return &ASTNode{
-					Type:        NodeTypeSelfClosingTag,
-					TagName:     tagName,
-					Attributes:  attributes,
-					SelfClosing: true,
-					StartPos:    startPos,
-					EndPos:      p.pos,
-				}
-			}
-		}
-
-		// Reset position if not self-closing
-		p.pos = savedPos
-	}
-
 	// Consume '>'
 	if !p.consume('>') {
 		return nil
 	}
 
-	// Create opening tag node
+	// Create opening tag node and parse its content up to the matching closing tag
 	tagNode := &ASTNode{
 		Type:       NodeTypeTag,
 		TagName:    tagName,
@@ -223,106 +178,14 @@ func (p *ASTParser) parseTag() *ASTNode {
 		Children:   []*ASTNode{},
 		StartPos:   startPos,
 	}
-
-	// Parse children (content between opening and closing tags)
-	// We need to parse until we find the matching closing tag
-	for p.pos < p.len {
-		// Check if we're at a closing tag
-		if p.peek(2) == "</" {
-			// Check if it's the matching closing tag
-			closingStart := p.pos
-			p.consume('<')
-			p.consume('/')
-			closingTagName := p.parseTagName()
-			if closingTagName == tagName {
-				// Found matching closing tag
-				p.consume('>')
-				tagNode.EndPos = p.pos
-				// Successfully parsed tag
-				return tagNode
-			} else {
-				// Not the right closing tag, reset position and continue parsing
-				p.pos = closingStart
-			}
-		}
-
-		// Parse the next node
-		oldPos := p.pos
-
-		// Parse whitespace as text content (don't skip it)
-		if p.isWhitespace() {
-			node := p.parseText()
-			if node != nil {
-				tagNode.Children = append(tagNode.Children, node)
-			}
-			continue
-		}
-
-		// Check for comment
-		if p.peek(4) == "<!--" {
-			node := p.parseComment()
-			if node != nil {
-				tagNode.Children = append(tagNode.Children, node)
-			}
-			continue
-		}
-
-		// Check for CDATA
-		if p.peek(9) == "<![CDATA[" {
-			node := p.parseCDATA()
-			if node != nil {
-				tagNode.Children = append(tagNode.Children, node)
-			}
-			continue
-		}
-
-		// Check for opening tag
-		if p.peek(1) == "<" && !p.isAtEnd() {
-			node := p.parseTag()
-			if node != nil {
-				tagNode.Children = append(tagNode.Children, node)
-			}
-			continue
-		}
-
-		// Parse text content
-		node := p.parseText()
-		if node != nil {
-			tagNode.Children = append(tagNode.Children, node)
-		}
-
-		// If we didn't make progress, break to avoid infinite loop
-		if p.pos == oldPos {
-			break
-		}
+	if p.parseNodes(tagNode, tagName) {
+		tagNode.EndPos = p.pos
+		return tagNode
 	}
 
-	// If we get here, check if it should be a self-closing tag
-	implicitlySelfClosingTags := map[string]bool{
-		"star":     true,
-		"sr":       true,
-		"get":      true,
-		"bot":      true,
-		"that":     true,
-		"input":    true,
-		"loop":     true,
-		"date":     true,
-		"time":     true,
-		"size":     true,
-		"version":  true,
-		"id":       true,
-		"request":  true,
-		"response": true,
-		"repeat":   true,
-		"topic":    true,
-		"subj":     true,
-		"pred":     true,
-		"obj":      true,
-		"uniq":     true,
-	}
-
+	// Unclosed tag: implicitly self-closing tags (e.g. <get name="x">) are
+	// treated as self-closing
 	if implicitlySelfClosingTags[tagName] {
-		// This is an implicitly self-closing tag
 		return &ASTNode{
 			Type:        NodeTypeSelfClosingTag,
 			TagName:     tagName,
@@ -333,31 +196,14 @@ func (p *ASTParser) parseTag() *ASTNode {
 		}
 	}
 
-	// If we get here, it's a malformed tag
-	// Return as text node
+	// Otherwise it's malformed; return it verbatim as text so the problem
+	// is visible in the output
 	return &ASTNode{
 		Type:     NodeTypeText,
 		Content:  p.input[startPos:p.pos],
 		StartPos: startPos,
 		EndPos:   p.pos,
 	}
-}
-
-// parseClosingTag parses a closing tag
-func (p *ASTParser) parseClosingTag(_ int) *ASTNode {
-	p.consume('/')
-	tagName := p.parseTagName()
-	if tagName == "" {
-		return nil
-	}
-
-	if !p.consume('>') {
-		return nil
-	}
-
-	// Closing tags are typically not stored as separate nodes
-	// They're handled during the opening tag parsing
-	return nil
 }
 
 // parseTagName parses a tag name
@@ -415,37 +261,29 @@ func (p *ASTParser) parseAttributeName() string {
 // parseAttributeValue parses an attribute value
 func (p *ASTParser) parseAttributeValue() string {
 	// Handle backslash-escaped quotes (common in Go string literals)
+	// Values are sliced before consuming the closing quote so that an
+	// unterminated value at end of input can't produce out-of-range slices.
 	if p.peek(2) == "\\\"" {
-		p.consume('\\')
-		p.consume('"')
+		p.consumeString("\\\"")
 		start := p.pos
-		for p.pos < p.len {
-			if p.peek(2) == "\\\"" {
-				p.consume('\\')
-				p.consume('"')
-				break
-			}
+		for p.pos < p.len && p.peek(2) != "\\\"" {
 			p.pos++
 		}
-		return p.input[start : p.pos-2]
+		value := html.UnescapeString(p.input[start:p.pos])
+		p.consumeString("\\\"")
+		return value
 	}
 
-	if p.peek(1) == "\"" {
-		p.consume('"')
+	if p.peek(1) == "\"" || p.peek(1) == "'" {
+		quote := p.input[p.pos]
+		p.pos++
 		start := p.pos
-		for p.pos < p.len && p.peek(1) != "\"" {
+		for p.pos < p.len && p.input[p.pos] != quote {
 			p.pos++
 		}
-		p.consume('"')
-		return p.input[start : p.pos-1]
-	} else if p.peek(1) == "'" {
-		p.consume('\'')
-		start := p.pos
-		for p.pos < p.len && p.peek(1) != "'" {
-			p.pos++
-		}
-		p.consume('\'')
-		return p.input[start : p.pos-1]
+		value := html.UnescapeString(p.input[start:p.pos])
+		p.consume(rune(quote))
+		return value
 	} else {
 		// Unquoted value
 		start := p.pos
@@ -595,32 +433,10 @@ func (n *ASTNode) String() string {
 	case NodeTypeCDATA:
 		return fmt.Sprintf("<![CDATA[%s]]>", n.Content)
 	case NodeTypeSelfClosingTag:
-		attrStr := ""
-		if len(n.Attributes) > 0 {
-			var attrs []string
-			for k, v := range n.Attributes {
-				if v == "" {
-					attrs = append(attrs, k)
-				} else {
-					attrs = append(attrs, fmt.Sprintf(`%s="%s"`, k, v))
-				}
-			}
-			attrStr = " " + strings.Join(attrs, " ")
-		}
+		attrStr := formatAttributes(n.Attributes)
 		return fmt.Sprintf("<%s%s/>", n.TagName, attrStr)
 	case NodeTypeTag:
-		attrStr := ""
-		if len(n.Attributes) > 0 {
-			var attrs []string
-			for k, v := range n.Attributes {
-				if v == "" {
-					attrs = append(attrs, k)
-				} else {
-					attrs = append(attrs, fmt.Sprintf(`%s="%s"`, k, v))
-				}
-			}
-			attrStr = " " + strings.Join(attrs, " ")
-		}
+		attrStr := formatAttributes(n.Attributes)
 
 		children := ""
 		for _, child := range n.Children {
@@ -636,6 +452,34 @@ func (n *ASTNode) String() string {
 		}
 		return children
 	}
+}
+
+// attributeEscaper escapes attribute values so they survive re-parsing
+var attributeEscaper = strings.NewReplacer(`&`, "&amp;", `"`, "&quot;", `<`, "&lt;")
+
+// formatAttributes serializes attributes as ` name="value"` pairs in sorted
+// order, escaping values. Attributes with empty values are written bare.
+func formatAttributes(attributes map[string]string) string {
+	if len(attributes) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(attributes))
+	for name := range attributes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var b strings.Builder
+	for _, name := range names {
+		b.WriteString(" ")
+		b.WriteString(name)
+		if value := attributes[name]; value != "" {
+			b.WriteString(`="`)
+			b.WriteString(attributeEscaper.Replace(value))
+			b.WriteString(`"`)
+		}
+	}
+	return b.String()
 }
 
 // GetTextContent returns all text content from a node and its children

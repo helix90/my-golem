@@ -3,6 +3,7 @@ package golem
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"math"
 	"os"
 	"path/filepath"
@@ -20,6 +21,14 @@ var (
 	patternSetTagRe   = regexp.MustCompile(`<set>([^<]+)</set>`)
 	patternTopicTagRe = regexp.MustCompile(`<topic>([^<]+)</topic>`)
 	whitespaceNormRe  = regexp.MustCompile(`\s+`)
+	// (?s) so comments spanning multiple lines are removed too
+	xmlCommentRe  = regexp.MustCompile(`(?s)<!--.*?-->`)
+	xmlDeclRe     = regexp.MustCompile(`<\?xml[^>]*\?>`)
+	aimlVersionRe = regexp.MustCompile(`<aiml[^>]*version=["']([^"']+)["']`)
+	// Patterns are matched case-insensitively, so accept any letters (including
+	// non-ASCII), digits, wildcards, tag syntax, and common punctuation.
+	emptySetTagRe       = regexp.MustCompile(`<set>\s*</set>`)
+	validPatternCharsRe = regexp.MustCompile(`^[\p{L}\p{M}\p{N}\s*_^#$<>/="'.!?,:;-]+$`)
 )
 
 // AIML represents the root AIML document
@@ -65,6 +74,156 @@ type AIMLKnowledgeBase struct {
 	Arrays         map[string][]string                   // Arrays: arrayName -> []values
 	SetCollections map[string]*SetCollection             // SetCollections: setName -> ordered unique values
 	Substitutions  map[string]map[string]string          // Substitutions: substitutionName -> pattern -> replacement
+
+	// mu guards the data that template tags read and modify at runtime
+	// (Variables, TopicVars, Properties, Maps, Lists, Arrays, SetCollections),
+	// since sessions may process templates concurrently
+	mu sync.RWMutex
+
+	// patternsMu guards Categories and Patterns, which <learn> and <unlearn>
+	// modify while other sessions match against them. Matching holds the read
+	// lock; adding and removing categories holds the write lock. It is separate
+	// from mu so that matching never waits on template data tags.
+	patternsMu sync.RWMutex
+
+	// patternOrder gives each indexed category's position in Categories, so
+	// that equally good matches are chosen by load order rather than by map
+	// iteration order. Guarded by patternsMu.
+	patternOrder map[*Category]int
+}
+
+// removeCategory removes the category at index i. Patterns entries point into
+// Categories, so removing an element shifts later categories under their
+// pointers; the index is rebuilt to keep every key on its own category.
+// The caller must hold patternsMu for writing.
+func (kb *AIMLKnowledgeBase) removeCategory(i int) {
+	kb.Categories = append(kb.Categories[:i], kb.Categories[i+1:]...)
+	kb.rebuildPatternIndex()
+}
+
+// addOrUpdateCategory adds a category, or replaces the category already
+// indexed under the same key. It reports whether an existing category was
+// replaced.
+func (kb *AIMLKnowledgeBase) addOrUpdateCategory(category Category) bool {
+	kb.patternsMu.Lock()
+	defer kb.patternsMu.Unlock()
+
+	key := categoryKey(category)
+	if existing, exists := kb.Patterns[key]; exists {
+		*existing = category
+		return true
+	}
+
+	// When append reallocates, the existing Patterns entries still point into
+	// the old array, so the whole index has to move to the new one
+	oldCap := cap(kb.Categories)
+	kb.Categories = append(kb.Categories, category)
+	if cap(kb.Categories) != oldCap {
+		kb.rebuildPatternIndex()
+	} else {
+		last := &kb.Categories[len(kb.Categories)-1]
+		kb.Patterns[key] = last
+		if kb.patternOrder == nil {
+			kb.patternOrder = make(map[*Category]int)
+		}
+		kb.patternOrder[last] = len(kb.Categories) - 1
+	}
+	return false
+}
+
+// removeCategoryByKey removes the first category with this key. It reports
+// whether a category was found.
+func (kb *AIMLKnowledgeBase) removeCategoryByKey(key string) bool {
+	kb.patternsMu.Lock()
+	defer kb.patternsMu.Unlock()
+
+	for i, cat := range kb.Categories {
+		if categoryKey(cat) == key {
+			kb.removeCategory(i)
+			return true
+		}
+	}
+	return false
+}
+
+// categoryCount returns the number of categories
+func (kb *AIMLKnowledgeBase) categoryCount() int {
+	kb.patternsMu.RLock()
+	defer kb.patternsMu.RUnlock()
+	return len(kb.Categories)
+}
+
+// patternCount returns the number of indexed patterns
+func (kb *AIMLKnowledgeBase) patternCount() int {
+	kb.patternsMu.RLock()
+	defer kb.patternsMu.RUnlock()
+	return len(kb.Patterns)
+}
+
+// snapshotCategories returns a copy of Categories that is safe to use while
+// other sessions learn and unlearn
+func (kb *AIMLKnowledgeBase) snapshotCategories() []Category {
+	kb.patternsMu.RLock()
+	defer kb.patternsMu.RUnlock()
+	return append([]Category(nil), kb.Categories...)
+}
+
+// rebuildPatternIndex rebuilds Patterns from Categories, so that every entry
+// points at its category in kb.Categories. When categories share a key, the
+// later one wins.
+func (kb *AIMLKnowledgeBase) rebuildPatternIndex() {
+	kb.Patterns = make(map[string]*Category, len(kb.Categories))
+	kb.patternOrder = make(map[*Category]int, len(kb.Categories))
+	for i := range kb.Categories {
+		kb.Patterns[categoryKey(kb.Categories[i])] = &kb.Categories[i]
+		kb.patternOrder[&kb.Categories[i]] = i
+	}
+}
+
+// loadOrder returns the category's position in Categories, or math.MaxInt if
+// it is not known (for a Patterns map built without rebuildPatternIndex)
+func (kb *AIMLKnowledgeBase) loadOrder(category *Category) int {
+	if order, exists := kb.patternOrder[category]; exists {
+		return order
+	}
+	return math.MaxInt
+}
+
+// lookupVariable looks up varKey in the topic's variables, then global
+// variables, then bot properties
+func (kb *AIMLKnowledgeBase) lookupVariable(topic string, varKey string) (string, bool) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+	if topic != "" {
+		if value, exists := kb.TopicVars[topic][varKey]; exists {
+			return value, true
+		}
+	}
+	if value, exists := kb.Variables[varKey]; exists {
+		return value, true
+	}
+	if value, exists := kb.Properties[varKey]; exists {
+		return value, true
+	}
+	return "", false
+}
+
+// setVariable sets a global variable
+func (kb *AIMLKnowledgeBase) setVariable(varKey string, value string) {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+	if kb.Variables == nil {
+		kb.Variables = make(map[string]string)
+	}
+	kb.Variables[varKey] = value
+}
+
+// hasSetCollection reports whether a set collection with this name exists
+func (kb *AIMLKnowledgeBase) hasSetCollection(name string) bool {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+	_, exists := kb.SetCollections[name]
+	return exists
 }
 
 // NewAIMLKnowledgeBase creates a new knowledge base
@@ -93,6 +252,10 @@ func (g *Golem) LoadAIMLFromString(content string) error {
 	aiml, err := g.parseAIML(content)
 	if err != nil {
 		return err
+	}
+
+	if err := g.validateAIML(aiml); err != nil {
+		return fmt.Errorf("AIML validation failed: %v", err)
 	}
 
 	// Convert AIML to AIMLKnowledgeBase
@@ -137,24 +300,26 @@ func (g *Golem) aimlToKnowledgeBase(aiml *AIML) *AIMLKnowledgeBase {
 		Substitutions:  make(map[string]map[string]string),
 	}
 
-	// Build pattern index
-	for i := range kb.Categories {
-		pattern := NormalizePattern(kb.Categories[i].Pattern)
-		// Create a unique key that includes pattern, that, topic, and that index
-		key := pattern
-		if kb.Categories[i].That != "" {
-			key += "|THAT:" + NormalizePattern(kb.Categories[i].That)
-			if kb.Categories[i].ThatIndex != 0 {
-				key += fmt.Sprintf("|THATINDEX:%d", kb.Categories[i].ThatIndex)
-			}
-		}
-		if kb.Categories[i].Topic != "" {
-			key += "|TOPIC:" + strings.ToUpper(kb.Categories[i].Topic)
-		}
-		kb.Patterns[key] = &kb.Categories[i]
-	}
+	kb.rebuildPatternIndex()
 
 	return kb
+}
+
+// categoryKey returns the Patterns index key for a category. The key includes
+// that, that index, and topic so categories sharing a pattern don't overwrite
+// each other in the index.
+func categoryKey(category Category) string {
+	key := NormalizePattern(category.Pattern)
+	if category.That != "" {
+		key += "|THAT:" + NormalizePattern(category.That)
+		if category.ThatIndex != 0 {
+			key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
+		}
+	}
+	if category.Topic != "" {
+		key += "|TOPIC:" + strings.ToUpper(category.Topic)
+	}
+	return key
 }
 
 // mergeKnowledgeBases merges two knowledge bases
@@ -175,9 +340,6 @@ func (g *Golem) mergeKnowledgeBases(kb1, kb2 *AIMLKnowledgeBase) (*AIMLKnowledge
 
 	// Copy from first knowledge base
 	mergedKB.Categories = append(mergedKB.Categories, kb1.Categories...)
-	for pattern, category := range kb1.Patterns {
-		mergedKB.Patterns[pattern] = category
-	}
 	for setName, members := range kb1.Sets {
 		mergedKB.Sets[setName] = members
 	}
@@ -208,9 +370,7 @@ func (g *Golem) mergeKnowledgeBases(kb1, kb2 *AIMLKnowledgeBase) (*AIMLKnowledge
 
 	// Merge from second knowledge base
 	mergedKB.Categories = append(mergedKB.Categories, kb2.Categories...)
-	for pattern, category := range kb2.Patterns {
-		mergedKB.Patterns[pattern] = category
-	}
+	mergedKB.rebuildPatternIndex()
 	for setName, members := range kb2.Sets {
 		if mergedKB.Sets[setName] == nil {
 			mergedKB.Sets[setName] = make([]string, 0)
@@ -274,29 +434,14 @@ func (g *Golem) mergeKnowledgeBases(kb1, kb2 *AIMLKnowledgeBase) (*AIMLKnowledge
 }
 
 func (g *Golem) LoadAIML(filename string) (*AIMLKnowledgeBase, error) {
-	g.LogInfo("Loading AIML file: %s", filename)
-
-	// Read the file
-	content, err := g.LoadFile(filename)
+	categories, err := g.loadAIMLCategories(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AIML file: %v", err)
-	}
-
-	// Parse the AIML content
-	aiml, err := g.parseAIML(content)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse AIML: %v", err)
-	}
-
-	// Validate the AIML
-	err = g.validateAIML(aiml)
-	if err != nil {
-		return nil, fmt.Errorf("AIML validation failed: %v", err)
+		return nil, err
 	}
 
 	// Create knowledge base
 	kb := NewAIMLKnowledgeBase()
-	kb.Categories = aiml.Categories
+	kb.Categories = categories
 
 	// Load default properties
 	err = g.loadDefaultProperties(kb)
@@ -304,18 +449,33 @@ func (g *Golem) LoadAIML(filename string) (*AIMLKnowledgeBase, error) {
 		return nil, fmt.Errorf("failed to load default properties: %v", err)
 	}
 
-	// Index patterns for fast lookup
-	for i := range aiml.Categories {
-		category := &aiml.Categories[i]
-		// Normalize pattern for storage
-		pattern := NormalizePattern(category.Pattern)
-		kb.Patterns[pattern] = category
-	}
+	kb.rebuildPatternIndex()
 
-	g.LogInfo("Loaded %d AIML categories", len(aiml.Categories))
+	g.LogInfo("Loaded %d AIML categories", len(kb.Categories))
 	g.LogInfo("Loaded %d properties", len(kb.Properties))
 
 	return kb, nil
+}
+
+// loadAIMLCategories reads, parses, and validates the categories in an AIML file
+func (g *Golem) loadAIMLCategories(filename string) ([]Category, error) {
+	g.LogInfo("Loading AIML file: %s", filename)
+
+	content, err := g.LoadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AIML file: %v", err)
+	}
+
+	aiml, err := g.parseAIML(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AIML: %v", err)
+	}
+
+	if err := g.validateAIML(aiml); err != nil {
+		return nil, fmt.Errorf("AIML validation failed: %v", err)
+	}
+
+	return aiml.Categories, nil
 }
 
 // LoadAIMLFromDirectory loads all AIML files from a directory and merges them into a single knowledge base
@@ -356,54 +516,17 @@ func (g *Golem) LoadAIMLFromDirectory(dirPath string) (*AIMLKnowledgeBase, error
 
 	g.LogInfo("Found %d AIML files in directory", len(aimlFiles))
 
-	// Load each AIML file and merge into the knowledge base
+	// Load the categories from each AIML file
 	for _, aimlFile := range aimlFiles {
-		g.LogInfo("Loading AIML file: %s", aimlFile)
-
-		// Load the individual AIML file
-		kb, err := g.LoadAIML(aimlFile)
+		categories, err := g.loadAIMLCategories(aimlFile)
 		if err != nil {
 			// Log the error but continue with other files
-			g.LogInfo("Warning: failed to load %s: %v", aimlFile, err)
+			g.LogWarn("Failed to load %s: %v", aimlFile, err)
 			continue
 		}
-
-		// Merge the categories from this file into the merged knowledge base
-		for i := range kb.Categories {
-			category := &kb.Categories[i]
-			// Normalize pattern for storage
-			pattern := NormalizePattern(category.Pattern)
-
-			// Add category to merged knowledge base
-			mergedKB.Categories = append(mergedKB.Categories, *category)
-			mergedKB.Patterns[pattern] = category
-		}
-
-		// Merge sets
-		for setName, members := range kb.Sets {
-			for _, member := range members {
-				mergedKB.AddSetMember(setName, member)
-			}
-		}
-
-		// Merge topics
-		for topicName, patterns := range kb.Topics {
-			if mergedKB.Topics[topicName] == nil {
-				mergedKB.Topics[topicName] = make([]string, 0)
-			}
-			mergedKB.Topics[topicName] = append(mergedKB.Topics[topicName], patterns...)
-		}
-
-		// Merge variables (file variables override defaults)
-		for varName, varValue := range kb.Variables {
-			mergedKB.Variables[varName] = varValue
-		}
-
-		// Merge properties (file properties override defaults)
-		for propName, propValue := range kb.Properties {
-			mergedKB.Properties[propName] = propValue
-		}
+		mergedKB.Categories = append(mergedKB.Categories, categories...)
 	}
+	mergedKB.rebuildPatternIndex()
 
 	// Load map files from the same directory
 	maps, err := g.LoadMapsFromDirectory(dirPath)
@@ -940,6 +1063,10 @@ func (g *Golem) LoadPDefaultsFromDirectory(dirPath string) (map[string]map[strin
 }
 
 // parseAIML parses AIML content using native Go string manipulation
+//
+// DO NOT replace this with encoding/xml (xml.Unmarshal, xml.Decoder, or its
+// tokenizer). That approach has been tried and fails badly on AIML-specific
+// structures. Fix bugs within this hand-written parser instead.
 func (g *Golem) parseAIML(content string) (*AIML, error) {
 	aiml := &AIML{
 		Categories: []Category{},
@@ -950,112 +1077,87 @@ func (g *Golem) parseAIML(content string) (*AIML, error) {
 	content = g.removeXMLDeclaration(content)
 
 	// Extract version
-	versionMatch := regexp.MustCompile(`<aiml[^>]*version=["']([^"']+)["']`).FindStringSubmatch(content)
+	versionMatch := aimlVersionRe.FindStringSubmatch(content)
 	if len(versionMatch) > 1 {
 		aiml.Version = versionMatch[1]
 	} else {
 		aiml.Version = "2.0" // Default version
 	}
 
-	// Find all categories using tag-aware parsing
-	categoryContents := g.extractAllTagContents(content, "category")
-
-	for _, categoryContent := range categoryContents {
-		category, err := g.parseCategory(categoryContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse category: %v", err)
-		}
-		aiml.Categories = append(aiml.Categories, category)
+	if err := g.parseCategories(content, "", aiml); err != nil {
+		return nil, err
 	}
 
 	return aiml, nil
 }
 
-// extractAllTagContents extracts all occurrences of a tag using stack-based parsing
-func (g *Golem) extractAllTagContents(input string, tagName string) []string {
-	var results []string
-	openPattern := fmt.Sprintf("<%s", tagName)
-	closePattern := fmt.Sprintf("</%s>", tagName)
+// parseCategories appends the categories in content to aiml, descending into
+// <topic name="..."> blocks. Categories inside a topic block get its name as
+// their topic unless they set their own.
+func (g *Golem) parseCategories(content string, topic string, aiml *AIML) error {
+	// Position of the next <topic tag, cached so that files without topic
+	// blocks aren't rescanned for every category
+	nextTopic := indexOpenTag(content, "topic", 0)
 
-	i := 0
-	for i < len(input) {
-		// Find next opening tag
-		openIdx := strings.Index(input[i:], openPattern)
-		if openIdx == -1 {
-			break
+	for pos := 0; ; {
+		if nextTopic != -1 && nextTopic < pos {
+			nextTopic = indexOpenTag(content, "topic", pos)
 		}
-		openIdx += i
+		category, hasCategory := findTag(content, "category", pos)
 
-		// Find the end of the opening tag
-		i = openIdx + len(openPattern)
-
-		// Skip to the '>' of the opening tag
-		for i < len(input) && input[i] != '>' {
-			i++
-		}
-
-		if i >= len(input) {
-			break
-		}
-		i++ // skip '>'
-
-		// Now find the matching closing tag using a stack
-		contentStart := i
-		depth := 1
-
-		for i < len(input) && depth > 0 {
-			// Check for opening tag
-			if i+len(openPattern) < len(input) && input[i:i+len(openPattern)] == openPattern {
-				// Make sure it's actually a tag
-				nextChar := i + len(openPattern)
-				if nextChar < len(input) && (input[nextChar] == '>' || input[nextChar] == ' ' || input[nextChar] == '/') {
-					depth++
-					i += len(openPattern)
-					continue
+		if nextTopic != -1 && (!hasCategory || nextTopic < category.start) {
+			if block, ok := findTag(content, "topic", nextTopic); ok && !block.selfClosing {
+				blockTopic := strings.TrimSpace(block.attributes["name"])
+				if err := g.parseCategories(content[block.contentStart:block.contentEnd], blockTopic, aiml); err != nil {
+					return err
 				}
+				pos = block.end
+			} else {
+				nextTopic = indexOpenTag(content, "topic", nextTopic+1)
 			}
-
-			// Check for closing tag
-			if i+len(closePattern) <= len(input) && input[i:i+len(closePattern)] == closePattern {
-				depth--
-				if depth == 0 {
-					// Found the matching closing tag
-					content := input[contentStart:i]
-					results = append(results, content)
-					i += len(closePattern)
-					break
-				}
-				i += len(closePattern)
-				continue
-			}
-
-			i++
+			continue
 		}
+
+		if !hasCategory {
+			return nil
+		}
+
+		parsed, err := g.parseCategory(content[category.contentStart:category.contentEnd])
+		if err != nil {
+			return fmt.Errorf("failed to parse category: %v", err)
+		}
+		if parsed.Topic == "" {
+			parsed.Topic = topic
+		}
+		aiml.Categories = append(aiml.Categories, parsed)
+		pos = category.end
 	}
-
-	return results
 }
 
 // parseCategory parses a single category using tag-aware parsing
 func (g *Golem) parseCategory(content string) (Category, error) {
 	category := Category{}
 
-	// Extract pattern using tag-aware parsing
-	if patternContent, found := g.extractTagContent(content, "pattern"); found {
-		category.Pattern = strings.TrimSpace(patternContent)
+	// Extract template using tag-aware parsing (handles nested <template> tags).
+	// Pattern, that, and topic are only looked for outside the template, so
+	// tags inside it (e.g. a category inside <learn>) aren't mistaken for this
+	// category's own.
+	header := content
+	if template, found := findTag(content, "template", 0); found {
+		category.Template = strings.TrimSpace(content[template.contentStart:template.contentEnd])
+		header = content[:template.start] + content[template.end:]
 	}
 
-	// Extract template using tag-aware parsing (handles nested <template> tags)
-	if templateContent, found := g.extractTagContent(content, "template"); found {
-		category.Template = strings.TrimSpace(templateContent)
+	if pattern, found := findTag(header, "pattern", 0); found {
+		category.Pattern = html.UnescapeString(strings.TrimSpace(header[pattern.contentStart:pattern.contentEnd]))
 	}
 
-	// Extract that (optional) with index support using tag-aware parsing
-	if thatContent, found := g.extractTagContentWithAttributes(content, "that"); found {
-		category.That = strings.TrimSpace(thatContent.Content)
+	// Extract that (optional) with index support
+	if that, found := findTag(header, "that", 0); found {
+		category.That = html.UnescapeString(strings.TrimSpace(header[that.contentStart:that.contentEnd]))
 
 		// Parse index attribute if provided
-		if indexStr, hasIndex := thatContent.Attributes["index"]; hasIndex {
+		if indexStr, hasIndex := that.attributes["index"]; hasIndex {
 			if index, err := strconv.Atoi(indexStr); err == nil {
 				// Validate index range (1-10 for reasonable history depth)
 				if index < 1 || index > 10 {
@@ -1075,144 +1177,203 @@ func (g *Golem) parseCategory(content string) (Category, error) {
 		}
 	}
 
-	// Extract topic (optional) using tag-aware parsing
-	if topicContent, found := g.extractTagContent(content, "topic"); found {
-		category.Topic = strings.TrimSpace(topicContent)
+	// Extract topic (optional)
+	if topic, found := findTag(header, "topic", 0); found {
+		category.Topic = html.UnescapeString(strings.TrimSpace(header[topic.contentStart:topic.contentEnd]))
 	}
 
 	return category, nil
 }
 
-// TagContentWithAttributes represents tag content along with its attributes
-type TagContentWithAttributes struct {
-	Content    string
-	Attributes map[string]string
+// tagSpan is the location of an element found by findTag. For a self-closing
+// tag, contentStart, contentEnd, and end are all the index after "/>".
+type tagSpan struct {
+	start        int // index of the opening '<'
+	contentStart int // index just after the opening tag's '>'
+	contentEnd   int // index of the closing tag's '<'
+	end          int // index just after the closing tag's '>'
+	attributes   map[string]string
+	selfClosing  bool
 }
 
-// extractTagContent extracts the content of a tag using stack-based parsing to handle nesting
-func (g *Golem) extractTagContent(input string, tagName string) (string, bool) {
-	result, found := g.extractTagContentWithAttributes(input, tagName)
-	return result.Content, found
-}
-
-// extractTagContentWithAttributes extracts tag content and attributes using stack-based parsing
-func (g *Golem) extractTagContentWithAttributes(input string, tagName string) (TagContentWithAttributes, bool) {
-	result := TagContentWithAttributes{
-		Attributes: make(map[string]string),
+// findTag finds the first <tagName> element at or after from, matching its
+// closing tag by nesting depth. Tag names must match exactly (<that> does not
+// match <thatstar/>), and nested self-closing tags such as <topic/> don't
+// affect the depth.
+func findTag(input string, tagName string, from int) (tagSpan, bool) {
+	start := indexOpenTag(input, tagName, from)
+	if start == -1 {
+		return tagSpan{}, false
 	}
 
-	// Find opening tag
-	openPattern := fmt.Sprintf("<%s", tagName)
-	openIdx := strings.Index(input, openPattern)
-	if openIdx == -1 {
-		return result, false
+	attributes, contentStart, selfClosing, ok := parseOpenTag(input, start+1+len(tagName))
+	if !ok {
+		return tagSpan{}, false
+	}
+	span := tagSpan{
+		start:        start,
+		contentStart: contentStart,
+		attributes:   attributes,
+		selfClosing:  selfClosing,
+	}
+	if selfClosing {
+		span.contentEnd = contentStart
+		span.end = contentStart
+		return span, true
 	}
 
-	// Find the end of the opening tag (the '>' character)
-	i := openIdx + len(openPattern)
-
-	// Parse attributes if any
-	for i < len(input) && input[i] != '>' {
-		// Skip whitespace
-		for i < len(input) && (input[i] == ' ' || input[i] == '\t' || input[i] == '\n' || input[i] == '\r') {
-			i++
-		}
-
-		if i >= len(input) || input[i] == '>' {
+	closeTag := "</" + tagName
+	depth := 1
+	for i := contentStart; i < len(input); {
+		lt := strings.IndexByte(input[i:], '<')
+		if lt == -1 {
 			break
 		}
+		i += lt
 
-		// Parse attribute name
-		attrStart := i
-		for i < len(input) && input[i] != '=' && input[i] != '>' && input[i] != ' ' {
-			i++
-		}
-		attrName := input[attrStart:i]
-
-		// Skip whitespace
-		for i < len(input) && (input[i] == ' ' || input[i] == '\t') {
-			i++
-		}
-
-		if i >= len(input) || input[i] != '=' {
-			continue
-		}
-		i++ // skip '='
-
-		// Skip whitespace
-		for i < len(input) && (input[i] == ' ' || input[i] == '\t') {
-			i++
-		}
-
-		// Parse attribute value
-		if i < len(input) && input[i] == '"' {
-			i++ // skip opening quote
-			valueStart := i
-			for i < len(input) && input[i] != '"' {
-				i++
+		if strings.HasPrefix(input[i:], closeTag) && isTagNameEnd(input, i+len(closeTag)) {
+			gt := strings.IndexByte(input[i:], '>')
+			if gt == -1 {
+				break
 			}
-			attrValue := input[valueStart:i]
-			if i < len(input) {
-				i++ // skip closing quote
-			}
-			result.Attributes[attrName] = attrValue
-		}
-	}
-
-	if i >= len(input) || input[i] != '>' {
-		return result, false
-	}
-	i++ // skip '>'
-
-	// Now find the matching closing tag using a stack
-	contentStart := i
-	depth := 1
-	closePattern := fmt.Sprintf("</%s>", tagName)
-
-	for i < len(input) && depth > 0 {
-		// Check for opening tag
-		if i+len(openPattern) < len(input) && input[i:i+len(openPattern)] == openPattern {
-			// Make sure it's actually a tag (followed by space, '>', or '/')
-			nextChar := i + len(openPattern)
-			if nextChar < len(input) && (input[nextChar] == '>' || input[nextChar] == ' ' || input[nextChar] == '/') {
-				depth++
-				i += len(openPattern)
-				continue
-			}
-		}
-
-		// Check for closing tag
-		if i+len(closePattern) <= len(input) && input[i:i+len(closePattern)] == closePattern {
 			depth--
 			if depth == 0 {
-				// Found the matching closing tag
-				result.Content = input[contentStart:i]
-				return result, true
+				span.contentEnd = i
+				span.end = i + gt + 1
+				return span, true
 			}
-			i += len(closePattern)
+			i += gt + 1
+			continue
+		}
+
+		if isOpenTagAt(input, i, tagName) {
+			_, next, nestedSelfClosing, ok := parseOpenTag(input, i+1+len(tagName))
+			if !ok {
+				break
+			}
+			if !nestedSelfClosing {
+				depth++
+			}
+			i = next
 			continue
 		}
 
 		i++
 	}
 
-	// If we get here, we didn't find a matching closing tag
-	return result, false
+	// No matching closing tag
+	return tagSpan{}, false
+}
+
+// indexOpenTag returns the index of the first <tagName opening tag at or after
+// from, or -1. The name must be followed by whitespace, '>' or '/'.
+func indexOpenTag(input string, tagName string, from int) int {
+	open := "<" + tagName
+	for i := from; i < len(input); {
+		idx := strings.Index(input[i:], open)
+		if idx == -1 {
+			return -1
+		}
+		idx += i
+		if isTagNameEnd(input, idx+len(open)) {
+			return idx
+		}
+		i = idx + 1
+	}
+	return -1
+}
+
+// isOpenTagAt reports whether a <tagName opening tag starts at index i
+func isOpenTagAt(input string, i int, tagName string) bool {
+	return strings.HasPrefix(input[i:], "<"+tagName) && isTagNameEnd(input, i+1+len(tagName))
+}
+
+// isTagNameEnd reports whether a tag name ending at index i is complete,
+// i.e. followed by whitespace, '>' or '/'
+func isTagNameEnd(input string, i int) bool {
+	if i >= len(input) {
+		return false
+	}
+	switch input[i] {
+	case '>', '/', ' ', '\t', '\n', '\r':
+		return true
+	}
+	return false
+}
+
+// parseOpenTag parses an opening tag's attributes, starting just after the tag
+// name, through its closing '>'. Attribute values may be single- or
+// double-quoted, and entities in them are decoded. It returns the attributes,
+// the index after the tag, whether it is self-closing, and false if the tag
+// is unterminated.
+func parseOpenTag(input string, i int) (map[string]string, int, bool, bool) {
+	attributes := make(map[string]string)
+	for i < len(input) {
+		c := input[i]
+		switch {
+		case c == '>':
+			return attributes, i + 1, false, true
+		case c == '/' && i+1 < len(input) && input[i+1] == '>':
+			return attributes, i + 2, true, true
+		case c == '/' || isXMLSpace(c):
+			i++
+		default:
+			nameStart := i
+			for i < len(input) && input[i] != '=' && input[i] != '>' && input[i] != '/' && !isXMLSpace(input[i]) {
+				i++
+			}
+			name := input[nameStart:i]
+			for i < len(input) && isXMLSpace(input[i]) {
+				i++
+			}
+			if i >= len(input) || input[i] != '=' {
+				attributes[name] = ""
+				continue
+			}
+			i++ // skip '='
+			for i < len(input) && isXMLSpace(input[i]) {
+				i++
+			}
+			if i < len(input) && (input[i] == '"' || input[i] == '\'') {
+				quote := input[i]
+				i++
+				valueStart := i
+				for i < len(input) && input[i] != quote {
+					i++
+				}
+				attributes[name] = html.UnescapeString(input[valueStart:i])
+				if i < len(input) {
+					i++ // skip closing quote
+				}
+			} else {
+				valueStart := i
+				for i < len(input) && input[i] != '>' && !isXMLSpace(input[i]) && !strings.HasPrefix(input[i:], "/>") {
+					i++
+				}
+				attributes[name] = input[valueStart:i]
+			}
+		}
+	}
+	return nil, i, false, false
+}
+
+func isXMLSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
 // removeComments removes XML comments from content
 func (g *Golem) removeComments(content string) string {
-	commentRegex := regexp.MustCompile(`<!--.*?-->`)
-	return commentRegex.ReplaceAllString(content, "")
+	return xmlCommentRe.ReplaceAllString(content, "")
 }
 
 // removeXMLDeclaration removes XML declaration
 func (g *Golem) removeXMLDeclaration(content string) string {
-	xmlDeclRegex := regexp.MustCompile(`<\?xml[^>]*\?>`)
-	return xmlDeclRegex.ReplaceAllString(content, "")
+	return xmlDeclRe.ReplaceAllString(content, "")
 }
 
-// validateAIML validates the AIML structure
+// validateAIML validates the AIML structure. Categories with invalid patterns
+// are dropped with a warning so that one bad category doesn't discard the rest
+// of the file; it's an error only if no valid categories remain.
 func (g *Golem) validateAIML(aiml *AIML) error {
 	if aiml.Version == "" {
 		return fmt.Errorf("AIML version is required")
@@ -1222,16 +1383,18 @@ func (g *Golem) validateAIML(aiml *AIML) error {
 		return fmt.Errorf("AIML must contain at least one category")
 	}
 
+	valid := make([]Category, 0, len(aiml.Categories))
 	for i, category := range aiml.Categories {
-		if strings.TrimSpace(category.Pattern) == "" {
-			return fmt.Errorf("category %d: pattern cannot be empty", i)
+		if err := g.validatePattern(category.Pattern); err != nil {
+			g.LogWarn("Skipping category %d: invalid pattern '%s': %v", i, category.Pattern, err)
+			continue
 		}
+		valid = append(valid, category)
+	}
+	aiml.Categories = valid
 
-		// Validate pattern syntax
-		err := g.validatePattern(category.Pattern)
-		if err != nil {
-			return fmt.Errorf("category %d: invalid pattern '%s': %v", i, category.Pattern, err)
-		}
+	if len(aiml.Categories) == 0 {
+		return fmt.Errorf("AIML must contain at least one valid category")
 	}
 
 	return nil
@@ -1242,16 +1405,19 @@ func (g *Golem) validatePattern(pattern string) error {
 	// Basic pattern validation
 	pattern = strings.TrimSpace(pattern)
 
+	if pattern == "" {
+		return fmt.Errorf("pattern cannot be empty")
+	}
+	if emptySetTagRe.MatchString(pattern) {
+		return fmt.Errorf("set name cannot be empty")
+	}
+
 	// Check for valid wildcards and tags
 	// First, normalize the pattern by replacing set and topic tags with placeholders
-	normalizedPattern := pattern
-	setPattern := regexp.MustCompile(`<set>[^<]+</set>`)
-	topicPattern := regexp.MustCompile(`<topic>[^<]+</topic>`)
-	normalizedPattern = setPattern.ReplaceAllString(normalizedPattern, "SETTAG")
-	normalizedPattern = topicPattern.ReplaceAllString(normalizedPattern, "TOPICTAG")
+	normalizedPattern := patternSetTagRe.ReplaceAllString(pattern, "SETTAG")
+	normalizedPattern = patternTopicTagRe.ReplaceAllString(normalizedPattern, "TOPICTAG")
 
-	validWildcard := regexp.MustCompile(`^[A-Z0-9\s\*_^#$<>/]+$`)
-	if !validWildcard.MatchString(normalizedPattern) {
+	if !validPatternCharsRe.MatchString(normalizedPattern) {
 		return fmt.Errorf("pattern contains invalid characters")
 	}
 
@@ -1264,8 +1430,7 @@ func (g *Golem) validatePattern(pattern string) error {
 	}
 
 	// Check for valid set references
-	setRefPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	matches := setRefPattern.FindAllStringSubmatch(pattern, -1)
+	matches := patternSetTagRe.FindAllStringSubmatch(pattern, -1)
 	for _, match := range matches {
 		if len(match) > 1 && strings.TrimSpace(match[1]) == "" {
 			return fmt.Errorf("set name cannot be empty")
@@ -1277,6 +1442,8 @@ func (g *Golem) validatePattern(pattern string) error {
 
 // PatternPriority represents the priority of a pattern for matching
 type PatternPriority struct {
+	key              string // Patterns key, for ordering equal priorities
+	order            int    // Load order, for ordering equal priorities
 	Pattern          string
 	Category         *Category
 	Priority         int
@@ -1307,8 +1474,23 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginal(normalize
 	return kb.MatchPatternWithTopicAndThatIndexOriginalCached(nil, normalizedInput, originalInput, topic, that, thatIndex)
 }
 
-// MatchPatternWithTopicAndThatIndexOriginalCached attempts to match user input against AIML patterns with caching support
+// MatchPatternWithTopicAndThatIndexOriginalCached attempts to match user input against AIML patterns with caching support.
+// The returned category is a copy, so it stays valid while other sessions learn and unlearn.
 func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginalCached(g *Golem, normalizedInput string, originalInput string, topic string, that string, thatIndex int) (*Category, map[string]string, error) {
+	kb.patternsMu.RLock()
+	defer kb.patternsMu.RUnlock()
+
+	category, wildcards, err := kb.matchPattern(g, normalizedInput, originalInput, topic, that, thatIndex)
+	if category != nil {
+		matched := *category
+		category = &matched
+	}
+	return category, wildcards, err
+}
+
+// matchPattern does the matching for MatchPatternWithTopicAndThatIndexOriginalCached.
+// The caller must hold patternsMu.
+func (kb *AIMLKnowledgeBase) matchPattern(g *Golem, normalizedInput string, originalInput string, topic string, that string, thatIndex int) (*Category, map[string]string, error) {
 	// Use the already normalized input for matching
 	input := normalizedInput
 
@@ -1320,6 +1502,7 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginalCached(g *
 
 	// Try dollar wildcard patterns first (highest priority)
 	// Dollar wildcards match exact patterns but with higher priority
+	var dollarMatch *Category
 	for _, category := range kb.Patterns {
 		// Check if this pattern has a dollar wildcard
 		if strings.HasPrefix(category.Pattern, "$") {
@@ -1333,10 +1516,16 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginalCached(g *
 					if category.That != "" && thatIndex != 0 && category.ThatIndex != thatIndex {
 						continue
 					}
-					return category, make(map[string]string), nil
+					if dollarMatch == nil || kb.loadOrder(category) < kb.loadOrder(dollarMatch) ||
+						(kb.loadOrder(category) == kb.loadOrder(dollarMatch) && categoryKey(*category) < categoryKey(*dollarMatch)) {
+						dollarMatch = category
+					}
 				}
 			}
 		}
+	}
+	if dollarMatch != nil {
+		return dollarMatch, make(map[string]string), nil
 	}
 
 	// Try exact match (second highest priority)
@@ -1475,6 +1664,8 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginalCached(g *
 			}
 
 			matchingPatterns = append(matchingPatterns, PatternPriority{
+				key:              patternKey,
+				order:            kb.loadOrder(category),
 				Pattern:          basePattern,
 				Category:         category,
 				Priority:         priority.Priority,
@@ -1485,9 +1676,17 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginalCached(g *
 		}
 	}
 
-	// Sort by priority (highest first)
+	// Sort by priority (highest first). Equal priorities go to the category
+	// loaded first, then by key, so the choice never depends on map order.
 	sort.Slice(matchingPatterns, func(i, j int) bool {
-		return comparePatternPriorities(matchingPatterns[i].Priority, matchingPatterns[j].Priority)
+		a, b := matchingPatterns[i], matchingPatterns[j]
+		if a.Priority != b.Priority {
+			return comparePatternPriorities(a.Priority, b.Priority)
+		}
+		if a.order != b.order {
+			return a.order < b.order
+		}
+		return a.key < b.key
 	})
 
 	// Return the highest priority match
@@ -1723,15 +1922,24 @@ func matchPatternWithWildcardsAndSetsCasePreserving(normalizedInput, originalInp
 
 // matchPatternWithWildcardsAndSetsCasePreservingCached matches input against a pattern with wildcards and sets with caching support
 func matchPatternWithWildcardsAndSetsCasePreservingCached(g *Golem, normalizedInput, originalInput, pattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
+	regexPattern := patternToRegexWithSetsCached(g, pattern, kb)
+
+	// A pattern with sets matches differently when set members change, so it
+	// is cached under its regex, which lists the current members
+	cacheKey := pattern
+	if strings.Contains(pattern, "<set>") {
+		cacheKey = regexPattern
+	}
+
 	// Check cache first
 	if g != nil && g.patternMatchingCache != nil {
-		if result, found := g.patternMatchingCache.GetWildcardMatch(normalizedInput, pattern); found {
+		if result, found := g.patternMatchingCache.GetWildcardMatch(normalizedInput, cacheKey); found {
 			return result.Matched, result.Wildcards
 		}
 	}
 
 	// Perform the matching
-	matched, wildcards := matchPatternWithWildcardsAndSetsCasePreservingInternal(g, normalizedInput, originalInput, pattern, kb)
+	matched, wildcards := matchPatternWithWildcardsAndSetsCasePreservingInternal(g, normalizedInput, originalInput, pattern, regexPattern, kb)
 
 	// Cache the result
 	if g != nil && g.patternMatchingCache != nil {
@@ -1741,19 +1949,17 @@ func matchPatternWithWildcardsAndSetsCasePreservingCached(g *Golem, normalizedIn
 			Pattern:   pattern,
 			Input:     normalizedInput,
 		}
-		g.patternMatchingCache.SetWildcardMatch(normalizedInput, pattern, result)
+		g.patternMatchingCache.SetWildcardMatch(normalizedInput, cacheKey, result)
 	}
 
 	return matched, wildcards
 }
 
 // matchPatternWithWildcardsAndSetsCasePreservingInternal matches input against a pattern with wildcards and sets (internal implementation)
-func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalizedInput, originalInput, pattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
+func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalizedInput, originalInput, pattern, regexPattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
 	wildcards := make(map[string]string)
 
-	// Convert pattern to regex with set support.
 	// If the pattern is lowercase, make the regex case-insensitive.
-	regexPattern := patternToRegexWithSetsCached(g, pattern, kb)
 	if pattern != strings.ToUpper(pattern) {
 		regexPattern = "(?i)" + regexPattern
 	}
@@ -1827,170 +2033,106 @@ func getCompiledRegex(g *Golem, regexStr string) *regexp.Regexp {
 	return re
 }
 
-// patternToRegex converts AIML pattern to regex with enhanced set and topic matching
+// patternToRegex converts AIML pattern to regex. Without a knowledge base,
+// a <set> matches any single word.
 func patternToRegex(pattern string) string {
-	// Handle set matching first (before escaping)
-	pattern = patternSetTagRe.ReplaceAllString(pattern, "([^\\s]*)")
-
-	// Handle topic matching (before escaping)
-	pattern = patternTopicTagRe.ReplaceAllString(pattern, "([^\\s]*)")
-
-	// Build regex pattern by processing each character
-	var result strings.Builder
-	for i, char := range pattern {
-		switch char {
-		case '*':
-			// Zero+ wildcard: matches zero or more words
-			result.WriteString("(.*?)")
-		case '_':
-			// Single wildcard: matches exactly one word
-			result.WriteString("([^\\s]+)")
-		case '^':
-			// Caret wildcard: matches zero or more words (AIML2)
-			result.WriteString("(.*?)")
-		case '#':
-			// Hash wildcard: matches zero or more words with high priority (AIML2)
-			result.WriteString("(.*?)")
-		case '$':
-			// Dollar wildcard: highest priority exact match (AIML2)
-			// For regex purposes, treat as exact match (no wildcard capture)
-			// Don't add anything to regex - this will be handled in pattern matching
-			continue
-		case ' ':
-			// Check if this space is between two wildcards
-			prevIsWildcard := i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')
-			nextIsWildcard := i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')
-
-			if prevIsWildcard && nextIsWildcard {
-				// Space between two wildcards must be MANDATORY for proper capture
-				result.WriteRune(' ')
-			} else if prevIsWildcard || nextIsWildcard {
-				// Space adjacent to a single wildcard (at start/end) can be optional
-				result.WriteString(" ?")
-			} else {
-				// Regular space
-				result.WriteRune(' ')
-			}
-		case '(', ')', '[', ']', '{', '}', '?', '+', '.':
-			// Escape special regex characters (but not | as it's needed for alternation)
-			result.WriteRune('\\')
-			result.WriteRune(char)
-		case '|':
-			// Don't escape pipe character as it's needed for alternation in sets
-			result.WriteRune(char)
-		default:
-			// Regular character
-			result.WriteRune(char)
-		}
-	}
-
-	return "^" + result.String() + "$"
+	return buildPatternRegex(nil, pattern, nil)
 }
 
-// patternToRegexWithSetsCached converts AIML pattern to regex with proper set matching and caching
+// patternToRegexWithSetsCached converts AIML pattern to regex, matching each
+// <set> against the knowledge base's members
 func patternToRegexWithSetsCached(g *Golem, pattern string, kb *AIMLKnowledgeBase) string {
-	// Handle set matching with proper set validation
+	return buildPatternRegex(g, pattern, kb)
+}
+
+// noMatchRe is a regex group that never matches, for sets that do not exist
+const noMatchRe = `(\b\B)`
+
+// patternPlaceholderBase is the first of the private-use runes that stand in
+// for <set> and <topic> groups while the pattern is converted
+const patternPlaceholderBase = 0xE000
+
+// isZeroPlusWildcard reports whether r is a wildcard that matches zero or more words
+func isZeroPlusWildcard(r rune) bool {
+	return r == '*' || r == '^' || r == '#'
+}
+
+// buildPatternRegex converts an AIML pattern to an anchored regex.
+//
+// A wildcard that stands alone as a word matches whole words only: "HELLO *"
+// matches "HELLO" and "HELLO THERE" but not "HELLOTHERE". *, ^ and # match
+// zero or more words; _ matches one word. Each <set> becomes an alternation of
+// its members (or a group that never matches if kb is given and the set does
+// not exist), and each <topic> matches one word.
+func buildPatternRegex(g *Golem, pattern string, kb *AIMLKnowledgeBase) string {
+	// Replace set and topic tags with placeholder runes first, so that the
+	// regex they become is not converted again as pattern text
+	var groups []string
+	placeholder := func(group string) string {
+		groups = append(groups, group)
+		return string(rune(patternPlaceholderBase + len(groups) - 1))
+	}
 	pattern = patternSetTagRe.ReplaceAllStringFunc(pattern, func(match string) string {
-		// Extract set name using regex groups
-		matches := patternSetTagRe.FindStringSubmatch(match)
-		if len(matches) < 2 {
-			return "([^\\s]*)"
+		if kb == nil {
+			return placeholder(`(\S+)`)
 		}
-		setName := strings.ToUpper(strings.TrimSpace(matches[1]))
-
-		// Check cache first
-		if g != nil && g.patternMatchingCache != nil {
-			if regex, found := g.patternMatchingCache.GetSetRegex(setName, kb.Sets[setName]); found {
-				return regex
-			}
-		}
-
-		if len(kb.Sets[setName]) > 0 {
-			// Create regex alternation for set members
-			var alternatives []string
-			for _, member := range kb.Sets[setName] {
-				// Escape only specific regex characters, not the pipe
-				upperMember := strings.ToUpper(member)
-				// Escape characters that have special meaning in regex, but not |
-				escaped := strings.ReplaceAll(upperMember, "(", "\\(")
-				escaped = strings.ReplaceAll(escaped, ")", "\\)")
-				escaped = strings.ReplaceAll(escaped, "[", "\\[")
-				escaped = strings.ReplaceAll(escaped, "]", "\\]")
-				escaped = strings.ReplaceAll(escaped, "{", "\\{")
-				escaped = strings.ReplaceAll(escaped, "}", "\\}")
-				escaped = strings.ReplaceAll(escaped, "^", "\\^")
-				escaped = strings.ReplaceAll(escaped, "$", "\\$")
-				escaped = strings.ReplaceAll(escaped, ".", "\\.")
-				escaped = strings.ReplaceAll(escaped, "+", "\\+")
-				escaped = strings.ReplaceAll(escaped, "?", "\\?")
-				escaped = strings.ReplaceAll(escaped, "*", "\\*")
-				escaped = strings.ReplaceAll(escaped, "-", "\\-")
-				escaped = strings.ReplaceAll(escaped, "@", "\\@")
-				// Don't escape | as it's needed for alternation
-				alternatives = append(alternatives, escaped)
-			}
-			regex := "(" + strings.Join(alternatives, "|") + ")"
-
-			// Cache the result
-			if g != nil && g.patternMatchingCache != nil {
-				g.patternMatchingCache.SetSetRegex(setName, kb.Sets[setName], regex)
-			}
-
-			return regex
-		}
-		// Fallback to wildcard if set not found
-		return "([^\\s]*)"
+		setName := strings.ToUpper(strings.TrimSpace(patternSetTagRe.FindStringSubmatch(match)[1]))
+		return placeholder(setRegex(g, setName, kb))
+	})
+	pattern = patternTopicTagRe.ReplaceAllStringFunc(pattern, func(string) string {
+		return placeholder(`(\S*)`)
 	})
 
-	// Handle topic matching
-	pattern = patternTopicTagRe.ReplaceAllString(pattern, "([^\\s]*)")
+	// standaloneWildcard reports whether the byte at i is a zero+ wildcard
+	// that is a whole word. Spaces and wildcards are ASCII, so byte indices
+	// can be used.
+	standaloneWildcard := func(i int) bool {
+		return i < len(pattern) && isZeroPlusWildcard(rune(pattern[i])) &&
+			(i == 0 || pattern[i-1] == ' ') && (i == len(pattern)-1 || pattern[i+1] == ' ')
+	}
 
-	// Build regex pattern by processing each character
 	var result strings.Builder
 	inAlternationGroup := false
 	for i, char := range pattern {
+		if idx := int(char) - patternPlaceholderBase; idx >= 0 && idx < len(groups) {
+			result.WriteString(groups[idx])
+			continue
+		}
 		switch char {
-		case '*':
-			// Zero+ wildcard: matches zero or more words
-			result.WriteString("(.*?)")
+		case '*', '^', '#':
+			if standaloneWildcard(i) {
+				// Zero or more whole words, together with the space after
+				// them, so that matching no words needs no space
+				result.WriteString(`(?:(.+?)(?: |$))?`)
+			} else {
+				result.WriteString("(.*?)")
+			}
 		case '_':
 			// Single wildcard: matches exactly one word
-			result.WriteString("([^\\s]+)")
-		case '^':
-			// Caret wildcard: matches zero or more words (AIML2)
-			result.WriteString("(.*?)")
-		case '#':
-			// Hash wildcard: matches zero or more words with high priority (AIML2)
-			result.WriteString("(.*?)")
+			result.WriteString(`(\S+)`)
 		case '$':
 			// Dollar wildcard: highest priority exact match (AIML2)
 			// For regex purposes, treat as exact match (no wildcard capture)
-			// Don't add anything to regex - this will be handled in pattern matching
 			continue
 		case ' ':
-			// Check if this space is between two wildcards
-			prevIsWildcard := i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '_' || pattern[i-1] == '^' || pattern[i-1] == '#')
-			nextIsWildcard := i+1 < len(pattern) && (pattern[i+1] == '*' || pattern[i+1] == '_' || pattern[i+1] == '^' || pattern[i+1] == '#')
-
-			if prevIsWildcard && nextIsWildcard {
-				// Space between two wildcards must be MANDATORY for proper capture
-				result.WriteRune(' ')
-			} else if prevIsWildcard || nextIsWildcard {
-				// Space adjacent to a single wildcard (at start/end) can be optional
-				result.WriteString(" ?")
-			} else {
-				// Regular space
+			switch {
+			case standaloneWildcard(i - 1):
+				// Already matched by the preceding wildcard
+			case standaloneWildcard(i + 1):
+				// The next word is a wildcard that may match nothing, so this
+				// word may also be the last one
+				result.WriteString("(?: |$)")
+			default:
 				result.WriteRune(' ')
 			}
 		case '(':
-			// Check if this is the start of an alternation group (contains |)
-			// Look ahead to see if there's a | in this group
+			// An alternation group (containing |) is kept; other parentheses
+			// are literal
 			groupEnd := findMatchingParen(pattern, i)
 			if groupEnd > i && strings.Contains(pattern[i:groupEnd+1], "|") {
 				inAlternationGroup = true
 				result.WriteRune('(')
 			} else {
-				// Regular group, escape it
 				result.WriteString("\\(")
 			}
 		case ')':
@@ -2000,20 +2142,40 @@ func patternToRegexWithSetsCached(g *Golem, pattern string, kb *AIMLKnowledgeBas
 			} else {
 				result.WriteString("\\)")
 			}
-		case '[', ']', '{', '}', '?', '+', '.':
-			// Escape special regex characters
-			result.WriteRune('\\')
-			result.WriteRune(char)
 		case '|':
-			// Don't escape pipe character as it's needed for alternation in sets
+			// Don't escape pipe character as it's needed for alternation
 			result.WriteRune(char)
 		default:
-			// Regular character
-			result.WriteRune(char)
+			result.WriteString(regexp.QuoteMeta(string(char)))
 		}
 	}
 
 	return "^" + result.String() + "$"
+}
+
+// setRegex returns the regex group matching any member of the set, or a
+// group that never matches if the set does not exist or is empty
+func setRegex(g *Golem, setName string, kb *AIMLKnowledgeBase) string {
+	members := kb.Sets[setName]
+	if g != nil && g.patternMatchingCache != nil {
+		if regex, found := g.patternMatchingCache.GetSetRegex(setName, members); found {
+			return regex
+		}
+	}
+	if len(members) == 0 {
+		return noMatchRe
+	}
+
+	alternatives := make([]string, len(members))
+	for i, member := range members {
+		alternatives[i] = regexp.QuoteMeta(strings.ToUpper(member))
+	}
+	regex := "(" + strings.Join(alternatives, "|") + ")"
+
+	if g != nil && g.patternMatchingCache != nil {
+		g.patternMatchingCache.SetSetRegex(setName, members, regex)
+	}
+	return regex
 }
 
 // findMatchingParen finds the matching closing parenthesis for an opening parenthesis
@@ -2122,7 +2284,11 @@ func (g *Golem) processTemplateWithContext(template string, wildcards map[string
 	if g.treeProcessor == nil {
 		g.treeProcessor = NewTreeProcessor(g)
 	}
-	response, err := g.treeProcessor.ProcessTemplate(template, wildcards, ctx)
+	// TreeProcessor holds per-call state (ctx, starCounter), so each call gets
+	// its own; sharing one across concurrent sessions mixed up their contexts.
+	// Only the metrics registry is shared.
+	tp := &TreeProcessor{golem: g, metrics: g.treeProcessor.metrics}
+	response, err := tp.ProcessTemplate(template, wildcards, ctx)
 	if err != nil {
 		g.LogError("Error in tree-based template processing: %v", err)
 		// NEVER return templates with XML tags - return error message instead
@@ -5089,7 +5255,7 @@ func (g *Golem) processSizeTagsWithContext(template string, ctx *VariableContext
 
 	if len(matches) > 0 {
 		// Get the number of categories
-		size := len(ctx.KnowledgeBase.Categories)
+		size := ctx.KnowledgeBase.categoryCount()
 		sizeStr := strconv.Itoa(size)
 
 		g.LogDebug("Size tag: found %d categories", size)
@@ -6421,6 +6587,8 @@ func (kb *AIMLKnowledgeBase) IsSetMember(setName, word string) bool {
 
 // SetTopic sets the current topic for a category
 func (kb *AIMLKnowledgeBase) SetTopic(pattern, topic string) {
+	kb.patternsMu.Lock()
+	defer kb.patternsMu.Unlock()
 	if category, exists := kb.Patterns[pattern]; exists {
 		category.Topic = strings.ToUpper(topic)
 	}
@@ -6428,6 +6596,8 @@ func (kb *AIMLKnowledgeBase) SetTopic(pattern, topic string) {
 
 // GetTopic returns the topic for a pattern
 func (kb *AIMLKnowledgeBase) GetTopic(pattern string) string {
+	kb.patternsMu.RLock()
+	defer kb.patternsMu.RUnlock()
 	if category, exists := kb.Patterns[pattern]; exists {
 		return category.Topic
 	}
@@ -10154,29 +10324,13 @@ func (g *Golem) addSessionCategory(category Category, ctx *VariableContext) erro
 		return fmt.Errorf("category validation failed: %v", err)
 	}
 
-	// Normalize the pattern and build the proper key including that and topic
-	normalizedPattern := NormalizePattern(category.Pattern)
-	key := normalizedPattern
-	if category.That != "" {
-		key += "|THAT:" + NormalizePattern(category.That)
-		if category.ThatIndex != 0 {
-			key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
-		}
-	}
-	if category.Topic != "" {
-		key += "|TOPIC:" + strings.ToUpper(category.Topic)
-	}
+	// Build the index key including that and topic
+	key := categoryKey(category)
 
-	// Check if category already exists
-	if existingCategory, exists := g.aimlKB.Patterns[key]; exists {
-		g.LogInfo("Updating existing session category: %s", key)
-		// Update existing category
-		*existingCategory = category
+	if g.aimlKB.addOrUpdateCategory(category) {
+		g.LogInfo("Updated existing session category: %s", key)
 	} else {
-		g.LogInfo("Adding new session category: %s", key)
-		// Add new category
-		g.aimlKB.Categories = append(g.aimlKB.Categories, category)
-		g.aimlKB.Patterns[key] = &g.aimlKB.Categories[len(g.aimlKB.Categories)-1]
+		g.LogInfo("Added new session category: %s", key)
 	}
 
 	// Update session learning statistics
@@ -10270,27 +10424,12 @@ func (g *Golem) addPersistentCategory(category Category) error {
 
 	// Normalize the pattern and build the proper key including that and topic
 	normalizedPattern := NormalizePattern(category.Pattern)
-	key := normalizedPattern
-	if category.That != "" {
-		key += "|THAT:" + NormalizePattern(category.That)
-		if category.ThatIndex != 0 {
-			key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
-		}
-	}
-	if category.Topic != "" {
-		key += "|TOPIC:" + strings.ToUpper(category.Topic)
-	}
+	key := categoryKey(category)
 
-	// Check if category already exists
-	if existingCategory, exists := g.aimlKB.Patterns[key]; exists {
-		g.LogInfo("Updating existing persistent category: %s", key)
-		// Update existing category
-		*existingCategory = category
+	if g.aimlKB.addOrUpdateCategory(category) {
+		g.LogInfo("Updated existing persistent category: %s", key)
 	} else {
-		g.LogInfo("Adding new persistent category: %s", key)
-		// Add new category
-		g.aimlKB.Categories = append(g.aimlKB.Categories, category)
-		g.aimlKB.Patterns[key] = &g.aimlKB.Categories[len(g.aimlKB.Categories)-1]
+		g.LogInfo("Added new persistent category: %s", key)
 	}
 
 	// Save to persistent storage if available
@@ -10314,50 +10453,19 @@ func (g *Golem) removeSessionCategory(category Category, ctx *VariableContext) e
 		return fmt.Errorf("no knowledge base available")
 	}
 
-	// Normalize the pattern and build the proper key including that and topic
-	normalizedPattern := NormalizePattern(category.Pattern)
-	key := normalizedPattern
-	if category.That != "" {
-		key += "|THAT:" + NormalizePattern(category.That)
-		if category.ThatIndex != 0 {
-			key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
-		}
-	}
-	if category.Topic != "" {
-		key += "|TOPIC:" + strings.ToUpper(category.Topic)
-	}
-
-	// Check if category exists
-	if _, exists := g.aimlKB.Patterns[key]; !exists {
+	key := categoryKey(category)
+	if !g.aimlKB.removeCategoryByKey(key) {
 		g.LogInfo("Category not found for removal: %s", key)
 		return fmt.Errorf("category not found: %s", key)
 	}
+	g.LogInfo("Removed session category: %s", key)
 
-	// Remove from patterns map
-	delete(g.aimlKB.Patterns, key)
-
-	// Remove from categories slice
-	for i, cat := range g.aimlKB.Categories {
-		// Match based on pattern, that, and topic
-		if NormalizePattern(cat.Pattern) == normalizedPattern &&
-			cat.That == category.That &&
-			cat.Topic == category.Topic &&
-			cat.ThatIndex == category.ThatIndex {
-			// Remove the category by slicing it out
-			g.aimlKB.Categories = append(g.aimlKB.Categories[:i], g.aimlKB.Categories[i+1:]...)
-			g.LogInfo("Removed session category: %s", key)
-
-			// Update session learning statistics
-			if ctx.Session != nil && ctx.Session.LearningStats != nil {
-				g.updateSessionLearningStats(ctx.Session, category, "unlearn")
-			}
-
-			return nil
-		}
+	// Update session learning statistics
+	if ctx.Session != nil && ctx.Session.LearningStats != nil {
+		g.updateSessionLearningStats(ctx.Session, category, "unlearn")
 	}
 
-	g.LogInfo("Category not found in categories slice: %s", normalizedPattern)
-	return fmt.Errorf("category not found in categories slice: %s", normalizedPattern)
+	return nil
 }
 
 // removePersistentCategory removes a category from the persistent knowledge base
@@ -10366,55 +10474,24 @@ func (g *Golem) removePersistentCategory(category Category) error {
 		return fmt.Errorf("no knowledge base available")
 	}
 
-	// Normalize the pattern and build the proper key including that and topic
-	normalizedPattern := NormalizePattern(category.Pattern)
-	key := normalizedPattern
-	if category.That != "" {
-		key += "|THAT:" + NormalizePattern(category.That)
-		if category.ThatIndex != 0 {
-			key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
-		}
-	}
-	if category.Topic != "" {
-		key += "|TOPIC:" + strings.ToUpper(category.Topic)
-	}
-
-	// Check if category exists
-	if _, exists := g.aimlKB.Patterns[key]; !exists {
+	key := categoryKey(category)
+	if !g.aimlKB.removeCategoryByKey(key) {
 		g.LogInfo("Category not found for removal: %s", key)
 		return fmt.Errorf("category not found: %s", key)
 	}
+	g.LogInfo("Removed persistent category: %s", key)
 
-	// Remove from patterns map
-	delete(g.aimlKB.Patterns, key)
-
-	// Remove from categories slice
-	for i, cat := range g.aimlKB.Categories {
-		// Match based on pattern, that, and topic
-		if NormalizePattern(cat.Pattern) == normalizedPattern &&
-			cat.That == category.That &&
-			cat.Topic == category.Topic &&
-			cat.ThatIndex == category.ThatIndex {
-			// Remove the category by slicing it out
-			g.aimlKB.Categories = append(g.aimlKB.Categories[:i], g.aimlKB.Categories[i+1:]...)
-			g.LogInfo("Removed persistent category: %s", key)
-
-			// Remove from persistent storage if available
-			if g.persistentLearning != nil {
-				if err := g.persistentLearning.RemovePersistentCategory(category); err != nil {
-					g.LogWarn("Failed to remove category from persistent storage: %v", err)
-					// Don't fail the operation, just log the warning
-				} else {
-					g.LogInfo("Category removed from persistent storage: %s", key)
-				}
-			}
-
-			return nil
+	// Remove from persistent storage if available
+	if g.persistentLearning != nil {
+		if err := g.persistentLearning.RemovePersistentCategory(category); err != nil {
+			g.LogWarn("Failed to remove category from persistent storage: %v", err)
+			// Don't fail the operation, just log the warning
+		} else {
+			g.LogInfo("Category removed from persistent storage: %s", key)
 		}
 	}
 
-	g.LogInfo("Category not found in categories slice: %s", normalizedPattern)
-	return fmt.Errorf("category not found in categories slice: %s", normalizedPattern)
+	return nil
 }
 
 // ThatPatternCache represents an enhanced cache for compiled that patterns

@@ -141,8 +141,9 @@ func TestTreeProcessorSRTagNoMatch(t *testing.T) {
 		RecursionDepth: 0,
 	}
 
+	// Like <srai><star/></srai>, an unmatched <sr/> returns the star text
 	template := "You said: <sr/>"
-	expected := "You said: "
+	expected := "You said: NONEXISTENT"
 
 	// Create tree processor
 	tp := NewTreeProcessor(g)
@@ -235,8 +236,9 @@ func TestTreeProcessorSRTagNoKnowledgeBase(t *testing.T) {
 		RecursionDepth: 0,
 	}
 
+	// Like <srai><star/></srai>, <sr/> without a knowledge base returns the star text
 	template := "You said: <sr/>"
-	expected := "You said: "
+	expected := "You said: HELLO"
 
 	// Create tree processor
 	tp := NewTreeProcessor(g)
@@ -479,7 +481,7 @@ func TestTreeProcessorSRTagMaxRecursionDepth(t *testing.T) {
 		Session:        session,
 		Topic:          "",
 		KnowledgeBase:  kb,
-		RecursionDepth: 99, // Near max
+		RecursionDepth: MaxSRAIRecursionDepth - 1, // Near max
 	}
 
 	template := "<sr/>"
@@ -498,7 +500,7 @@ func TestTreeProcessorSRTagMaxRecursionDepth(t *testing.T) {
 	tp.ctx = ctx
 	result := tp.processNode(ast)
 
-	// Should hit recursion limit and SR returns empty string (AIML spec compliant)
+	// The inner <sr/> has no wildcard of its own, so it returns empty
 	// Tree processor trims trailing whitespace
 	expected := "Loop:"
 	if result != expected {

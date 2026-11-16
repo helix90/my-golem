@@ -188,8 +188,10 @@ All `.properties` files must use JSON array format:
   - `{input}` - The SRAIX input text
   - `{apikey}` - API key from headers (Authorization header)
   - `{lat}`, `{lon}` - Automatically from session variables `latitude`/`longitude`
-  - `{location}` - Location name from wildcards
-  - `{WILDCARD_NAME}` - Any wildcard value in uppercase
+  - `{location}` - From session variable `location`
+  - `{STAR1}`, `{STAR2}`, ... - Pattern wildcard values
+  - `{param_name}` - Any other request param, e.g. `{list_id}` from form/JSON input or `{access_token}` from session variable `list_access_token`
+- Values that can come from the user are query-escaped in URLs; header values (e.g. `Bearer {access_token}`) are substituted without escaping
 - Automatically configured via `ConfigureFromProperties()` when knowledge base is set
 - Example: `export PIRATE_WEATHER_API_KEY="your-key"` then use `${PIRATE_WEATHER_API_KEY}` in URL templates
 
@@ -262,7 +264,6 @@ When implementing a new tag:
 
 4. **Update Documentation**:
    - Update tag list in README.md
-   - Create implementation guide if complex (see `*_TAG_IMPLEMENTATION.md` files)
    - Update `AIML2_COMPARISON.md` compliance matrix
 
 5. **Follow Processing Order**:
@@ -322,7 +323,6 @@ go run pkg/golem/conflict_demo.go
 - `TAG_PROCESSING_STANDARDIZATION.md` - Processing pipeline specification
 - `README.md` - User-facing documentation
 - `AIML2_COMPARISON.md` - Compliance matrix
-- `*_TAG_IMPLEMENTATION.md` files - Tag-specific implementation guides
 
 ## Performance
 

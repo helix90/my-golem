@@ -589,7 +589,7 @@ func TestConditionTagEdgeCases(t *testing.T) {
 		{
 			name:        "Condition with special characters",
 			template:    `<condition name="symbol"><li value="&amp;">Ampersand</li><li value="&lt;">Less than</li><li>Other</li></condition>`,
-			setupVars:   map[string]string{"symbol": "&amp;"}, // XML entities are preserved
+			setupVars:   map[string]string{"symbol": "&"}, // Attribute values are entity-decoded
 			expectedOut: "Ampersand",
 		},
 		{

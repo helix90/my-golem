@@ -220,15 +220,15 @@ func TestPatternToRegex(t *testing.T) {
 		},
 		{
 			pattern:  "MY NAME IS *",
-			expected: "^MY NAME IS ?(.*?)$",
+			expected: "^MY NAME IS(?: |$)(?:(.+?)(?: |$))?$",
 		},
 		{
 			pattern:  "I AM * YEARS OLD",
-			expected: "^I AM ?(.*?) ?YEARS OLD$",
+			expected: "^I AM(?: |$)(?:(.+?)(?: |$))?YEARS OLD$",
 		},
 		{
 			pattern:  "I LIKE * AND *",
-			expected: "^I LIKE ?(.*?) ?AND ?(.*?)$",
+			expected: "^I LIKE(?: |$)(?:(.+?)(?: |$))?AND(?: |$)(?:(.+?)(?: |$))?$",
 		},
 	}
 

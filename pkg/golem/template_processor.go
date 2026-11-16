@@ -2,6 +2,7 @@ package golem
 
 import (
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -108,6 +109,7 @@ type ProcessorRegistry struct {
 	processors map[string]TemplateProcessor
 	order      []string
 	metrics    map[string]*ProcessorMetrics
+	metricsMu  sync.Mutex // guards metrics, which are updated by concurrent template processing
 }
 
 // NewProcessorRegistry creates a new processor registry
@@ -179,14 +181,18 @@ func (r *ProcessorRegistry) ProcessTemplate(template string, wildcards map[strin
 		processingTime := time.Since(startTime)
 
 		// Update metrics
+		r.metricsMu.Lock()
 		metrics := r.metrics[processor.Name()]
 		metrics.TotalCalls++
 		metrics.TotalTime += processingTime
 		metrics.AverageTime = time.Duration(int64(metrics.TotalTime) / metrics.TotalCalls)
 		metrics.LastCallTime = time.Now()
-
 		if err != nil {
 			metrics.ErrorCount++
+		}
+		r.metricsMu.Unlock()
+
+		if err != nil {
 			return response, err
 		}
 
@@ -196,15 +202,34 @@ func (r *ProcessorRegistry) ProcessTemplate(template string, wildcards map[strin
 	return response, nil
 }
 
-// GetMetrics returns metrics for all processors
+// GetMetrics returns a snapshot of the metrics for all processors
 func (r *ProcessorRegistry) GetMetrics() map[string]*ProcessorMetrics {
-	return r.metrics
+	r.metricsMu.Lock()
+	defer r.metricsMu.Unlock()
+	snapshot := make(map[string]*ProcessorMetrics, len(r.metrics))
+	for name, metrics := range r.metrics {
+		copied := *metrics
+		snapshot[name] = &copied
+	}
+	return snapshot
 }
 
 // ResetMetrics resets metrics for all processors
 func (r *ProcessorRegistry) ResetMetrics() {
+	r.metricsMu.Lock()
+	defer r.metricsMu.Unlock()
 	for _, metrics := range r.metrics {
 		*metrics = ProcessorMetrics{}
+	}
+}
+
+// recordCall counts one call to the named processor
+func (r *ProcessorRegistry) recordCall(name string) {
+	r.metricsMu.Lock()
+	defer r.metricsMu.Unlock()
+	if metrics := r.metrics[name]; metrics != nil {
+		metrics.TotalCalls++
+		metrics.LastCallTime = time.Now()
 	}
 }
 

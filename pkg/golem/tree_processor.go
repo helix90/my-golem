@@ -15,7 +15,7 @@ import (
 type TreeProcessor struct {
 	golem       *Golem
 	ctx         *VariableContext
-	starCounter int // Tracks auto-incrementing star index for <star/> tags without explicit index
+	starCounter int                // Tracks auto-incrementing star index for <star/> tags without explicit index
 	metrics     *ProcessorRegistry // Tracks metrics for different tag types/operations
 }
 
@@ -44,12 +44,16 @@ type TreeProcessorWildcard struct {
 	metrics *ProcessorMetrics
 }
 
-func (p *TreeProcessorWildcard) Name() string                                      { return p.name }
-func (p *TreeProcessorWildcard) Type() ProcessorType                               { return ProcessorTypeWildcard }
-func (p *TreeProcessorWildcard) Priority() ProcessorPriority                       { return PriorityEarly }
-func (p *TreeProcessorWildcard) Condition() ProcessorCondition                     { return ProcessorCondition{} }
-func (p *TreeProcessorWildcard) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) { return template, nil }
-func (p *TreeProcessorWildcard) ShouldProcess(template string, ctx *VariableContext) bool { return true }
+func (p *TreeProcessorWildcard) Name() string                  { return p.name }
+func (p *TreeProcessorWildcard) Type() ProcessorType           { return ProcessorTypeWildcard }
+func (p *TreeProcessorWildcard) Priority() ProcessorPriority   { return PriorityEarly }
+func (p *TreeProcessorWildcard) Condition() ProcessorCondition { return ProcessorCondition{} }
+func (p *TreeProcessorWildcard) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
+	return template, nil
+}
+func (p *TreeProcessorWildcard) ShouldProcess(template string, ctx *VariableContext) bool {
+	return true
+}
 func (p *TreeProcessorWildcard) GetMetrics() *ProcessorMetrics {
 	if p.metrics == nil {
 		p.metrics = &ProcessorMetrics{}
@@ -63,11 +67,13 @@ type TreeProcessorData struct {
 	metrics *ProcessorMetrics
 }
 
-func (p *TreeProcessorData) Name() string                                          { return p.name }
-func (p *TreeProcessorData) Type() ProcessorType                                   { return ProcessorTypeData }
-func (p *TreeProcessorData) Priority() ProcessorPriority                           { return PriorityNormal }
-func (p *TreeProcessorData) Condition() ProcessorCondition                         { return ProcessorCondition{} }
-func (p *TreeProcessorData) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) { return template, nil }
+func (p *TreeProcessorData) Name() string                  { return p.name }
+func (p *TreeProcessorData) Type() ProcessorType           { return ProcessorTypeData }
+func (p *TreeProcessorData) Priority() ProcessorPriority   { return PriorityNormal }
+func (p *TreeProcessorData) Condition() ProcessorCondition { return ProcessorCondition{} }
+func (p *TreeProcessorData) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
+	return template, nil
+}
 func (p *TreeProcessorData) ShouldProcess(template string, ctx *VariableContext) bool { return true }
 func (p *TreeProcessorData) GetMetrics() *ProcessorMetrics {
 	if p.metrics == nil {
@@ -82,11 +88,13 @@ type TreeProcessorFormat struct {
 	metrics *ProcessorMetrics
 }
 
-func (p *TreeProcessorFormat) Name() string                                        { return p.name }
-func (p *TreeProcessorFormat) Type() ProcessorType                                 { return ProcessorTypeFormat }
-func (p *TreeProcessorFormat) Priority() ProcessorPriority                         { return PriorityLate }
-func (p *TreeProcessorFormat) Condition() ProcessorCondition                       { return ProcessorCondition{} }
-func (p *TreeProcessorFormat) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) { return template, nil }
+func (p *TreeProcessorFormat) Name() string                  { return p.name }
+func (p *TreeProcessorFormat) Type() ProcessorType           { return ProcessorTypeFormat }
+func (p *TreeProcessorFormat) Priority() ProcessorPriority   { return PriorityLate }
+func (p *TreeProcessorFormat) Condition() ProcessorCondition { return ProcessorCondition{} }
+func (p *TreeProcessorFormat) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
+	return template, nil
+}
 func (p *TreeProcessorFormat) ShouldProcess(template string, ctx *VariableContext) bool { return true }
 func (p *TreeProcessorFormat) GetMetrics() *ProcessorMetrics {
 	if p.metrics == nil {
@@ -101,12 +109,16 @@ type TreeProcessorVariable struct {
 	metrics *ProcessorMetrics
 }
 
-func (p *TreeProcessorVariable) Name() string                                      { return p.name }
-func (p *TreeProcessorVariable) Type() ProcessorType                               { return ProcessorTypeVariable }
-func (p *TreeProcessorVariable) Priority() ProcessorPriority                       { return PriorityEarly }
-func (p *TreeProcessorVariable) Condition() ProcessorCondition                     { return ProcessorCondition{} }
-func (p *TreeProcessorVariable) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) { return template, nil }
-func (p *TreeProcessorVariable) ShouldProcess(template string, ctx *VariableContext) bool { return true }
+func (p *TreeProcessorVariable) Name() string                  { return p.name }
+func (p *TreeProcessorVariable) Type() ProcessorType           { return ProcessorTypeVariable }
+func (p *TreeProcessorVariable) Priority() ProcessorPriority   { return PriorityEarly }
+func (p *TreeProcessorVariable) Condition() ProcessorCondition { return ProcessorCondition{} }
+func (p *TreeProcessorVariable) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
+	return template, nil
+}
+func (p *TreeProcessorVariable) ShouldProcess(template string, ctx *VariableContext) bool {
+	return true
+}
 func (p *TreeProcessorVariable) GetMetrics() *ProcessorMetrics {
 	if p.metrics == nil {
 		p.metrics = &ProcessorMetrics{}
@@ -120,11 +132,13 @@ type TreeProcessorLogic struct {
 	metrics *ProcessorMetrics
 }
 
-func (p *TreeProcessorLogic) Name() string                                         { return p.name }
-func (p *TreeProcessorLogic) Type() ProcessorType                                  { return ProcessorTypeConditional }
-func (p *TreeProcessorLogic) Priority() ProcessorPriority                          { return PriorityNormal }
-func (p *TreeProcessorLogic) Condition() ProcessorCondition                        { return ProcessorCondition{} }
-func (p *TreeProcessorLogic) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) { return template, nil }
+func (p *TreeProcessorLogic) Name() string                  { return p.name }
+func (p *TreeProcessorLogic) Type() ProcessorType           { return ProcessorTypeConditional }
+func (p *TreeProcessorLogic) Priority() ProcessorPriority   { return PriorityNormal }
+func (p *TreeProcessorLogic) Condition() ProcessorCondition { return ProcessorCondition{} }
+func (p *TreeProcessorLogic) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
+	return template, nil
+}
 func (p *TreeProcessorLogic) ShouldProcess(template string, ctx *VariableContext) bool { return true }
 func (p *TreeProcessorLogic) GetMetrics() *ProcessorMetrics {
 	if p.metrics == nil {
@@ -137,11 +151,7 @@ func (p *TreeProcessorLogic) ResetMetrics() { p.metrics = &ProcessorMetrics{} }
 // trackMetric tracks metrics for a specific processor type
 func (tp *TreeProcessor) trackMetric(processorName string) {
 	if tp.metrics != nil {
-		metrics := tp.metrics.metrics[processorName]
-		if metrics != nil {
-			metrics.TotalCalls++
-			metrics.LastCallTime = time.Now()
-		}
+		tp.metrics.recordCall(processorName)
 	}
 }
 
@@ -244,8 +254,10 @@ func (tp *TreeProcessor) processNode(node *ASTNode) string {
 			}
 			return children
 		}
-		// Return text content as-is; escaping happens at the end of ProcessTemplate
-		return node.Content
+		// Decode entities (&amp;, &lt;, ...) on output. Content itself keeps
+		// the source text so that re-serialized templates (e.g. in <learn>)
+		// still parse correctly.
+		return html.UnescapeString(node.Content)
 	case NodeTypeComment:
 		return "" // Comments are not output
 	case NodeTypeCDATA:
@@ -535,23 +547,57 @@ func (tp *TreeProcessor) processSelfClosingTag(node *ASTNode) string {
 		return tp.processTopicTag(node, "")
 	default:
 		// Unknown self-closing tag, return as-is
-		attrStr := ""
-		if len(node.Attributes) > 0 {
-			var attrs []string
-			for k, v := range node.Attributes {
-				if v == "" {
-					attrs = append(attrs, k)
-				} else {
-					attrs = append(attrs, fmt.Sprintf(`%s="%s"`, k, v))
-				}
-			}
-			attrStr = " " + strings.Join(attrs, " ")
-		}
-		return fmt.Sprintf("<%s%s/>", node.TagName, attrStr)
+		return fmt.Sprintf("<%s%s/>", node.TagName, formatAttributes(node.Attributes))
 	}
 }
 
 // Tag processing methods
+
+// matchSRAI matches srai input the same way ProcessInput matches user input:
+// against the session's current topic and the bot's last response (<that>).
+// The topic is read at this point so that a <set name="topic"> earlier in the
+// same template applies.
+func (tp *TreeProcessor) matchSRAI(kb *AIMLKnowledgeBase, input string) (*Category, map[string]string, string, error) {
+	topic := tp.ctx.Topic
+	that := ""
+	if tp.ctx.Session != nil {
+		topic = tp.ctx.Session.GetSessionTopic()
+		if lastThat := tp.ctx.Session.GetLastThat(); lastThat != "" {
+			that = tp.golem.CachedNormalizeThatPattern(lastThat)
+		}
+	}
+	category, wildcards, err := kb.MatchPatternWithTopicAndThatIndexOriginalCached(tp.golem, tp.golem.CachedNormalizePattern(input), input, topic, that, 0)
+	return category, wildcards, topic, err
+}
+
+// sessionWildcardKeyRe matches the session variables that hold wildcards
+// (star1, that_star1, ...), as opposed to ordinary predicates such as "starsign"
+var sessionWildcardKeyRe = regexp.MustCompile(`^(that_|topic_)?(star|wildcard)\d+$`)
+
+// hideSessionWildcards removes the wildcard variables from the session and
+// returns a function that puts them back.
+func hideSessionWildcards(session *ChatSession) func() {
+	if session == nil || session.Variables == nil {
+		return func() {}
+	}
+	hidden := make(map[string]string)
+	for key, value := range session.Variables {
+		if sessionWildcardKeyRe.MatchString(key) {
+			hidden[key] = value
+			delete(session.Variables, key)
+		}
+	}
+	return func() {
+		for key := range session.Variables {
+			if sessionWildcardKeyRe.MatchString(key) {
+				delete(session.Variables, key)
+			}
+		}
+		for key, value := range hidden {
+			session.Variables[key] = value
+		}
+	}
+}
 
 func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 	// Process SRAI tag - recursive AIML processing (Symbolic Reduction and Inference)
@@ -566,9 +612,14 @@ func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 
 	tp.golem.LogInfo("Processing SRAI: '%s' (depth: %d)", sraiContent, tp.ctx.RecursionDepth)
 
+	kb := tp.ctx.KnowledgeBase
+	if kb == nil {
+		kb = tp.golem.aimlKB
+	}
+
 	// Try to match the SRAI content as a new AIML pattern
-	if tp.golem.aimlKB != nil {
-		category, wildcards, err := tp.golem.aimlKB.MatchPattern(sraiContent)
+	if kb != nil {
+		category, wildcards, topic, err := tp.matchSRAI(kb, sraiContent)
 		tp.golem.LogInfo("SRAI pattern match: content='%s', err=%v, category=%v, wildcards=%v",
 			sraiContent, err, category != nil, wildcards)
 
@@ -578,14 +629,17 @@ func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 			newCtx := &VariableContext{
 				LocalVars:      tp.ctx.LocalVars,
 				Session:        tp.ctx.Session,
-				Topic:          tp.ctx.Topic,
-				KnowledgeBase:  tp.ctx.KnowledgeBase,
+				Topic:          topic,
+				KnowledgeBase:  kb,
 				RecursionDepth: tp.ctx.RecursionDepth + 1,
-				Wildcards:      tp.ctx.Wildcards, // Preserve parent wildcards
 			}
 
-			// Process the matched template with the new context
+			// Process the matched template with the new context. Its <star/>
+			// tags refer to its own match, so the outer match's wildcards are
+			// hidden from the session while it runs.
+			restore := hideSessionWildcards(tp.ctx.Session)
 			response := tp.golem.processTemplateWithContext(category.Template, wildcards, newCtx)
+			restore()
 			tp.golem.LogInfo("SRAI result: '%s' -> '%s'", sraiContent, response)
 			return response
 		} else {
@@ -647,8 +701,7 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 		if defaultResponse != "" {
 			return defaultResponse
 		}
-		// Provide intelligent fallback based on query pattern
-		return tp.generateSRAIXFallback(sraixContent, serviceName, botName)
+		return sraixContent
 	}
 
 	tp.golem.LogInfo("Processing SRAIX: service='%s', bot='%s', botid='%s', host='%s', default='%s', hint='%s', content='%s'",
@@ -683,12 +736,26 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 		requestParams["hint"] = hintText
 	}
 
+	// Pattern wildcards are available to URL templates as {STAR1}, {STAR2}, ...
+	if tp.ctx != nil {
+		for key, value := range tp.ctx.Wildcards {
+			requestParams[key] = value
+		}
+	}
+
 	// Add session variables needed for service calls (for weather and location-based services)
 	if tp.ctx != nil && tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
+		if location, exists := tp.ctx.Session.Variables["location"]; exists && location != "" {
+			requestParams["location"] = location
+		}
+
 		// Check for _coords first (temporary query coordinates take priority)
-		// This allows "weather in Seattle" to not overwrite "my location is Portland"
+		// This allows "weather in Seattle" to not overwrite "my location is Portland".
+		// An explicit hint attribute takes precedence.
 		if coords, exists := tp.ctx.Session.Variables["_coords"]; exists && coords != "" {
-			requestParams["hint"] = coords
+			if hintText == "" {
+				requestParams["hint"] = coords
+			}
 		} else {
 			// Use permanent location coordinates as fallback
 			if lat, exists := tp.ctx.Session.Variables["latitude"]; exists && lat != "" {
@@ -726,59 +793,6 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 
 	tp.golem.LogInfo("SRAIX result: service='%s', input='%s' -> '%s'", targetService, sraixContent, response)
 	return response
-}
-
-// generateSRAIXFallback generates an intelligent fallback response when SRAIX services are unavailable
-func (tp *TreeProcessor) generateSRAIXFallback(query, serviceName, botName string) string {
-	queryUpper := strings.ToUpper(query)
-
-	// Pattern-based fallback responses
-	switch {
-	case strings.HasPrefix(queryUpper, "FAVORITE "):
-		item := strings.TrimPrefix(queryUpper, "FAVORITE ")
-		return fmt.Sprintf("I don't have a specific favorite %s, but I appreciate many things!", strings.ToLower(item))
-
-	case strings.HasPrefix(queryUpper, "WHO IS ") || strings.HasPrefix(queryUpper, "WHO WAS "):
-		return "I don't have detailed information about that person at the moment."
-
-	case strings.HasPrefix(queryUpper, "WHAT IS "):
-		return "I don't have that information available right now."
-
-	case strings.HasPrefix(queryUpper, "WHERE IS ") || strings.HasPrefix(queryUpper, "WHERE ARE "):
-		return "I don't have location information available at the moment."
-
-	case strings.HasPrefix(queryUpper, "WHEN IS ") || strings.HasPrefix(queryUpper, "WHEN WAS ") || strings.HasPrefix(queryUpper, "WHEN DID "):
-		return "I don't have that date or time information available."
-
-	case strings.HasPrefix(queryUpper, "WHY "):
-		return "That's an interesting question that I don't have enough information to answer properly."
-
-	case strings.HasPrefix(queryUpper, "HOW "):
-		return "I don't have detailed instructions for that at the moment."
-
-	case strings.HasPrefix(queryUpper, "DEFINE "):
-		word := strings.TrimPrefix(queryUpper, "DEFINE ")
-		return fmt.Sprintf("I don't have a definition for '%s' available.", strings.ToLower(word))
-
-	case strings.HasPrefix(queryUpper, "WEATHER "):
-		return "I don't have access to weather information at the moment."
-
-	case strings.HasPrefix(queryUpper, "JOKE") || strings.HasPrefix(queryUpper, "LIMERICK"):
-		return "I don't have any jokes or limericks available right now."
-
-	case strings.HasPrefix(queryUpper, "RECOMMEND "):
-		return "I don't have recommendation services available at the moment."
-
-	default:
-		// Generic fallback
-		if serviceName != "" {
-			return fmt.Sprintf("I'm unable to access the '%s' service at the moment.", serviceName)
-		}
-		if botName != "" {
-			return fmt.Sprintf("I'm unable to connect to the '%s' bot at the moment.", botName)
-		}
-		return "I don't have access to external services to answer that question."
-	}
 }
 
 func (tp *TreeProcessor) processThinkTag(_ *ASTNode, content string) string {
@@ -867,11 +881,9 @@ func (tp *TreeProcessor) processSetTag(node *ASTNode, content string) string {
 
 		// No operation attribute - check if a Set collection with this name already exists
 		// If yes, treat it as "get" operation; if no, treat as variable assignment
-		if tp.ctx != nil && tp.ctx.KnowledgeBase != nil && tp.ctx.KnowledgeBase.SetCollections != nil {
-			if _, exists := tp.ctx.KnowledgeBase.SetCollections[varKey]; exists {
-				// Set collection exists, treat this as a "get" operation
-				return tp.processSetCollectionTag(node, varKey, "get", content)
-			}
+		if tp.ctx != nil && tp.ctx.KnowledgeBase != nil && tp.ctx.KnowledgeBase.hasSetCollection(varKey) {
+			// Set collection exists, treat this as a "get" operation
+			return tp.processSetCollectionTag(node, varKey, "get", content)
 		}
 	}
 
@@ -903,11 +915,8 @@ func (tp *TreeProcessor) processSetTag(node *ASTNode, content string) string {
 				tp.ctx.Session.Variables[varKey] = value
 			} else if tp.ctx.KnowledgeBase != nil {
 				// No session - set in knowledge base variables (global)
-				if tp.ctx.KnowledgeBase.Variables == nil {
-					tp.ctx.KnowledgeBase.Variables = make(map[string]string)
-				}
-				tp.ctx.KnowledgeBase.Variables[varKey] = value
-				} else {
+				tp.ctx.KnowledgeBase.setVariable(varKey, value)
+			} else {
 				// Fallback to local variables as last resort
 				if tp.ctx.LocalVars == nil {
 					tp.ctx.LocalVars = make(map[string]string)
@@ -929,6 +938,8 @@ func (tp *TreeProcessor) processSetCollectionTag(_ *ASTNode, name string, operat
 		tp.golem.LogInfo("Set collection: no knowledge base available")
 		return ""
 	}
+	tp.ctx.KnowledgeBase.mu.Lock()
+	defer tp.ctx.KnowledgeBase.mu.Unlock()
 
 	// Get or create the set
 	if tp.ctx.KnowledgeBase.SetCollections[name] == nil {
@@ -1061,23 +1072,9 @@ func (tp *TreeProcessor) processGetTag(node *ASTNode, content string) string {
 				return value
 			}
 		}
-		// 3. Topic variables
-		if tp.ctx.Topic != "" && tp.ctx.KnowledgeBase != nil && tp.ctx.KnowledgeBase.TopicVars != nil {
-			if topicVars, exists := tp.ctx.KnowledgeBase.TopicVars[tp.ctx.Topic]; exists {
-				if value, exists := topicVars[varKey]; exists {
-					return value
-				}
-			}
-		}
-		// 4. Global variables (from knowledge base)
-		if tp.ctx.KnowledgeBase != nil && tp.ctx.KnowledgeBase.Variables != nil {
-			if value, exists := tp.ctx.KnowledgeBase.Variables[varKey]; exists {
-				return value
-			}
-		}
-		// 5. Bot properties
-		if tp.ctx.KnowledgeBase != nil && tp.ctx.KnowledgeBase.Properties != nil {
-			if value, exists := tp.ctx.KnowledgeBase.Properties[varKey]; exists {
+		// 3-5. Topic variables, global variables (from knowledge base), bot properties
+		if tp.ctx.KnowledgeBase != nil {
+			if value, exists := tp.ctx.KnowledgeBase.lookupVariable(tp.ctx.Topic, varKey); exists {
 				return value
 			}
 		}
@@ -1156,134 +1153,21 @@ func (tp *TreeProcessor) processStarTag(node *ASTNode, _ string) string {
 }
 
 func (tp *TreeProcessor) processSRTag(_ *ASTNode, _ string) string {
-	// Process SR tag - shorthand for <srai><star/></srai>
-	// SR recursively processes the first wildcard (star1)
-
+	// Process SR tag - shorthand for <srai><star/></srai>, so it shares srai's
+	// matching, context handling and recursion limit
 	if tp.ctx == nil {
 		tp.golem.LogDebug("SR tag: no context available")
 		return ""
 	}
 
-	// Get the first wildcard (star1) - check session variables first, then wildcards in context
-	starContent := ""
-	if tp.ctx.Session != nil {
-		if value, exists := tp.ctx.Session.Variables["star1"]; exists {
-			starContent = value
-		}
-	}
-	// Also check the Wildcards map directly (for cases without a session)
-	if starContent == "" && tp.ctx.Wildcards != nil {
-		if value, exists := tp.ctx.Wildcards["star1"]; exists {
-			starContent = value
-		}
-	}
-
+	starContent := tp.processStarTag(&ASTNode{Type: NodeTypeSelfClosingTag, TagName: "star", Attributes: map[string]string{}}, "")
 	tp.golem.LogDebug("SR tag: star1 content='%s'", starContent)
-
-	// If no star content, return empty
 	if starContent == "" {
 		tp.golem.LogDebug("SR tag: no star content available")
 		return ""
 	}
 
-	// If no knowledge base, return empty
-	if tp.ctx.KnowledgeBase == nil {
-		tp.golem.LogDebug("SR tag: no knowledge base available")
-		return ""
-	}
-
-	// Try to match the star content as a pattern in the knowledge base
-	category, wildcards, err := tp.ctx.KnowledgeBase.MatchPattern(starContent)
-	if err != nil || category == nil {
-		tp.golem.LogDebug("SR tag: no matching pattern for '%s'", starContent)
-		return ""
-	}
-
-	tp.golem.LogDebug("SR tag: found matching pattern for '%s'", starContent)
-
-	// Check recursion depth to prevent infinite loops
-	if tp.ctx.RecursionDepth >= 100 {
-		tp.golem.LogDebug("SR tag: max recursion depth reached")
-		return ""
-	}
-
-	// Increment recursion depth
-	oldDepth := tp.ctx.RecursionDepth
-	tp.ctx.RecursionDepth++
-	defer func() {
-		tp.ctx.RecursionDepth = oldDepth
-	}()
-
-	// Store old wildcards and restore them after processing
-	oldWildcards := make(map[string]string)
-	if tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
-		// Save current wildcards
-		for k, v := range tp.ctx.Session.Variables {
-			if strings.HasPrefix(k, "star") {
-				oldWildcards[k] = v
-			}
-		}
-
-		// Clear all existing star variables first
-		for k := range tp.ctx.Session.Variables {
-			if strings.HasPrefix(k, "star") {
-				delete(tp.ctx.Session.Variables, k)
-			}
-		}
-
-		// Set new wildcards from the matched pattern
-		for k, v := range wildcards {
-			tp.ctx.Session.Variables[k] = v
-		}
-	} else if tp.ctx.Wildcards != nil {
-		// No session - use context wildcards instead
-		// Save current wildcards
-		for k, v := range tp.ctx.Wildcards {
-			if strings.HasPrefix(k, "star") {
-				oldWildcards[k] = v
-			}
-		}
-
-		// Clear all existing star variables first
-		for k := range tp.ctx.Wildcards {
-			if strings.HasPrefix(k, "star") {
-				delete(tp.ctx.Wildcards, k)
-			}
-		}
-
-		// Set new wildcards from the matched pattern
-		for k, v := range wildcards {
-			tp.ctx.Wildcards[k] = v
-		}
-	}
-
-	// Process the matched template recursively
-	result := tp.golem.processTemplateWithContext(category.Template, wildcards, tp.ctx)
-
-	// Restore old wildcards
-	if tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
-		// Remove wildcards from the matched pattern
-		for k := range wildcards {
-			delete(tp.ctx.Session.Variables, k)
-		}
-		// Restore original wildcards
-		for k, v := range oldWildcards {
-			tp.ctx.Session.Variables[k] = v
-		}
-	} else if tp.ctx.Wildcards != nil {
-		// Remove wildcards from the matched pattern
-		for k := range wildcards {
-			delete(tp.ctx.Wildcards, k)
-		}
-		// Restore original wildcards
-		for k, v := range oldWildcards {
-			tp.ctx.Wildcards[k] = v
-		}
-	}
-
-	tp.golem.LogDebug("SR tag: result='%s'", result)
-
-	return result
+	return tp.processSRAITag(nil, starContent)
 }
 
 func (tp *TreeProcessor) processThatTag(node *ASTNode, _ string) string {
@@ -1579,6 +1463,9 @@ func (tp *TreeProcessor) processMapTag(node *ASTNode, content string) string {
 
 	tp.golem.LogInfo("Map tag: name='%s', key='%s', operation='%s', content='%s'", name, key, operation, content)
 
+	tp.ctx.KnowledgeBase.mu.Lock()
+	defer tp.ctx.KnowledgeBase.mu.Unlock()
+
 	// Get or create the map
 	if tp.ctx.KnowledgeBase.Maps[name] == nil {
 		tp.ctx.KnowledgeBase.Maps[name] = make(map[string]string)
@@ -1725,6 +1612,8 @@ func (tp *TreeProcessor) processListTag(node *ASTNode, content string) string {
 		tp.golem.LogInfo("List processing: no knowledge base available")
 		return ""
 	}
+	tp.ctx.KnowledgeBase.mu.Lock()
+	defer tp.ctx.KnowledgeBase.mu.Unlock()
 
 	// Get or create the list
 	if tp.ctx.KnowledgeBase.Lists[name] == nil {
@@ -1868,6 +1757,8 @@ func (tp *TreeProcessor) processArrayTag(node *ASTNode, content string) string {
 		tp.golem.LogInfo("Array processing: no knowledge base available")
 		return ""
 	}
+	tp.ctx.KnowledgeBase.mu.Lock()
+	defer tp.ctx.KnowledgeBase.mu.Unlock()
 
 	// Get or create the array
 	if tp.ctx.KnowledgeBase.Arrays[name] == nil {
@@ -2111,20 +2002,7 @@ func (tp *TreeProcessor) processChildPreservingReferences(node *ASTNode) string 
 func (tp *TreeProcessor) processTagWithContent(node *ASTNode, content string) string {
 	// Helper function to format tag with attributes
 	formatTag := func(tagName string, attrs map[string]string, content string) string {
-		if len(attrs) == 0 {
-			return fmt.Sprintf("<%s>%s</%s>", tagName, content, tagName)
-		}
-
-		var attrStr strings.Builder
-		for key, value := range attrs {
-			if value == "" {
-				attrStr.WriteString(fmt.Sprintf(" %s", key))
-			} else {
-				attrStr.WriteString(fmt.Sprintf(` %s="%s"`, key, value))
-			}
-		}
-
-		return fmt.Sprintf("<%s%s>%s</%s>", tagName, attrStr.String(), content, tagName)
+		return fmt.Sprintf("<%s%s>%s</%s>", tagName, formatAttributes(attrs), content, tagName)
 	}
 
 	// Process the tag based on its name
@@ -2591,6 +2469,8 @@ func (tp *TreeProcessor) processInputTag(_ *ASTNode, _ string) string {
 	// Process input tag - returns the most recent user input
 	// <input/> always returns the current/most recent user input (last item in RequestHistory)
 	// This is different from <request> which can take an index attribute
+	// Note: during ProcessInput() the current input is added to RequestHistory only
+	// after the template is processed, so this returns the *previous* user input
 
 	if tp.ctx == nil || tp.ctx.Session == nil {
 		tp.golem.LogDebug("Input tag: no context or session available")
@@ -3503,7 +3383,7 @@ func (tp *TreeProcessor) processTimeTag(node *ASTNode, _ string) string {
 func (tp *TreeProcessor) processSizeTag(_ *ASTNode, _ string) string {
 	// Size tag - knowledge base size
 	if tp.ctx != nil && tp.ctx.KnowledgeBase != nil {
-		return strconv.Itoa(len(tp.ctx.KnowledgeBase.Categories))
+		return strconv.Itoa(tp.ctx.KnowledgeBase.categoryCount())
 	}
 	return "0"
 }
