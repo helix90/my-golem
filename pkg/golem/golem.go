@@ -208,6 +208,9 @@ type TemplateProcessingConfig struct {
 
 // ChatSession represents a single chat session
 type ChatSession struct {
+	// mu makes concurrent ProcessInput calls on one session run one at a time
+	mu sync.Mutex
+
 	ID              string
 	Variables       map[string]string
 	History         []string
@@ -270,6 +273,10 @@ type Golem struct {
 	sraixMgr  *SRAIXManager
 	// Mutex for thread-safe session management
 	sessionMutex sync.RWMutex
+	// kbMu guards replacing aimlKB. ProcessInput holds it for reading for the
+	// whole call, so the knowledge base is not swapped (or merged into a copy,
+	// losing concurrent <learn>s) while a request is using it.
+	kbMu sync.RWMutex
 	// Text processing components
 	sentenceSplitter     *SentenceSplitter
 	wordBoundaryDetector *WordBoundaryDetector
@@ -1785,6 +1792,11 @@ func (g *Golem) ProcessData(input string) (string, error) {
 
 // ProcessInput processes user input with full context support
 func (g *Golem) ProcessInput(input string, session *ChatSession) (string, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	g.kbMu.RLock()
+	defer g.kbMu.RUnlock()
+
 	if g.aimlKB == nil {
 		return "", fmt.Errorf("no AIML knowledge base loaded")
 	}
@@ -1837,6 +1849,11 @@ func (g *Golem) ProcessInput(input string, session *ChatSession) (string, error)
 
 // ProcessInputWithThatIndex processes user input with specific that context index
 func (g *Golem) ProcessInputWithThatIndex(input string, session *ChatSession, thatIndex int) (string, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	g.kbMu.RLock()
+	defer g.kbMu.RUnlock()
+
 	if g.aimlKB == nil {
 		return "", fmt.Errorf("no AIML knowledge base loaded")
 	}
@@ -1962,6 +1979,9 @@ func (g *Golem) LoadFile(filename string) (string, error) {
 
 // SetKnowledgeBase sets the AIML knowledge base
 func (g *Golem) SetKnowledgeBase(kb *AIMLKnowledgeBase) {
+	g.kbMu.Lock()
+	defer g.kbMu.Unlock()
+
 	g.aimlKB = kb
 
 	// Register properties handler now that we have a knowledge base
@@ -1980,24 +2000,10 @@ func (g *Golem) SetKnowledgeBase(kb *AIMLKnowledgeBase) {
 			if g.aimlKB.Patterns == nil {
 				g.aimlKB.Patterns = make(map[string]*Category)
 			}
-			// Add persistent categories to the knowledge base
+			// Add persistent categories to the knowledge base. addOrUpdateCategory
+			// keeps the pattern index valid when Categories is reallocated.
 			for _, category := range persistentCategories {
-				// Normalize pattern and add to knowledge base
-				normalizedPattern := NormalizePattern(category.Pattern)
-				key := normalizedPattern
-				if category.That != "" {
-					key += "|THAT:" + NormalizePattern(category.That)
-					if category.ThatIndex != 0 {
-						key += fmt.Sprintf("|THATINDEX:%d", category.ThatIndex)
-					}
-				}
-				if category.Topic != "" {
-					key += "|TOPIC:" + strings.ToUpper(category.Topic)
-				}
-
-				// Add category to knowledge base
-				g.aimlKB.Categories = append(g.aimlKB.Categories, category)
-				g.aimlKB.Patterns[key] = &g.aimlKB.Categories[len(g.aimlKB.Categories)-1]
+				g.aimlKB.addOrUpdateCategory(category)
 			}
 		} else {
 			g.LogInfo("No persistent learned categories found")
@@ -2150,8 +2156,10 @@ func (g *Golem) CreateSession(sessionID string) *ChatSession {
 
 func (g *Golem) createSession(sessionID string) *ChatSession {
 	if sessionID == "" {
+		g.sessionMutex.Lock()
 		sessionID = fmt.Sprintf("session_%d", g.sessionID)
 		g.sessionID++
+		g.sessionMutex.Unlock()
 	}
 
 	now := time.Now().Format(time.RFC3339)
@@ -2200,9 +2208,7 @@ func (g *Golem) getCurrentSession() *ChatSession {
 // ProcessTemplateWithSession processes a template with session context
 func (g *Golem) ProcessTemplateWithSession(template string, wildcards map[string]string, session *ChatSession) string {
 	// Ensure knowledge base is initialized for variable/collection operations
-	if g.aimlKB == nil {
-		g.aimlKB = NewAIMLKnowledgeBase()
-	}
+	g.ensureKnowledgeBase()
 
 	// Create variable context for template processing with session
 	ctx := &VariableContext{

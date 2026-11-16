@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -18,8 +19,10 @@ type TelegramBot struct {
 	golem    *golem.Golem
 	bot      *bot.Bot
 	sessions map[int64]*golem.ChatSession // Chat ID -> Session mapping
-	aimlPath string
-	verbose  bool
+	// sessionsMu guards sessions, since handlers run concurrently
+	sessionsMu sync.Mutex
+	aimlPath   string
+	verbose    bool
 }
 
 // NewTelegramBot creates a new Telegram bot instance
@@ -55,6 +58,9 @@ func NewTelegramBot(token, aimlPath string, verbose bool) (*TelegramBot, error) 
 
 // getOrCreateSession gets an existing session or creates a new one for the chat
 func (tb *TelegramBot) getOrCreateSession(chatID int64) *golem.ChatSession {
+	tb.sessionsMu.Lock()
+	defer tb.sessionsMu.Unlock()
+
 	if session, exists := tb.sessions[chatID]; exists {
 		return session
 	}
@@ -69,6 +75,13 @@ func (tb *TelegramBot) getOrCreateSession(chatID int64) *golem.ChatSession {
 	}
 
 	return session
+}
+
+// sessionCount returns the number of active sessions
+func (tb *TelegramBot) sessionCount() int {
+	tb.sessionsMu.Lock()
+	defer tb.sessionsMu.Unlock()
+	return len(tb.sessions)
 }
 
 // handleMessage processes incoming messages
@@ -198,7 +211,7 @@ The bot maintains conversation context, so you can have ongoing discussions. Eac
 
 The bot is running and ready to chat!`,
 			tb.aimlPath,
-			len(tb.sessions),
+			tb.sessionCount(),
 			len(session.History),
 			session.CreatedAt,
 			session.LastActivity)

@@ -261,25 +261,27 @@ func (g *Golem) LoadAIMLFromString(content string) error {
 	// Convert AIML to AIMLKnowledgeBase
 	kb := g.aimlToKnowledgeBase(aiml)
 
-	// Merge with existing knowledge base
-	if g.aimlKB == nil {
-		g.aimlKB = kb
-	} else {
+	// Merge with existing knowledge base. Holding kbMu waits for running
+	// requests, so nothing they learn is lost when the merged copy replaces it.
+	g.kbMu.Lock()
+	defer g.kbMu.Unlock()
+	if g.aimlKB != nil {
 		mergedKB, err := g.mergeKnowledgeBases(g.aimlKB, kb)
 		if err != nil {
 			return err
 		}
-		g.aimlKB = mergedKB
+		kb = mergedKB
 	}
+	g.aimlKB = kb
 
 	g.LogDebug("Loaded AIML from string successfully")
-	g.LogDebug("Total categories: %d", len(g.aimlKB.Categories))
-	g.LogDebug("Total patterns: %d", len(g.aimlKB.Patterns))
-	g.LogDebug("Total sets: %d", len(g.aimlKB.Sets))
-	g.LogDebug("Total topics: %d", len(g.aimlKB.Topics))
-	g.LogDebug("Total variables: %d", len(g.aimlKB.Variables))
-	g.LogDebug("Total properties: %d", len(g.aimlKB.Properties))
-	g.LogDebug("Total maps: %d", len(g.aimlKB.Maps))
+	g.LogDebug("Total categories: %d", len(kb.Categories))
+	g.LogDebug("Total patterns: %d", len(kb.Patterns))
+	g.LogDebug("Total sets: %d", len(kb.Sets))
+	g.LogDebug("Total topics: %d", len(kb.Topics))
+	g.LogDebug("Total variables: %d", len(kb.Variables))
+	g.LogDebug("Total properties: %d", len(kb.Properties))
+	g.LogDebug("Total maps: %d", len(kb.Maps))
 
 	return nil
 }
@@ -2226,13 +2228,25 @@ func (g *Golem) ProcessTemplate(template string, wildcards map[string]string) st
 	return result
 }
 
+// ensureKnowledgeBase creates an empty knowledge base if none is loaded.
+// ProcessInput holds kbMu for reading and has already checked for a knowledge
+// base, so this never takes the lock there.
+func (g *Golem) ensureKnowledgeBase() {
+	if g.aimlKB != nil {
+		return
+	}
+	g.kbMu.Lock()
+	defer g.kbMu.Unlock()
+	if g.aimlKB == nil {
+		g.aimlKB = NewAIMLKnowledgeBase()
+	}
+}
+
 // ProcessTemplateWithContext processes an AIML template with full context support
 func (g *Golem) ProcessTemplateWithContext(template string, wildcards map[string]string, session *ChatSession) string {
 	// Create variable context for template processing
 	// Ensure knowledge base is initialized for variable/collection operations
-	if g.aimlKB == nil {
-		g.aimlKB = NewAIMLKnowledgeBase()
-	}
+	g.ensureKnowledgeBase()
 	ctx := &VariableContext{
 		LocalVars:      make(map[string]string),
 		Session:        session,
