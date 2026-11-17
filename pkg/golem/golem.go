@@ -2152,6 +2152,9 @@ func (g *Golem) sraixListCommand() error {
 			fmt.Printf("  Fallback: %s\n", config.FallbackResponse)
 		}
 		fmt.Printf("  Wildcards: %t\n", config.IncludeWildcards)
+		if config.Handler != "" {
+			fmt.Printf("  Handler: %s (%s)\n", config.Handler, config.Operation)
+		}
 		if len(config.Params) > 0 {
 			fmt.Printf("  Params: %v\n", config.Params)
 		}

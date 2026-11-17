@@ -14,6 +14,7 @@ All notable changes to Golem are recorded here.
 - **SRAIX services get only the session values they name.** `<sraix>` no longer passes `location`, `latitude`/`longitude`, `_coords`, `list_access_token` and `list_user_id` to every service. Name what a service needs with `["sraix.<service>.param.<placeholder>", "<predicate>"]` (or `Params` in a `SRAIXConfig`), or pass values in the input as JSON, e.g. `{"lat":"..","lon":".."}`. `testdata/list-handler-config.properties` and `testdata/weather.aiml` are updated.
 - **A `hint` attribute no longer fills `{lat}` and `{lon}`.** Any hint with one comma, such as "Paris, France", used to be split into coordinates. Pass coordinates in the input instead.
 - **`geocode_lon` is gone from `testdata`.** `geocode` now sets the `geocode_lon` predicate from the same reply, so geocoding takes one request instead of two; use `<get name="geocode_lon"/>`.
+- **The CalDAV configuration has changed.** Set `RADICALE_PASSWORD` instead of a pre-encoded `RADICALE_AUTH`. "Delete event" and "get event" take the event's title. The unused `CalDAVHelper` type is removed; its work is done by the `caldav` SRAIX handler.
 - **`SRAIXManager.GetServiceConfig` is removed.** Use `GetConfig`. `AddConfig` stores a copy of the config, and `ListConfigs` returns copies.
 - **SRAIX request bodies follow the configured `Content-Type`.** GET, HEAD, DELETE and OPTIONS send no body. JSON input is sent as it is when no Content-Type is configured, not wrapped in `{"input": ...}`. Any Content-Type other than JSON (e.g. `text/calendar`, `application/xml`) gets the input as it is.
 
@@ -21,6 +22,8 @@ All notable changes to Golem are recorded here.
 
 - `<botid/>` returns the bot's `id` property, or `golem` when it is not set.
 - SRAIX `param.<placeholder>` names the predicate that fills a placeholder, and `set.<predicate>` sets predicates from several paths of one JSON reply.
+- SRAIX `default.<placeholder>` gives a placeholder a value when nothing else does; `username` and `password` send basic authentication; `${ENV_VAR:-fallback}` gives an unset environment variable a value.
+- **CalDAV calendars work.** The new SRAIX `caldav` handler lists today's and the coming week's events, creates events from text such as "Lunch with Sam tomorrow at noon", and shows or deletes an event by its title. Each session can pick its own calendar. `testdata/caldav-config.properties` and `testdata/caldav-examples.aiml` use it; see `CALDAV_INTEGRATION.md`. Before, the CalDAV services sent malformed requests and could not list, create or delete events.
 
 ### Fixed
 

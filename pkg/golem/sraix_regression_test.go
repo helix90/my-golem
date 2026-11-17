@@ -674,3 +674,55 @@ func TestSRAIXListConfigsCopies(t *testing.T) {
 		t.Errorf("Expected the manager's header 'a', got %q", got.Headers["X-Key"])
 	}
 }
+
+// Basic auth credentials, placeholder defaults and ${VAR:-fallback} work for
+// any service, and handlers are checked when a service is added.
+func TestSRAIXAuthDefaultsAndHandlers(t *testing.T) {
+	t.Setenv("SRAIX_TEST_USER", "alice")
+	t.Setenv("SRAIX_TEST_PASSWORD", "s3cret")
+	t.Setenv("SRAIX_TEST_UNSET", "")
+	var mu sync.Mutex
+	var user, password, path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		user, password, _ = r.BasicAuth()
+		path = r.URL.Path
+		mu.Unlock()
+		w.Write([]byte("ok"))
+	}))
+	t.Cleanup(srv.Close)
+
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	if err := sm.AddConfig(&SRAIXConfig{Name: "svc", URLTemplate: srv.URL + "/${SRAIX_TEST_UNSET:-base}/{calendar}", Method: "GET",
+		Username: "${SRAIX_TEST_USER}", Password: "${SRAIX_TEST_PASSWORD}",
+		Defaults: map[string]string{"calendar": "${SRAIX_TEST_UNSET:-personal}"}}); err != nil {
+		t.Fatalf("Failed to add config: %v", err)
+	}
+	if _, err := sm.ProcessSRAIX("svc", "", map[string]string{}); err != nil {
+		t.Fatalf("SRAIX failed: %v", err)
+	}
+	if _, err := sm.ProcessSRAIX("svc", "", map[string]string{"calendar": "work"}); err != nil {
+		t.Fatalf("SRAIX failed: %v", err)
+	}
+	mu.Lock()
+	if user != "alice" || password != "s3cret" || path != "/base/work" {
+		t.Errorf("Expected alice:s3cret on /base/work, got %s:%s on %s", user, password, path)
+	}
+	mu.Unlock()
+	sm.ProcessSRAIX("svc", "", map[string]string{})
+	mu.Lock()
+	if path != "/base/personal" {
+		t.Errorf("Expected the default calendar, got %s", path)
+	}
+	mu.Unlock()
+
+	for _, config := range []*SRAIXConfig{
+		{Name: "bad", URLTemplate: srv.URL, Handler: "ftp"},
+		{Name: "bad", URLTemplate: srv.URL, Handler: "caldav", Operation: "list"},
+		{Name: "bad", BaseURL: srv.URL, Handler: "caldav", Operation: "today"},
+	} {
+		if err := sm.AddConfig(config); err == nil {
+			t.Errorf("Expected an error for handler %q operation %q", config.Handler, config.Operation)
+		}
+	}
+}

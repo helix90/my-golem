@@ -179,7 +179,7 @@ All `.properties` files must use JSON array format:
 **SRAIX Configuration** (e.g., `weather-config.properties`, `sraix-config-example.properties`):
 - Configure external SRAIX services via properties
 - Property format: `sraix.servicename.property`
-- Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`, `param.<placeholder>`, `set.<predicate>`
+- Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`, `param.<placeholder>`, `default.<placeholder>`, `set.<predicate>`, `username`, `password`, `handler`, `operation`
 - URL template placeholders:
   - `${ENV_VAR}` - Environment variables (e.g., `${PIRATE_WEATHER_API_KEY}`)
   - `{input}` - The SRAIX input text
@@ -188,6 +188,9 @@ All `.properties` files must use JSON array format:
   - `{botid}`, `{host}`, `{hint}` - The tag's attributes
   - `{name}` - A field of JSON or form input, e.g. `{list_id}`, or `{lat}`/`{lon}` from `{"lat":"..","lon":".."}`
   - `{name}` - A predicate the service names with `param.<name>`, e.g. `["sraix.list_get.param.access_token", "list_access_token"]`; the engine passes no session values otherwise
+- `default.<placeholder>` gives a placeholder a value when nothing else does; `${ENV_VAR:-fallback}` works in templates, defaults and credentials
+- `username`/`password` send basic auth (they can use `${ENV_VAR}`)
+- `handler` = `caldav` with `operation` = `today`/`upcoming`/`create`/`get`/`delete` talks to a CalDAV calendar instead of making one HTTP request (`caldav.go`; see `CALDAV_INTEGRATION.md` and `testdata/caldav-*`)
 - `set.<predicate>` = JSON path sets a predicate from each successful JSON response, e.g. `geocode` returns `0.lat` and sets `geocode_lon` from `0.lon`
 - Reloading properties removes services whose properties are gone
 - Values that can come from the user are escaped in URLs (as a path segment before the template's `?`, as a query value after it); header values (e.g. `Bearer {access_token}`) are substituted without escaping

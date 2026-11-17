@@ -2,506 +2,198 @@
 
 ## Overview
 
-This integration allows Golem AIML bots to interact with CalDAV calendar servers, specifically Radicale. You can list events, create new calendar entries, update existing events, and delete events through natural language AIML patterns.
+Golem bots can read and change a CalDAV calendar, such as one on a [Radicale](https://radicale.org/) server, through `<sraix>`. The bot can:
 
-## What is CalDAV?
+- List today's events, or the events in the next seven days
+- Create an event from text such as "Lunch with Sam tomorrow at noon"
+- Show an event's details, found by its title
+- Delete an event, found by its title
+- Use a different calendar for each session ("use calendar work")
 
-**CalDAV** (Calendaring Extensions to WebDAV) is an Internet standard allowing client access to calendar information on a remote server. **Radicale** is a lightweight, open-source CalDAV/CardDAV server written in Python.
-
-## Features
-
-- ✅ List today's events
-- ✅ List upcoming events (next 7 days)
-- ✅ Create new calendar events
-- ✅ Get specific event details
-- ✅ Delete calendar events
-- ✅ Natural language event parsing
-- ✅ iCalendar (RFC 5545) format support
-- ✅ WebDAV multistatus response parsing
-
-## Prerequisites
-
-### 1. Install Radicale
-
-```bash
-# Using pip
-pip install radicale
-
-# Using your package manager (Debian/Ubuntu)
-sudo apt install radicale
-
-# Using Docker
-docker run -d -p 5232:5232 tomsquest/docker-radicale
-```
-
-### 2. Start Radicale Server
-
-```bash
-# Basic start
-radicale
-
-# With custom port
-radicale --port 5232
-
-# With authentication
-radicale --auth-type htpasswd --htpasswd-file /path/to/users
-```
-
-Default URL: `http://localhost:5232`
-
-### 3. Create a Calendar
-
-1. Access Radicale web interface: `http://localhost:5232`
-2. Log in (if authentication is enabled)
-3. Create a new calendar (e.g., "personal")
+The work is done by the SRAIX `caldav` handler (`pkg/golem/caldav.go`). It builds the CalDAV requests (`REPORT` calendar queries, `PUT` and `DELETE`), writes and reads iCalendar (RFC 5545), and turns events into text for the bot to say. `testdata/caldav-config.properties` configures one SRAIX service per operation, and `testdata/caldav-examples.aiml` has the categories that use them.
 
 ## Setup
 
-### 1. Environment Variables
-
-Set the following environment variables:
+### 1. Run a CalDAV server
 
 ```bash
-export RADICALE_URL="http://localhost:5232"
-export RADICALE_USER="your-username"
-export RADICALE_PASSWORD="your-password"
-export RADICALE_CALENDAR="personal"
+pip install radicale
+radicale --auth-type htpasswd --htpasswd-file /path/to/users
+# or: docker run -d -p 5232:5232 tomsquest/docker-radicale
 ```
 
-For Docker deployments, add these to your `.env` file or docker-compose.yml.
+Create a calendar, e.g. `personal`, in the web interface at `http://localhost:5232`.
 
-### 2. Load Configuration
+### 2. Set environment variables
 
-The CalDAV configuration is stored in `testdata/caldav-config.properties`. Ensure this file is loaded when initializing Golem:
+```bash
+export RADICALE_URL="http://localhost:5232"   # default http://localhost:5232
+export RADICALE_USER="alice"                  # the calendar path and the login
+export RADICALE_PASSWORD="secret"             # leave unset if the server has no authentication
+export RADICALE_CALENDAR="personal"           # until a session picks one; default personal
+```
+
+The user name and password are sent with HTTP basic authentication. Use `https://` in `RADICALE_URL` anywhere but on your own machine.
+
+Times are read and shown in the bot's local time zone. Set `TZ` (e.g. `TZ=Europe/Paris`) if the bot runs somewhere else, such as in a container that defaults to UTC.
+
+### 3. Load the configuration and AIML
+
+Loading the `testdata` directory loads both files:
 
 ```go
-package main
-
-import (
-	"github.com/helix90/golem/pkg/golem"
-)
-
-func main() {
-	g := golem.New(true)
-
-	// Load CalDAV configuration
-	kb := golem.NewAIMLKnowledgeBase()
-	g.LoadPropertiesFromFile("testdata/caldav-config.properties", kb)
-
-	// Load CalDAV AIML templates
-	g.LoadAIMLFile("testdata/caldav-examples.aiml", kb)
-
-	g.SetKnowledgeBase(kb)
-
-	// ... rest of your code
+g := golem.New(false)
+if err := g.Execute("load", []string{"testdata"}); err != nil {
+	log.Fatal(err)
 }
 ```
 
-### 3. Verify Configuration
-
-Test that CalDAV is configured correctly:
+To load only the calendar files:
 
 ```go
-session := g.CreateSession("test")
-response, _ := g.ProcessInput("is caldav enabled", session)
-fmt.Println(response)
-// Expected: "Yes, CalDAV integration is enabled..."
+g := golem.New(false)
+kb, err := g.LoadAIML("testdata/caldav-examples.aiml")
+if err != nil {
+	log.Fatal(err)
+}
+properties, err := g.LoadPropertiesFromFile("testdata/caldav-config.properties")
+if err != nil {
+	log.Fatal(err)
+}
+for key, value := range properties {
+	kb.Properties[key] = value
+}
+g.SetKnowledgeBase(kb) // configures the SRAIX services
 ```
 
 ## Usage
 
-### Multiple Calendars
-
-Each user session can have its own calendar. The system supports switching between multiple calendars per user.
-
-#### Calendar Selection
-
 ```
-User: Use calendar work
-Bot:  Switched to calendar: work
+User: Create event Lunch with Sam tomorrow at noon
+Bot:  Event created: Lunch with Sam tomorrow at 12:00 PM
 
-User: Use calendar personal
-Bot:  Switched to calendar: personal
+User: Create event called Review on Friday at 2pm
+Bot:  Event created: Review on Fri Nov 20 at 2:00 PM
 
-User: What calendar am I using?
-Bot:  You are currently using the personal calendar.
-```
+User: Schedule Standup at 3pm for 15 minutes
+Bot:  Event created: Standup today at 3:00 PM
 
-#### How It Works
-
-- **Session Variable**: Each session stores its calendar selection in the `calendar` session variable
-- **Fallback Chain**: Session calendar → `RADICALE_CALENDAR` environment variable → Default ("personal")
-- **Per-User State**: Different users can use different calendars simultaneously
-- **Persistence**: Calendar selection persists throughout the session
-
-#### Setting Up Multiple Calendars
-
-1. Create multiple calendars in Radicale (e.g., "personal", "work", "family")
-2. Users can switch between them using natural language:
-   - "Use calendar work"
-   - "Switch to calendar personal"
-   - "Set my calendar to family"
-
-All calendar operations (list, create, delete) use the currently selected calendar.
-
-### List Today's Events
-
-```
 User: What is on my calendar today?
-Bot:  Here are your events for today: Team Meeting at 2:00 PM; Lunch with Sarah at 12:00 PM
-
-User: Show my calendar
-Bot:  Here are your events for today: ...
-```
-
-### List Upcoming Events
-
-```
-User: What is on my calendar?
-Bot:  Here are your upcoming events: Project Review on Monday at 9:00 AM; ...
+Bot:  Here are your events for today: Standup at 3:00 PM
 
 User: Show my upcoming events
-Bot:  Here are your upcoming events: ...
-```
+Bot:  Here are your upcoming events: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Review on Fri Nov 20 at 2:00 PM
 
-### Create Events
+User: Get event lunch
+Bot:  Event details: Lunch with Sam tomorrow at 12:00 PM until 1:00 PM
 
-```
-User: Create event Team Meeting
-Bot:  Event created successfully: Team Meeting
+User: Delete event review
+Bot:  Event deleted: Review on Fri Nov 20 at 2:00 PM
 
-User: Schedule Lunch tomorrow at noon
-Bot:  Event created successfully: Lunch tomorrow at noon
-
-User: Create event called Project Review on Monday at 9am
-Bot:  Created event: "Project Review" scheduled for Monday at 9am
-```
-
-### Get Event Details
-
-```
-User: Get event event-123
-Bot:  Event details: [event information]
-```
-
-### Delete Events
-
-```
-User: Delete event event-123
-Bot:  Event deleted successfully
-
-User: Cancel event meeting-456
-Bot:  Event deleted successfully
-```
-
-### Calendar Management
-
-```
 User: Use calendar work
 Bot:  Switched to calendar: work
-
-User: What calendar am I using?
-Bot:  You are currently using the work calendar.
-
-User: Switch to calendar personal
-Bot:  Switched to calendar: personal
 ```
 
-### Get Help
+Say "calendar help" for the full list.
 
-```
-User: Calendar help
-Bot:  I can help you manage your calendar. Try these commands:
-      - "What is on my calendar today"
-      - "Show my upcoming events"
-      - "Create event called Meeting on tomorrow at 2pm"
-      - "Delete event [event-id]"
-      - "Use calendar [name]" - Switch to a different calendar
-      - "What calendar am I using" - Show current calendar
-      - "Calendar status"
-```
+### Writing events
 
-## Architecture
+The text after "create event" (or "add event", "schedule") gives the event's title, date, time and length. Whatever is not a date, time or length is the title.
 
-### SRAIX Configuration
+| Part | Understood forms |
+|------|------------------|
+| Date | `today`, `tonight`, `tomorrow`, `the day after tomorrow`, a weekday (`Friday`, `next Friday`: the next one after today; `this Tuesday` on a Tuesday is today), `Nov 20`, `November 20th, 2027`, `20 November`, `2026-11-20` |
+| Time | `2pm`, `2:30 p.m.`, `14:00`, `noon`, `midnight`, or a bare hour after "at" (`at 3`; 1 to 7 are taken as PM) |
+| Length | `for 30 minutes`, `for 2 hours`, `for an hour`, `for half an hour`; one hour if not given |
 
-The integration uses Golem's SRAIX (external service integration) system. Five SRAIX services are configured:
+- An event with a date but no time lasts all day.
+- An event with a time but no date is today, or tomorrow if that time has passed.
+- An event with neither is an all-day event today.
+- A month and day with no year is the next such date.
 
-1. **caldav_list** - List upcoming events (REPORT method)
-2. **caldav_today** - List today's events (REPORT method)
-3. **caldav_create** - Create new events (PUT method)
-4. **caldav_get** - Get specific event (GET method)
-5. **caldav_delete** - Delete events (DELETE method)
+### Finding events
 
-### CalDAV Helper
+"Get event", "show event", "delete event", "remove event" and "cancel event" look for the event among those from 30 days ago to a year ahead. They choose, in order:
 
-The `CalDAVHelper` class provides utilities for:
+1. The event whose UID is the text
+2. The event whose title is the text, ignoring case
+3. The event whose title contains the text
 
-- Building CalDAV XML queries (calendar-query REPORT)
-- Creating iCalendar events (RFC 5545 format)
-- Parsing iCalendar data
-- Parsing WebDAV multistatus responses
-- Natural language event parsing
-- Authentication (Basic Auth)
+If no event matches, or more than one does at the first step that finds any, the bot says it could not find a single event. Deleting a repeating event deletes all its occurrences.
 
-### AIML Templates
+### Calendars
 
-The `caldav-examples.aiml` file contains patterns for natural language calendar interactions, using:
+Each session starts on `RADICALE_CALENDAR` (or `personal`). "Use calendar work" sets the session's `calendar` predicate, and every calendar request then uses `.../alice/work/`. "Use my default calendar" goes back.
 
-- `<sraix service="caldav_*">` tags to call CalDAV services
-- `<think>` and `<set>` for variable management
-- `<condition>` for response handling
-- `<srai>` for pattern reuse
+## Configuration
 
-## API Reference
+Each service in `caldav-config.properties` looks like this:
 
-### CalDAVHelper Methods
-
-```go
-// Calendar management
-GetSessionCalendar(session *ChatSession) string
-GetDefaultCalendar() string
-BuildCalendarURL(calendarName string) string
-BuildEventURL(calendarName, eventUID string) string
-
-// Create calendar queries
-BuildCalendarQuery(startTime, endTime time.Time) string
-BuildTodayCalendarQuery() string
-BuildUpcomingCalendarQuery() string
-
-// Create events
-BuildICalendarEvent(summary, description, location string, startTime, endTime time.Time, uid string) string
-
-// Parse responses
-ParseICalendarEvent(icalData string) (map[string]string, error)
-ParseMultiStatusResponse(xmlData string) ([]map[string]string, error)
-FormatEventsList(events []map[string]string) string
-
-// Authentication
-GetBasicAuth(username, password string) string
-GetRadicaleAuthFromEnv() string
-
-// Natural language parsing
-ParseEventDetails(input string) (summary string, startTime, endTime time.Time, err error)
+```json
+["sraix.caldav_today.handler", "caldav"],
+["sraix.caldav_today.operation", "today"],
+["sraix.caldav_today.urltemplate", "${RADICALE_URL:-http://localhost:5232}/${RADICALE_USER}/{calendar}/"],
+["sraix.caldav_today.param.calendar", "calendar"],
+["sraix.caldav_today.default.calendar", "${RADICALE_CALENDAR:-personal}"],
+["sraix.caldav_today.username", "${RADICALE_USER}"],
+["sraix.caldav_today.password", "${RADICALE_PASSWORD:-}"],
+["sraix.caldav_today.timeout", "30"],
+["sraix.caldav_today.fallback", "Unable to retrieve calendar events"]
 ```
 
-## Configuration Properties
+| Property | Meaning |
+|----------|---------|
+| `handler` | `caldav` |
+| `operation` | `today`, `upcoming`, `create`, `get` or `delete` |
+| `urltemplate` | The calendar collection. `${VAR:-fallback}` uses the fallback when `VAR` is not set. |
+| `param.calendar` | The predicate that fills `{calendar}` |
+| `default.calendar` | The calendar when the predicate is not set |
+| `username`, `password` | Basic authentication |
+| `timeout` | Seconds for the whole operation |
+| `fallback` | What `<sraix>` returns when the operation fails |
 
-All CalDAV services use the `sraix.{service}.{property}` format:
+What each operation returns:
 
-| Property | Description | Example |
-|----------|-------------|---------|
-| `urltemplate` | URL with placeholders | `${RADICALE_URL}/${RADICALE_USER}/${RADICALE_CALENDAR}/` |
-| `method` | HTTP method | `REPORT`, `PUT`, `GET`, `DELETE` |
-| `timeout` | Request timeout (seconds) | `30` |
-| `responseformat` | Response format | `xml`, `text` |
-| `responsepath` | JSON/XML path to extract | `multistatus.response` |
-| `fallback` | Fallback response on error | `"Unable to retrieve events"` |
-| `header.*` | Custom HTTP headers | `header.Content-Type`, `header.Authorization` |
+| Operation | Service | Input | Returns |
+|-----------|---------|-------|---------|
+| `today` | `caldav_today` | ignored | `Standup at 9:00 AM; Lunch at 12:00 PM`, or empty when there are no events |
+| `upcoming` | `caldav_list` | ignored | Events from now to the end of the seventh day ahead, with their days, or empty |
+| `create` | `caldav_create` | Event text | `Lunch with Sam tomorrow at 12:00 PM` |
+| `get` | `caldav_get` | A title or UID | `Lunch with Sam tomorrow at 12:00 PM until 1:00 PM, at Room 4. Bring notes` |
+| `delete` | `caldav_delete` | A title or UID | The deleted event, as for `create` |
 
-### Environment Variable Substitution
+Any failure gives the fallback, or the tag's `default` attribute if it has one. Failures include:
+- the server can't be reached;
+- a wrong password, or any other error status;
+- event text that can't be read, such as `Feb 30`;
+- `get` or `delete` finding no event, or several.
 
-Properties support `${ENV_VAR}` syntax for environment variables:
+## How it works
 
-- `${RADICALE_URL}` - Server URL
-- `${RADICALE_USER}` - Username
-- `${RADICALE_PASSWORD}` - Password
-- `${RADICALE_CALENDAR}` - Calendar name
-- `${RADICALE_AUTH}` - Pre-computed Basic Auth header
-
-## CalDAV Protocol Details
-
-### REPORT Method (List Events)
-
-```xml
-<?xml version="1.0" encoding="utf-8" ?>
-<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-  <D:prop>
-    <C:calendar-data/>
-  </D:prop>
-  <C:filter>
-    <C:comp-filter name="VCALENDAR">
-      <C:comp-filter name="VEVENT">
-        <C:time-range start="20240101T000000Z" end="20240108T000000Z"/>
-      </C:comp-filter>
-    </C:comp-filter>
-  </C:filter>
-</C:calendar-query>
-```
-
-### PUT Method (Create Event)
-
-```
-PUT /username/calendar/event-uid.ics HTTP/1.1
-Content-Type: text/calendar; charset=utf-8
-
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Golem AIML Bot//CalDAV Integration//EN
-BEGIN:VEVENT
-UID:event-123
-DTSTART:20240115T140000Z
-DTEND:20240115T150000Z
-SUMMARY:Team Meeting
-END:VEVENT
-END:VCALENDAR
-```
+- **Listing** sends a `REPORT` calendar query (`Depth: 1`) with a time range. The query asks the server to expand repeating events into their occurrences (`<C:expand>`), so they show at the right times. Servers that do not expand show a repeating event at its first occurrence. Radicale supports expansion in recent versions.
+- **Creating** sends `PUT <calendar>/<uid>.ics` with `If-None-Match: *`, so an existing event is never replaced. The event has a random UID ending in `@golem`, UTC times (or dates, for all-day events), and its title as `SUMMARY`.
+- **Getting and deleting** query the search window, match as described above, and `DELETE` the matched event's resource.
+- The iCalendar reader handles folded lines, escaped text, `TZID` times, dates, `DURATION`, and alarms inside events.
 
 ## Testing
 
-Run the CalDAV helper tests:
-
 ```bash
-# Run all CalDAV tests
-go test ./pkg/golem -run CalDAV -v
-
-# Run specific test
-go test ./pkg/golem -run TestCalDAVHelper_BuildCalendarQuery -v
-
-# Run with coverage
-go test ./pkg/golem -run CalDAV -coverprofile=coverage.out
-go tool cover -html=coverage.out
+go test ./pkg/golem -run 'CalDAV|ParseEventText|ParseICalendar|EventICalendar' -v
 ```
+
+`TestCalDAVExamples` runs `caldav-examples.aiml` and `caldav-config.properties` against an in-memory CalDAV server.
 
 ## Troubleshooting
 
-### Connection Issues
+Run the bot with `golem.New(true)` for verbose logs. Each CalDAV request is logged with its method, path and status, but not its body or credentials.
 
-**Problem**: Cannot connect to Radicale server
-
-**Solutions**:
-- Verify `RADICALE_URL` is correct
-- Check Radicale is running: `curl http://localhost:5232`
-- Verify firewall settings
-- Check authentication credentials
-
-### Authentication Errors
-
-**Problem**: 401 Unauthorized responses
-
-**Solutions**:
-- Verify `RADICALE_USER` and `RADICALE_PASSWORD`
-- Check Radicale authentication settings
-- Test credentials manually: `curl -u user:pass http://localhost:5232`
-
-### Empty Event Lists
-
-**Problem**: "No events found" when events exist
-
-**Solutions**:
-- Verify calendar name (`RADICALE_CALENDAR`)
-- Check time range in queries
-- Verify events exist: Access web interface
-- Enable verbose logging to see XML responses
-
-### Event Creation Fails
-
-**Problem**: Events not being created
-
-**Solutions**:
-- Check calendar permissions
-- Verify iCalendar format is valid
-- Ensure UID is unique
-- Check Content-Type header is set correctly
-
-### Debugging
-
-Enable verbose logging in Golem:
-
-```go
-g := golem.New(true) // Enable verbose mode
-```
-
-This will log:
-- SRAIX requests and responses
-- CalDAV XML payloads
-- HTTP status codes
-- Error messages
-
-## Security Considerations
-
-1. **HTTPS**: Use HTTPS in production (`https://` in `RADICALE_URL`)
-2. **Authentication**: Always use authentication for Radicale
-3. **Environment Variables**: Never commit credentials to version control
-4. **Access Control**: Limit calendar access to authorized users
-5. **Input Validation**: Validate event data before creating events
-
-## Advanced Usage
-
-### Custom Event Parsing
-
-Extend `ParseEventDetails()` for more sophisticated natural language processing:
-
-```go
-helper := golem.NewCalDAVHelper()
-summary, start, end, err := helper.ParseEventDetails("Team standup every Monday at 9am")
-// Implement recurring event logic
-```
-
-### Multi-Calendar Usage
-
-The CalDAV integration supports multiple calendars per user through session-based calendar selection:
-
-```go
-// In your bot implementation
-session := g.CreateSession("user123")
-
-// User switches to work calendar
-g.ProcessInput("use calendar work", session)
-// Calendar stored in session.Variables["calendar"]
-
-// All subsequent calendar operations use the work calendar
-g.ProcessInput("what is on my calendar today", session)
-g.ProcessInput("create event Team Meeting", session)
-
-// User switches to personal calendar
-g.ProcessInput("use calendar personal", session)
-// Now all operations use the personal calendar
-```
-
-The `GetSessionCalendar()` helper method manages the calendar selection:
-
-```go
-helper := golem.NewCalDAVHelper()
-
-// With a session that has calendar set to "work"
-calendar := helper.GetSessionCalendar(session) // Returns "work"
-
-// With a session that has no calendar set
-calendar := helper.GetSessionCalendar(session) // Returns RADICALE_CALENDAR env var or "personal"
-
-// Build URLs for specific calendars
-workURL := helper.BuildCalendarURL("work")
-personalURL := helper.BuildCalendarURL("personal")
-```
-
-### Custom Response Formatting
-
-Override `FormatEventsList()` for custom formatting:
-
-```go
-helper := golem.NewCalDAVHelper()
-events := []map[string]string{...}
-formatted := helper.FormatEventsList(events)
-// Add custom formatting logic
-```
+- **"I'm having trouble accessing your calendar"**: check `RADICALE_URL`, `RADICALE_USER` and `RADICALE_PASSWORD`, e.g. with `curl -u alice:secret http://localhost:5232/alice/personal/`. A `401` status means the credentials are wrong; `404` means the calendar does not exist.
+- **Times are off by some hours**: set `TZ` to your time zone.
+- **"I couldn't find a single event"**: use more of the title, or say "show my upcoming events" to see the titles.
 
 ## References
 
-- [CalDAV Specification (RFC 4791)](https://tools.ietf.org/html/rfc4791)
-- [iCalendar Specification (RFC 5545)](https://tools.ietf.org/html/rfc5545)
-- [Radicale Documentation](https://radicale.org/)
-- [WebDAV Specification (RFC 4918)](https://tools.ietf.org/html/rfc4918)
-
-## Support
-
-For issues or questions:
-1. Check this documentation
-2. Review test files for examples
-3. Enable verbose logging for debugging
-4. Check Radicale server logs
-5. Report issues on GitHub
-
-## License
-
-This CalDAV integration is part of the Golem project and follows the same MIT license.
+- [CalDAV (RFC 4791)](https://tools.ietf.org/html/rfc4791)
+- [iCalendar (RFC 5545)](https://tools.ietf.org/html/rfc5545)
+- [WebDAV (RFC 4918)](https://tools.ietf.org/html/rfc4918)
+- [Radicale](https://radicale.org/)

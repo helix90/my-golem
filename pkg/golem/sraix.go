@@ -53,6 +53,18 @@ type SRAIXConfig struct {
 	// a <sraix> tag sets each predicate to the value at its path, e.g.
 	// {"geocode_lon": "0.lon"}
 	Set map[string]string `json:"set"`
+	// Defaults gives placeholders a value when nothing else does. Values
+	// can use ${ENV_VAR} and ${ENV_VAR:-fallback}.
+	Defaults map[string]string `json:"defaults"`
+	// Username and Password, if set, are sent as basic auth. They can use
+	// ${ENV_VAR}, so that they need not be written in configuration files.
+	Username string `json:"username"`
+	Password string `json:"password"`
+	// Handler names a built-in protocol that makes the service's requests
+	// instead of a single HTTP request: "caldav" (see caldav.go)
+	Handler string `json:"handler"`
+	// Operation is what the handler does, e.g. "today" for caldav
+	Operation string `json:"operation"`
 }
 
 // applyDefaults fills in the method, timeout, response format and headers
@@ -87,6 +99,7 @@ func (config *SRAIXConfig) clone() *SRAIXConfig {
 	c.Headers = cloneStringMap(config.Headers)
 	c.Params = cloneStringMap(config.Params)
 	c.Set = cloneStringMap(config.Set)
+	c.Defaults = cloneStringMap(config.Defaults)
 	return &c
 }
 
@@ -117,6 +130,8 @@ type SRAIXManager struct {
 	client         *http.Client
 	logger         *log.Logger
 	verbose        bool
+	// now returns the current time; tests replace it
+	now func() time.Time
 }
 
 // NewSRAIXManager creates a new SRAIX manager
@@ -129,6 +144,7 @@ func NewSRAIXManager(logger *log.Logger, verbose bool) *SRAIXManager {
 		client:  &http.Client{},
 		logger:  logger,
 		verbose: verbose,
+		now:     time.Now,
 	}
 }
 
@@ -153,6 +169,9 @@ func (sm *SRAIXManager) addConfig(config *SRAIXConfig) error {
 	}
 	config = config.clone()
 	config.applyDefaults()
+	if err := validateHandler(config); err != nil {
+		return err
+	}
 	if len(config.Set) > 0 && config.ResponseFormat != "json" {
 		return fmt.Errorf("SRAIX service '%s' sets predicates, which needs the json response format", config.Name)
 	}
@@ -213,6 +232,23 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, params map[strin
 	return response.text, nil
 }
 
+// validateHandler checks a service's handler and operation
+func validateHandler(config *SRAIXConfig) error {
+	switch config.Handler {
+	case "":
+		return nil
+	case "caldav":
+		if config.URLTemplate == "" {
+			return fmt.Errorf("SRAIX service '%s': the caldav handler needs a URL template for the calendar", config.Name)
+		}
+		if !caldavOperations[config.Operation] {
+			return fmt.Errorf("SRAIX service '%s': unknown caldav operation %q", config.Name, config.Operation)
+		}
+		return nil
+	}
+	return fmt.Errorf("SRAIX service '%s': unknown handler %q", config.Name, config.Handler)
+}
+
 // methodHasBody reports whether requests with the method carry the input
 // as a body. The others pass it in the URL.
 func methodHasBody(method string) bool {
@@ -249,6 +285,18 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given
 	inputParams := parseInputParams(input)
 	for key, value := range inputParams {
 		params[key] = value
+	}
+	for key, value := range config.Defaults {
+		if params[key] != "" {
+			continue
+		}
+		if value, _, err := sm.substitutePlaceholders(value, "", nil, nil, nil); err == nil {
+			params[key] = value
+		}
+	}
+
+	if config.Handler == "caldav" {
+		return sm.sendCalDAV(config, input, params)
 	}
 
 	var requestURL, logURL string
@@ -306,13 +354,8 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given
 		return sraixResponse{}, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 
-	// Configured headers can use placeholders, e.g. Bearer {access_token}
-	for key, value := range config.Headers {
-		substitutedValue, _, err := sm.substitutePlaceholders(value, input, params, config.Headers, nil)
-		if err != nil {
-			return sraixResponse{}, fmt.Errorf("header %s: %v", key, err)
-		}
-		req.Header.Set(key, substitutedValue)
+	if err := sm.setHeaders(req, config, input, params); err != nil {
+		return sraixResponse{}, err
 	}
 	if contentType != "" && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", contentType)
@@ -341,6 +384,30 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given
 	}
 
 	return sm.doRequest(req, config)
+}
+
+// setHeaders sets a service's configured headers, whose placeholders are
+// substituted (e.g. Bearer {access_token}), and its basic auth
+func (sm *SRAIXManager) setHeaders(req *http.Request, config *SRAIXConfig, input string, params map[string]string) error {
+	for key, value := range config.Headers {
+		substitutedValue, _, err := sm.substitutePlaceholders(value, input, params, config.Headers, nil)
+		if err != nil {
+			return fmt.Errorf("header %s: %v", key, err)
+		}
+		req.Header.Set(key, substitutedValue)
+	}
+	if config.Username != "" {
+		username, _, err := sm.substitutePlaceholders(config.Username, "", params, nil, nil)
+		if err != nil {
+			return fmt.Errorf("username: %v", err)
+		}
+		password, _, err := sm.substitutePlaceholders(config.Password, "", params, nil, nil)
+		if err != nil {
+			return fmt.Errorf("password: %v", err)
+		}
+		req.SetBasicAuth(username, password)
+	}
+	return nil
 }
 
 // formInputRe matches input written as form fields: name=value&name=value
@@ -535,16 +602,16 @@ func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (sraix
 func extractPlaceholders(template string) []string {
 	var placeholders []string
 	for _, m := range urlPlaceholderRe.FindAllStringSubmatch(template, -1) {
-		if m[2] != "" {
-			placeholders = append(placeholders, m[2])
+		if m[3] != "" {
+			placeholders = append(placeholders, m[3])
 		}
 	}
 	return placeholders
 }
 
-// urlPlaceholderRe matches the placeholders of a URL template: ${ENV_VAR}
-// and {name}
-var urlPlaceholderRe = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\}`)
+// urlPlaceholderRe matches the placeholders of a URL template: ${ENV_VAR},
+// ${ENV_VAR:-fallback} and {name}
+var urlPlaceholderRe = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)(?::-([^}]*))?\}|\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
 // substituteURLTemplate replaces placeholders in URL template with actual values.
 // Supported placeholders:
@@ -556,6 +623,7 @@ var urlPlaceholderRe = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)\}|\{([A-Za-z_]
 //	                             service names, or {STAR1} for the first
 //	                             pattern wildcard
 //	${ENV_VAR} - environment variable (e.g., ${PIRATE_WEATHER_API_KEY})
+//	${ENV_VAR:-fallback} - environment variable, or fallback when it is not set
 //
 // All placeholders are replaced in one pass, so placeholder text inside a
 // substituted value (such as user input containing "{apikey}") is left alone.
@@ -607,7 +675,9 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 		if m[2] >= 0 {
 			varName := template[m[2]:m[3]]
 			envValue := os.Getenv(varName)
-			if envValue == "" {
+			if envValue == "" && m[4] >= 0 {
+				envValue = template[m[4]:m[5]]
+			} else if envValue == "" {
 				missing = append(missing, "${"+varName+"}")
 			}
 			result.WriteString(envValue)
@@ -615,7 +685,7 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 			continue
 		}
 
-		name := template[m[4]:m[5]]
+		name := template[m[6]:m[7]]
 		switch {
 		case name == "input":
 			value := escape(input, m[0])
@@ -859,6 +929,19 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 				config.Params = make(map[string]string)
 			}
 			config.Params[strings.TrimPrefix(key, "param.")] = value
+		case key == "username":
+			config.Username = value
+		case key == "password":
+			config.Password = value
+		case key == "handler":
+			config.Handler = value
+		case key == "operation":
+			config.Operation = value
+		case strings.HasPrefix(key, "default.") && len(key) > len("default."):
+			if config.Defaults == nil {
+				config.Defaults = make(map[string]string)
+			}
+			config.Defaults[strings.TrimPrefix(key, "default.")] = value
 		case strings.HasPrefix(key, "set.") && len(key) > len("set."):
 			if config.Set == nil {
 				config.Set = make(map[string]string)

@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
-    <!-- CalDAV/Radicale Calendar Integration Examples -->
+    <!--
+      CalDAV/Radicale Calendar Integration Examples
+
+      Needs the caldav_* SRAIX services from caldav-config.properties. Each
+      service's fallback is what <sraix> returns when the calendar cannot be
+      reached, or (for get and delete) when no single event matches.
+    -->
 
     <!-- List Today's Events -->
     <category>
         <pattern>WHAT IS ON MY CALENDAR TODAY</pattern>
         <template>
             <think>
-                <set name="calendar_response"><sraix service="caldav_today">LIST_TODAY</sraix></set>
+                <set var="events"><sraix service="caldav_today">today</sraix></set>
             </think>
-            <condition name="calendar_response">
-                <li value="No events scheduled for today">You have no events scheduled for today.</li>
-                <li>Here are your events for today: <get name="calendar_response"/></li>
+            <condition var="events">
+                <li value="">You have no events scheduled for today.</li>
+                <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
+                <li>Here are your events for today: <get var="events"/></li>
             </condition>
         </template>
     </category>
@@ -35,11 +42,12 @@
         <pattern>WHAT IS ON MY CALENDAR</pattern>
         <template>
             <think>
-                <set name="calendar_response"><sraix service="caldav_list">LIST_UPCOMING</sraix></set>
+                <set var="events"><sraix service="caldav_list">upcoming</sraix></set>
             </think>
-            <condition name="calendar_response">
+            <condition var="events">
+                <li value="">You have no events in the next seven days.</li>
                 <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
-                <li>Here are your upcoming events: <get name="calendar_response"/></li>
+                <li>Here are your upcoming events: <get var="events"/></li>
             </condition>
         </template>
     </category>
@@ -51,17 +59,17 @@
         </template>
     </category>
 
-    <!-- Create New Event -->
+    <!-- Create New Event: the text gives the title, date, time and length,
+         e.g. "Lunch with Sam tomorrow at noon for 90 minutes" -->
     <category>
         <pattern>CREATE EVENT *</pattern>
         <template>
             <think>
-                <set name="event_details"><star/></set>
-                <set name="create_response"><sraix service="caldav_create"><star/></sraix></set>
+                <set var="created"><sraix service="caldav_create"><star/></sraix></set>
             </think>
-            <condition name="create_response">
+            <condition var="created">
                 <li value="Failed to create calendar event">I was unable to create that event. Please try again.</li>
-                <li>Event created successfully: <get name="event_details"/></li>
+                <li>Event created: <get var="created"/></li>
             </condition>
         </template>
     </category>
@@ -80,50 +88,45 @@
         </template>
     </category>
 
-    <!-- Create Event with Specific Details -->
     <category>
         <pattern>CREATE EVENT CALLED * ON * AT *</pattern>
         <template>
-            <think>
-                <set name="event_title"><star index="1"/></set>
-                <set name="event_date"><star index="2"/></set>
-                <set name="event_time"><star index="3"/></set>
-                <set name="event_string"><star index="1"/> on <star index="2"/> at <star index="3"/></set>
-                <set name="create_response"><sraix service="caldav_create"><get name="event_string"/></sraix></set>
-            </think>
-            <condition name="create_response">
-                <li value="Failed to create calendar event">I couldn't create the event "<get name="event_title"/>" for <get name="event_date"/> at <get name="event_time"/>.</li>
-                <li>Created event: "<get name="event_title"/>" scheduled for <get name="event_date"/> at <get name="event_time"/>.</li>
-            </condition>
+            <srai>CREATE EVENT <star index="1"/> on <star index="2"/> at <star index="3"/></srai>
         </template>
     </category>
 
-    <!-- Get Specific Event -->
+    <!-- Get Specific Event, by title or UID -->
     <category>
         <pattern>GET EVENT *</pattern>
         <template>
             <think>
-                <set name="event_uid"><star/></set>
-                <set name="event_response"><sraix service="caldav_get"><star/></sraix></set>
+                <set var="event"><sraix service="caldav_get"><star/></sraix></set>
             </think>
-            <condition name="event_response">
-                <li value="Event not found">I couldn't find an event with that ID.</li>
-                <li>Event details: <get name="event_response"/></li>
+            <condition var="event">
+                <li value="Event not found">I couldn't find a single event matching "<star/>".</li>
+                <li>Event details: <get var="event"/></li>
             </condition>
         </template>
     </category>
 
-    <!-- Delete Event -->
+    <category>
+        <pattern>SHOW EVENT *</pattern>
+        <template>
+            <srai>GET EVENT <star/></srai>
+        </template>
+    </category>
+
+    <!-- Delete Event, by title or UID. A repeating event is deleted with all
+         its occurrences. -->
     <category>
         <pattern>DELETE EVENT *</pattern>
         <template>
             <think>
-                <set name="event_uid"><star/></set>
-                <set name="delete_response"><sraix service="caldav_delete"><star/></sraix></set>
+                <set var="deleted"><sraix service="caldav_delete"><star/></sraix></set>
             </think>
-            <condition name="delete_response">
-                <li value="Failed to delete event">I was unable to delete that event.</li>
-                <li>Event deleted successfully.</li>
+            <condition var="deleted">
+                <li value="Failed to delete event">I couldn't delete that event. Check that exactly one event matches "<star/>".</li>
+                <li>Event deleted: <get var="deleted"/></li>
             </condition>
         </template>
     </category>
@@ -142,7 +145,8 @@
         </template>
     </category>
 
-    <!-- Calendar Management -->
+    <!-- Calendar Management: the calendar predicate picks the calendar the
+         services use; without it they use RADICALE_CALENDAR -->
     <category>
         <pattern>USE CALENDAR *</pattern>
         <template>
@@ -164,6 +168,16 @@
         <pattern>SET MY CALENDAR TO *</pattern>
         <template>
             <srai>USE CALENDAR <star/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>USE MY DEFAULT CALENDAR</pattern>
+        <template>
+            <think>
+                <set name="calendar"></set>
+            </think>
+            Switched to your default calendar.
         </template>
     </category>
 
@@ -216,8 +230,10 @@
             I can help you manage your calendar. Try these commands:
             - "What is on my calendar today"
             - "Show my upcoming events"
-            - "Create event called Meeting on tomorrow at 2pm"
-            - "Delete event [event-id]"
+            - "Create event Lunch with Sam tomorrow at noon"
+            - "Create event called Review on Friday at 2pm"
+            - "Show event Lunch with Sam"
+            - "Delete event Lunch with Sam"
             - "Use calendar [name]" - Switch to a different calendar
             - "What calendar am I using" - Show current calendar
             - "Calendar status"

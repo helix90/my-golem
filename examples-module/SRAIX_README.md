@@ -75,16 +75,23 @@ Services can be configured in any `.properties` file using keys of the form `sra
 ]
 ```
 
-Available properties: `baseurl`, `urltemplate`, `queryparam`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `apikey`, `header.<HeaderName>`, `param.<placeholder>`, `set.<predicate>`.
+Available properties: `baseurl`, `urltemplate`, `queryparam`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `apikey`, `header.<HeaderName>`, `param.<placeholder>`, `default.<placeholder>`, `set.<predicate>`, `username`, `password`, `handler`, `operation`.
 
 URL template placeholders:
 - `${ENV_VAR}` - Environment variables
+- `${ENV_VAR:-fallback}` - An environment variable, or the fallback when it is not set
 - `{input}` - The SRAIX input text
 - `{apikey}` - API key
 - `{STAR1}`, `{STAR2}`, ... - Pattern wildcard values
 - `{botid}`, `{host}`, `{hint}` - The tag's attributes
 - `{name}` - A field of JSON or form input, e.g. `{"lat":"47.6","lon":"-122.3"}` fills `{lat}` and `{lon}`
 - `{name}` - A predicate the service names with `param.<name>`, e.g. `["sraix.lists.param.access_token", "list_access_token"]` fills `{access_token}` with what `<get name="list_access_token"/>` gives. Services get no predicates they do not name.
+
+`default.<placeholder>` gives a placeholder a value when nothing else does, e.g. `["sraix.cal.default.calendar", "${RADICALE_CALENDAR:-personal}"]`.
+
+`username` and `password` are sent as HTTP basic authentication, and can use `${ENV_VAR}`, e.g. `["sraix.cal.password", "${RADICALE_PASSWORD}"]`.
+
+`handler` replaces the single HTTP request with a built-in protocol. `caldav` talks to a CalDAV calendar; its `operation` is `today`, `upcoming`, `create`, `get` or `delete`. See `CALDAV_INTEGRATION.md`.
 
 `set.<predicate>` takes several values from one JSON response: `["sraix.geocode.set.geocode_lon", "0.lon"]` sets the `geocode_lon` predicate to the value at `0.lon` after each successful response, alongside the `responsepath` value the tag returns. If any path has no value, the request fails and no predicate is set.
 
