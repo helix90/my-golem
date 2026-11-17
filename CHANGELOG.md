@@ -9,6 +9,9 @@ All notable changes to Golem are recorded here.
 - **`<id/>` returns the client ID, as AIML 2.0 specifies.** This is the ID of the session being answered (e.g. `telegram_42`), or empty without a session. It used to return the bot's `id` property, or `golem`. Use the new `<botid/>` tag for that.
 - **The regex-based template processors are removed.** The tree processor was already the only one in use. These methods are gone: `EnableTreeProcessing`, `DisableTreeProcessing`, `IsTreeProcessingEnabled`, `GetConsolidatedProcessor`, `GetProcessorMetrics`, `SetProcessingOrder`, `GetProcessor`, `GetProcessorsByType`, and the stats, clear and invalidate methods of the regex, template, pattern-matching and that-pattern caches, which were never filled. `GetProcessorStats`, `ResetProcessorMetrics` and `GetProcessingOrder` remain.
 - **`<shuffle>` gives a fresh order each time.** Before, its result was cached, so the same words always came back in the same order.
+- **A `<sraix>` tag's `default` attribute now comes before the service's configured `fallback`.** Before, a configured fallback hid the tag's default.
+- **SRAIX requests that cannot be completed are not sent.** A URL or header placeholder with no value, or an unset `${ENV_VAR}`, now fails the request and falls back. Before, the placeholder was sent as it was, or the variable as an empty string.
+- **SRAIX request bodies follow the configured `Content-Type`.** GET, HEAD, DELETE and OPTIONS send no body. JSON input is sent as it is when no Content-Type is configured, not wrapped in `{"input": ...}`. Any Content-Type other than JSON (e.g. `text/calendar`, `application/xml`) gets the input as it is.
 
 ### Added
 
@@ -18,6 +21,15 @@ All notable changes to Golem are recorded here.
 
 - `ProcessTemplate`, `ProcessTemplateWithContext` and `ProcessTemplateWithSession` hold the knowledge base lock, so they no longer race with `SetKnowledgeBase` or loading.
 - `<split>` works with its `limit` attribute written before `delimiter`.
+- SRAIX:
+  - A `204 No Content` reply is a success, not a fallback, so a successful DELETE no longer reports failure.
+  - JSON numbers keep their digits: `{"list_id": 12345678}` no longer becomes `1.2345678e+07`, in the URL or in a response. A response path that points at an object or array returns JSON.
+  - Values given in the input (as JSON or form fields) take precedence over wildcards and session values of the same name.
+  - Form input with one field (`list_id=1`) is read, and form values are URL-decoded once rather than encoded twice.
+  - The input no longer fills a URL placeholder when it is also the body, so `caldav_create` no longer puts the event text in the event's URL.
+  - Values in the URL path are escaped as a path segment (`%20`, not `+`).
+  - The SRAIX content and replies, request and response bodies, and response headers are no longer logged, since they carry credentials and tokens. Error messages include at most 200 bytes of the response.
+  - A `responsepath` on a service whose response format is not json logs a warning; it is ignored.
 
 ## v1.6.0 - 2026-11-16
 

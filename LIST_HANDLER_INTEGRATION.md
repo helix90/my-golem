@@ -265,7 +265,9 @@ The integration uses Golem's SRAIX (external service integration) system. Nine S
 
 **Content-Type Handling**: The SRAIX system intelligently handles different Content-Type headers:
 - **Form-urlencoded** (`application/x-www-form-urlencoded`): When this Content-Type is configured in headers, the SRAIX input is sent directly as the request body without JSON wrapping. This is essential for authentication endpoints that expect form data.
-- **JSON** (default): For all other Content-Types (or when not specified), the SRAIX input is wrapped in a JSON object as `{"input": "..."}` and sent with `Content-Type: application/json`.
+- **JSON** (`application/json`, or not specified): JSON input is sent as it is; any other input is wrapped in a JSON object as `{"input": "..."}`. Requests are sent with `Content-Type: application/json`.
+- **Other Content-Types**: the SRAIX input is sent as it is.
+- GET and DELETE requests have no body.
 
 This allows seamless integration with both traditional form-based APIs (like FastAPI's OAuth2 password flow) and modern JSON APIs.
 

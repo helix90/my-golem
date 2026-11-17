@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -92,6 +93,9 @@ func (sm *SRAIXManager) AddConfig(config *SRAIXConfig) error {
 	if config.Headers == nil {
 		config.Headers = make(map[string]string)
 	}
+	if config.ResponsePath != "" && config.ResponseFormat != "json" {
+		sm.logger.Printf("Warning: SRAIX service '%s' has a response path, which is used only with the json response format", config.Name)
+	}
 
 	sm.mu.Lock()
 	sm.configs[config.Name] = config
@@ -125,81 +129,87 @@ func (sm *SRAIXManager) ListConfigs() map[string]*SRAIXConfig {
 	return configs
 }
 
-// ProcessSRAIX processes a SRAIX tag by making an external HTTP request
-func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[string]string) (string, error) {
+// ProcessSRAIX makes the request a SRAIX tag asks for. When the request
+// fails it returns the service's fallback response, if one is configured.
+// params supplies values for the placeholders of the URL template and
+// headers, such as pattern wildcards; values given in the input take
+// precedence over them.
+func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, params map[string]string) (string, error) {
+	response, config, err := sm.request(serviceName, input, params)
+	if err != nil && config != nil && config.FallbackResponse != "" {
+		return config.FallbackResponse, nil
+	}
+	return response, err
+}
+
+// request makes the request a SRAIX tag asks for, without falling back. It
+// returns the service's config, if it exists, so that the caller can choose
+// between the tag's default and the service's fallback.
+func (sm *SRAIXManager) request(serviceName, input string, params map[string]string) (string, *SRAIXConfig, error) {
 	config, exists := sm.GetConfig(serviceName)
 	if !exists {
-		return "", fmt.Errorf("SRAIX service '%s' not configured", serviceName)
+		return "", nil, fmt.Errorf("SRAIX service '%s' not configured", serviceName)
+	}
+	response, err := sm.send(config, input, params)
+	if err != nil {
+		if sm.verbose {
+			sm.logger.Printf("SRAIX request to %s failed: %v", serviceName, err)
+		}
+		return "", config, err
+	}
+	return response, config, nil
+}
+
+// methodHasBody reports whether requests with the method carry the input
+// as a body. The others pass it in the URL.
+func methodHasBody(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodDelete, http.MethodOptions:
+		return false
+	}
+	return true
+}
+
+// send builds the request for a service, sends it and returns the response
+// text
+func (sm *SRAIXManager) send(config *SRAIXConfig, input string, given map[string]string) (string, error) {
+	hasBody := methodHasBody(config.Method)
+
+	// Values given in the input, as a JSON object or as form fields, take
+	// precedence over the params passed in
+	params := make(map[string]string, len(given))
+	for key, value := range given {
+		params[key] = value
+	}
+	inputParams := parseInputParams(input)
+	for key, value := range inputParams {
+		params[key] = value
 	}
 
-	// Parse input to extract parameters for URL substitution
-	// Try JSON first, then fall back to form-urlencoded
-	trimmedInput := strings.TrimSpace(input)
-	if strings.HasPrefix(trimmedInput, "{") && strings.HasSuffix(trimmedInput, "}") {
-		// Input appears to be JSON, try to parse it
-		var jsonData map[string]interface{}
-		if err := json.Unmarshal([]byte(trimmedInput), &jsonData); err == nil {
-			// Successfully parsed JSON, extract parameters
-			for key, value := range jsonData {
-				// Only add if not already present (passed wildcards take precedence)
-				if _, exists := wildcards[key]; !exists {
-					// Convert value to string
-					wildcards[key] = fmt.Sprintf("%v", value)
-				}
-			}
-		}
-	} else if strings.Contains(input, "=") && strings.Contains(input, "&") {
-		// Parse form-urlencoded input
-		// This handles cases like "list_id=1&content=buy milk" where list_id is needed in the URL
-		pairs := strings.Split(input, "&")
-		for _, pair := range pairs {
-			kv := strings.SplitN(pair, "=", 2)
-			if len(kv) == 2 {
-				key := strings.TrimSpace(kv[0])
-				value := strings.TrimSpace(kv[1])
-				// Only add if not already present (passed wildcards take precedence)
-				if _, exists := wildcards[key]; !exists {
-					wildcards[key] = value
-				}
-			}
-		}
-	} else if config.URLTemplate != "" && trimmedInput != "" {
-		// For simple input values, try to auto-map to URL template placeholders
-		// Find all placeholders in the URL template
-		placeholders := extractPlaceholders(config.URLTemplate)
-
-		// If there's exactly one placeholder and input is a simple value (not already in wildcards),
-		// map the input to that placeholder
-		if len(placeholders) == 1 {
-			placeholder := placeholders[0]
-			if _, exists := wildcards[placeholder]; !exists {
-				wildcards[placeholder] = trimmedInput
-			}
-		}
-	}
-
-	// Prepare the request
-	var requestURL string
-	var body io.Reader
-	var contentType string
-
-	// Check if URL template is configured
-	logURL := ""
+	var requestURL, logURL string
 	if config.URLTemplate != "" {
-		// Use URL template with placeholder substitution
-		requestURL, logURL = sm.substituteURLTemplate(config.URLTemplate, input, wildcards, config.Headers)
+		// When the input is plain text and is not the body, it fills a
+		// template's only placeholder, e.g. the {list_id} of /lists/{list_id}
+		trimmedInput := strings.TrimSpace(input)
+		if !hasBody && inputParams == nil && trimmedInput != "" {
+			if placeholders := extractPlaceholders(config.URLTemplate); len(placeholders) == 1 {
+				if _, exists := params[placeholders[0]]; !exists {
+					params[placeholders[0]] = trimmedInput
+				}
+			}
+		}
+		var err error
+		requestURL, logURL, err = sm.substituteURLTemplate(config.URLTemplate, input, params, config.Headers)
+		if err != nil {
+			return "", err
+		}
 	} else {
 		requestURL = config.BaseURL
-	}
-
-	// Build request body based on method and configuration
-	if config.Method == "GET" {
-		// Skip query param appending if URL template was used
-		if config.URLTemplate == "" {
-			// For GET requests, append input as query parameter
+		if !hasBody {
+			// Pass the input as a query parameter
 			paramName := config.QueryParam
 			if paramName == "" {
-				paramName = "input" // Default parameter name
+				paramName = "input"
 			}
 			separator := "?"
 			if strings.Contains(requestURL, "?") {
@@ -207,183 +217,189 @@ func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, wildcards map[st
 			}
 			requestURL += separator + url.QueryEscape(paramName) + "=" + url.QueryEscape(input)
 		}
-	} else {
-		// Check if Content-Type is already configured
-		configuredContentType := config.Headers["Content-Type"]
+		logURL = requestURL
+	}
 
-		// For form-urlencoded requests, use input directly as body
-		if configuredContentType == "application/x-www-form-urlencoded" {
-			// Input is already in form-urlencoded format (e.g., "username=X&password=Y")
-			body = bytes.NewBufferString(input)
-			contentType = "application/x-www-form-urlencoded"
-		} else if configuredContentType == "application/json" {
-			// For JSON Content-Type, check if input is already valid JSON
-			trimmedInput := strings.TrimSpace(input)
-			if (strings.HasPrefix(trimmedInput, "{") && strings.HasSuffix(trimmedInput, "}")) ||
-				(strings.HasPrefix(trimmedInput, "[") && strings.HasSuffix(trimmedInput, "]")) {
-				// Input appears to be JSON already, use it directly
-				// Validate it's parseable JSON
-				var testJSON interface{}
-				if json.Unmarshal([]byte(trimmedInput), &testJSON) == nil {
-					// Valid JSON, use as-is
-					body = bytes.NewBufferString(trimmedInput)
-					contentType = "application/json"
-				} else {
-					// Not valid JSON, wrap it
-					requestData := map[string]interface{}{
-						"input": input,
-					}
-					jsonData, err := json.Marshal(requestData)
-					if err != nil {
-						return "", fmt.Errorf("failed to marshal request data: %v", err)
-					}
-					body = bytes.NewBuffer(jsonData)
-					contentType = "application/json"
-				}
-			} else {
-				// Not JSON format, wrap in {"input": ...}
-				requestData := map[string]interface{}{
-					"input": input,
-				}
-
-				// Include wildcards if configured
-				if config.IncludeWildcards && len(wildcards) > 0 {
-					requestData["wildcards"] = wildcards
-				}
-
-				// Include additional SRAIX parameters
-				if botid, exists := wildcards["botid"]; exists && botid != "" {
-					requestData["botid"] = botid
-				}
-				if host, exists := wildcards["host"]; exists && host != "" {
-					requestData["host"] = host
-				}
-				if hint, exists := wildcards["hint"]; exists && hint != "" {
-					requestData["hint"] = hint
-				}
-
-				jsonData, err := json.Marshal(requestData)
-				if err != nil {
-					return "", fmt.Errorf("failed to marshal request data: %v", err)
-				}
-				body = bytes.NewBuffer(jsonData)
-				contentType = "application/json"
-			}
-		} else {
-			// For other POST/PUT requests (default), create JSON body
-			requestData := map[string]interface{}{
-				"input": input,
-			}
-
-			// Include wildcards if configured
-			if config.IncludeWildcards && len(wildcards) > 0 {
-				requestData["wildcards"] = wildcards
-			}
-
-			// Include additional SRAIX parameters
-			if botid, exists := wildcards["botid"]; exists && botid != "" {
-				requestData["botid"] = botid
-			}
-			if host, exists := wildcards["host"]; exists && host != "" {
-				requestData["host"] = host
-			}
-			if hint, exists := wildcards["hint"]; exists && hint != "" {
-				requestData["hint"] = hint
-			}
-
-			jsonData, err := json.Marshal(requestData)
-			if err != nil {
-				return "", fmt.Errorf("failed to marshal request data: %v", err)
-			}
-			body = bytes.NewBuffer(jsonData)
-			contentType = "application/json"
+	var body []byte
+	var contentType string
+	if hasBody {
+		var err error
+		body, contentType, err = requestBody(config, input, params)
+		if err != nil {
+			return "", err
 		}
 	}
 
-	// Create HTTP request
-	req, err := http.NewRequest(config.Method, requestURL, body)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.Timeout)*time.Second)
+	defer cancel()
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, config.Method, requestURL, bodyReader)
 	if err != nil {
 		return "", fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 
-	// Set headers - configured headers take precedence
-	// Substitute placeholders in header values (e.g., {access_token}, {user_id})
+	// Configured headers can use placeholders, e.g. Bearer {access_token}
 	for key, value := range config.Headers {
-		// Substitute placeholders in header value
-		substitutedValue, _ := sm.substitutePlaceholders(value, input, wildcards, config.Headers, nil)
+		substitutedValue, _, err := sm.substitutePlaceholders(value, input, params, config.Headers, nil)
+		if err != nil {
+			return "", fmt.Errorf("header %s: %v", key, err)
+		}
 		req.Header.Set(key, substitutedValue)
 	}
-	// Only set Content-Type if not already configured
 	if contentType != "" && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	// Set timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.Timeout)*time.Second)
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	// Make the request
 	if sm.verbose {
-		if logURL == "" {
-			logURL = requestURL
-		}
-		sm.logger.Printf("=== SRAIX Request to %s ===", serviceName)
+		// The URL and headers are logged with environment variables and the
+		// API key masked, and Authorization not at all. Bodies, which often
+		// carry credentials or tokens, are logged only by size.
+		sm.logger.Printf("=== SRAIX Request to %s ===", config.Name)
 		sm.logger.Printf("Method: %s", config.Method)
 		sm.logger.Printf("URL: %s", logURL)
 		sm.logger.Printf("Headers:")
-		// Configured headers are logged with placeholders unsubstituted and
-		// environment variables masked, and Authorization (the API key) not
-		// at all, so that tokens and keys are not written to the log
 		for key, value := range config.Headers {
 			if strings.EqualFold(key, "Authorization") {
 				value = "[redacted]"
-			} else if strings.Contains(value, "${") {
-				_, value = sm.substitutePlaceholders(value, "", nil, nil, nil)
+			} else {
+				_, value, _ = sm.substitutePlaceholders(value, "", nil, nil, nil)
 			}
 			sm.logger.Printf("  %s: %s", key, value)
 		}
-		if _, configured := config.Headers["Content-Type"]; !configured && contentType != "" {
-			sm.logger.Printf("  Content-Type: %s", contentType)
-		}
 		if body != nil {
-			// Read body for logging
-			bodyBytes, _ := io.ReadAll(body)
-			if contentType == "application/x-www-form-urlencoded" {
-				// Form bodies typically carry credentials
-				sm.logger.Printf("Body: [form-urlencoded, %d bytes]", len(bodyBytes))
-			} else {
-				sm.logger.Printf("Body: %s", string(bodyBytes))
-			}
-			// Recreate body since we consumed it
-			body = bytes.NewBuffer(bodyBytes)
-			req.Body = io.NopCloser(body)
+			sm.logger.Printf("Body: %d bytes, %s", len(body), req.Header.Get("Content-Type"))
 		}
 		sm.logger.Printf("=========================")
 	}
 
-	response, err := sm.doRequest(req, config)
-	if err != nil {
-		if sm.verbose {
-			sm.logger.Printf("SRAIX request to %s failed: %v", serviceName, err)
-		}
-		// Return fallback response if configured
-		if config.FallbackResponse != "" {
-			return config.FallbackResponse, nil
-		}
-		return "", err
-	}
-
-	if sm.verbose {
-		sm.logger.Printf("SRAIX response from %s: %s", serviceName, response)
-	}
-
-	return response, nil
+	return sm.doRequest(req, config)
 }
+
+// formInputRe matches input written as form fields: name=value&name=value
+var formInputRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]*=[^&]*(&[A-Za-z_][A-Za-z0-9_.-]*=[^&]*)*$`)
+
+// parseInputParams returns the fields of input written as a JSON object or
+// as form fields, or nil for any other input
+func parseInputParams(input string) map[string]string {
+	trimmed := strings.TrimSpace(input)
+	if strings.HasPrefix(trimmed, "{") {
+		var fields map[string]interface{}
+		if decodeJSON([]byte(trimmed), &fields) != nil {
+			return nil
+		}
+		params := make(map[string]string, len(fields))
+		for key, value := range fields {
+			params[key] = jsonText(value)
+		}
+		return params
+	}
+	if formInputRe.MatchString(trimmed) {
+		values, err := url.ParseQuery(trimmed)
+		if err != nil {
+			return nil
+		}
+		params := make(map[string]string, len(values))
+		for key, value := range values {
+			params[key] = value[0]
+		}
+		return params
+	}
+	return nil
+}
+
+// decodeJSON decodes JSON keeping numbers as they are written, so that an
+// ID such as 12345678 does not become 1.2345678e+07
+func decodeJSON(data []byte, v interface{}) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(v); err != nil {
+		return err
+	}
+	if decoder.More() {
+		return fmt.Errorf("unexpected data after JSON value")
+	}
+	return nil
+}
+
+// jsonText returns a decoded JSON value as text: a string as it is, null as
+// "", and anything else as JSON
+func jsonText(value interface{}) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case json.Number:
+		return v.String()
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Sprintf("%v", value)
+	}
+	return string(data)
+}
+
+// headerValue returns a configured header, whatever the case of its name
+func headerValue(headers map[string]string, name string) string {
+	for key, value := range headers {
+		if strings.EqualFold(key, name) {
+			return value
+		}
+	}
+	return ""
+}
+
+// requestBody returns the body of a request and, if the service does not
+// configure one, its content type. Form, XML, iCalendar and other non-JSON
+// services get the input as it is. JSON services get JSON input as it is,
+// and other input wrapped as {"input": ...}.
+func requestBody(config *SRAIXConfig, input string, params map[string]string) ([]byte, string, error) {
+	mediaType := ""
+	if configured := headerValue(config.Headers, "Content-Type"); configured != "" {
+		parsed, _, err := mime.ParseMediaType(configured)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid Content-Type %q: %v", configured, err)
+		}
+		mediaType = parsed
+	}
+	if mediaType != "" && mediaType != "application/json" && !strings.HasSuffix(mediaType, "+json") {
+		return []byte(input), "", nil
+	}
+
+	trimmed := strings.TrimSpace(input)
+	if (strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[")) && json.Valid([]byte(trimmed)) {
+		return []byte(trimmed), "application/json", nil
+	}
+
+	requestData := map[string]interface{}{
+		"input": input,
+	}
+	if config.IncludeWildcards && len(params) > 0 {
+		requestData["wildcards"] = params
+	}
+	for _, key := range []string{"botid", "host", "hint"} {
+		if value := params[key]; value != "" {
+			requestData[key] = value
+		}
+	}
+	data, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to marshal request data: %v", err)
+	}
+	return data, "application/json", nil
+}
+
+// maxSRAIXErrorBody limits how much of an error response goes into the
+// error, and from there into logs
+const maxSRAIXErrorBody = 200
 
 // doRequest sends the request and extracts the response text. Any failure,
 // including a response with no text (such as a missing response path), is
-// returned as an error, so that the caller falls back.
+// returned as an error, so that the caller falls back. A 204 No Content
+// response is a success with no text.
 func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (string, error) {
 	resp, err := sm.client.Do(req)
 	if err != nil {
@@ -400,56 +416,32 @@ func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (strin
 		return "", fmt.Errorf("SRAIX response exceeds %d bytes", maxSRAIXResponseSize)
 	}
 
-	// Log response details
 	if sm.verbose {
-		sm.logger.Printf("=== SRAIX Response from %s ===", config.Name)
-		sm.logger.Printf("Status: %d %s", resp.StatusCode, resp.Status)
-		sm.logger.Printf("Response Headers:")
-		for key, values := range resp.Header {
-			for _, value := range values {
-				sm.logger.Printf("  %s: %s", key, value)
-			}
-		}
-		sm.logger.Printf("Response Body: %s", string(responseBody))
-		sm.logger.Printf("============================")
+		sm.logger.Printf("SRAIX response from %s: %s, %d bytes", config.Name, resp.Status, len(responseBody))
 	}
 
-	// Check for HTTP errors
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("SRAIX request failed with status %d: %s", resp.StatusCode, string(responseBody))
+		detail := string(responseBody)
+		if len(detail) > maxSRAIXErrorBody {
+			detail = detail[:maxSRAIXErrorBody] + "..."
+		}
+		return "", fmt.Errorf("SRAIX request failed with status %d: %s", resp.StatusCode, detail)
+	}
+	if resp.StatusCode == http.StatusNoContent {
+		return "", nil
 	}
 
-	// Process response based on format
 	response := string(responseBody)
-	switch config.ResponseFormat {
-	case "json":
-		if sm.verbose {
-			sm.logger.Printf("ResponseFormat is 'json', ResponsePath is '%s'", config.ResponsePath)
+	if config.ResponseFormat == "json" && config.ResponsePath != "" {
+		var jsonData interface{}
+		if err := decodeJSON(responseBody, &jsonData); err != nil {
+			return "", fmt.Errorf("failed to parse JSON response: %v", err)
 		}
-		if config.ResponsePath != "" {
-			// Extract specific field from JSON response
-			var jsonData interface{}
-			if err := json.Unmarshal(responseBody, &jsonData); err != nil {
-				return "", fmt.Errorf("failed to parse JSON response: %v", err)
-			}
-			// JSON path extraction (supports dot notation and array indices like "0.lat")
-			response = sm.extractJSONPath(jsonData, config.ResponsePath)
-			if response == "" {
-				return "", fmt.Errorf("SRAIX response has no value at path '%s'", config.ResponsePath)
-			}
-		} else {
-			// No path specified, return full JSON
-			if sm.verbose {
-				sm.logger.Printf("No ResponsePath specified, returning full JSON response (%d bytes)", len(response))
-			}
+		value, found := extractJSONPath(jsonData, config.ResponsePath)
+		if !found {
+			return "", fmt.Errorf("SRAIX response has no value at path '%s'", config.ResponsePath)
 		}
-	case "xml":
-		// For XML, we'll return the raw response for now
-		// Could be enhanced to parse XML and extract specific elements
-	case "text":
-		// Return raw text response
-	default:
-		// Default to text
+		response = value
 	}
 
 	response = strings.TrimSpace(response)
@@ -462,31 +454,10 @@ func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (strin
 // extractPlaceholders finds all {placeholder} patterns in a string
 func extractPlaceholders(template string) []string {
 	var placeholders []string
-	start := 0
-	for {
-		// Find next opening brace
-		startIdx := strings.Index(template[start:], "{")
-		if startIdx == -1 {
-			break
+	for _, m := range urlPlaceholderRe.FindAllStringSubmatch(template, -1) {
+		if m[2] != "" {
+			placeholders = append(placeholders, m[2])
 		}
-		startIdx += start
-
-		// Find closing brace
-		endIdx := strings.Index(template[startIdx:], "}")
-		if endIdx == -1 {
-			break
-		}
-		endIdx += startIdx
-
-		// Extract placeholder name (without braces)
-		placeholder := template[startIdx+1 : endIdx]
-		// Skip environment variables (${...})
-		if startIdx > 0 && template[startIdx-1] == '$' {
-			start = endIdx + 1
-			continue
-		}
-		placeholders = append(placeholders, placeholder)
-		start = endIdx + 1
 	}
 	return placeholders
 }
@@ -507,20 +478,31 @@ var urlPlaceholderRe = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)\}|\{([A-Za-z_]
 //
 // All placeholders are replaced in one pass, so placeholder text inside a
 // substituted value (such as user input containing "{apikey}") is left alone.
-// Values that can come from the user are query-escaped; environment variables
+// Values that can come from the user are escaped, as a path segment before
+// the template's "?" and as a query value after it; environment variables
 // and the API key are configured by the bot author and inserted as they are.
 // It returns the URL and a copy with the environment variables and API key
-// masked, for logging.
-func (sm *SRAIXManager) substituteURLTemplate(template, input string, params map[string]string, headers map[string]string) (string, string) {
-	return sm.substitutePlaceholders(template, input, params, headers, url.QueryEscape)
+// masked, for logging. A placeholder with no value, or an environment
+// variable that is not set, is an error.
+func (sm *SRAIXManager) substituteURLTemplate(template, input string, params map[string]string, headers map[string]string) (string, string, error) {
+	queryStart := strings.IndexByte(template, '?')
+	escape := func(value string, pos int) string {
+		if queryStart >= 0 && pos > queryStart {
+			return url.QueryEscape(value)
+		}
+		return url.PathEscape(value)
+	}
+	return sm.substitutePlaceholders(template, input, params, headers, escape)
 }
 
 // substitutePlaceholders replaces the placeholders described at
 // substituteURLTemplate, passing values that can come from the user through
-// escape (if not nil). Header values use it with no escaping.
-func (sm *SRAIXManager) substitutePlaceholders(template, input string, params map[string]string, headers map[string]string, escape func(string) string) (string, string) {
+// escape (if not nil) with the placeholder's position in the template.
+// Header values use it with no escaping. Placeholders with no value are left
+// in the logging copy, and reported in the error.
+func (sm *SRAIXManager) substitutePlaceholders(template, input string, params map[string]string, headers map[string]string, escape func(value string, pos int) string) (string, string, error) {
 	if escape == nil {
-		escape = func(value string) string { return value }
+		escape = func(value string, _ int) string { return value }
 	}
 
 	values := make(map[string]string, len(params)*2)
@@ -543,6 +525,7 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 		}
 	}
 
+	var missing []string
 	var redacted strings.Builder
 	var result strings.Builder
 	last := 0
@@ -554,8 +537,8 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 		if m[2] >= 0 {
 			varName := template[m[2]:m[3]]
 			envValue := os.Getenv(varName)
-			if envValue == "" && sm.verbose {
-				sm.logger.Printf("Warning: Environment variable %s is not set", varName)
+			if envValue == "" {
+				missing = append(missing, "${"+varName+"}")
 			}
 			result.WriteString(envValue)
 			redacted.WriteString("${" + varName + "}")
@@ -565,7 +548,7 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 		name := template[m[4]:m[5]]
 		switch {
 		case name == "input":
-			value := escape(input)
+			value := escape(input, m[0])
 			result.WriteString(value)
 			redacted.WriteString(value)
 		case name == "apikey" && headers["Authorization"] != "":
@@ -574,12 +557,11 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 		default:
 			value, exists := values[name]
 			if !exists {
-				// Unknown placeholders are left in place
-				result.WriteString(template[m[0]:m[1]])
+				missing = append(missing, template[m[0]:m[1]])
 				redacted.WriteString(template[m[0]:m[1]])
 				continue
 			}
-			value = escape(value)
+			value = escape(value, m[0])
 			result.WriteString(value)
 			redacted.WriteString(value)
 		}
@@ -587,66 +569,36 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 	result.WriteString(template[last:])
 	redacted.WriteString(template[last:])
 
-	return result.String(), redacted.String()
+	if len(missing) > 0 {
+		return "", redacted.String(), fmt.Errorf("no value for %s", strings.Join(missing, ", "))
+	}
+	return result.String(), redacted.String(), nil
 }
 
-// extractJSONPath extracts a value from JSON data using dot notation
-func (sm *SRAIXManager) extractJSONPath(data interface{}, path string) string {
-	parts := strings.Split(path, ".")
-	var current interface{} = data
-
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			// Last part, return the value
-			switch v := current.(type) {
-			case map[string]interface{}:
-				if val, ok := v[part]; ok {
-					if str, ok := val.(string); ok {
-						return str
-					}
-					return fmt.Sprintf("%v", val)
-				}
-			case []interface{}:
-				// If current is an array and part is a number, index into it
-				var index int
-				if n, err := fmt.Sscanf(part, "%d", &index); err == nil && n == 1 {
-					if index >= 0 && index < len(v) {
-						if str, ok := v[index].(string); ok {
-							return str
-						}
-						return fmt.Sprintf("%v", v[index])
-					}
-				}
-			}
-			return ""
-		}
-
-		// Navigate deeper
+// extractJSONPath returns the value at a dot-separated path, such as
+// "data.message" or "0.lat" (array indices are numbers), as text. Strings
+// are returned as they are, and other values as JSON.
+func extractJSONPath(data interface{}, path string) (string, bool) {
+	current := data
+	for _, part := range strings.Split(path, ".") {
 		switch v := current.(type) {
 		case map[string]interface{}:
-			if next, ok := v[part]; ok {
-				current = next
-			} else {
-				return ""
+			next, ok := v[part]
+			if !ok {
+				return "", false
 			}
+			current = next
 		case []interface{}:
-			// If current is an array and part is a number, index into it
-			var index int
-			if n, err := fmt.Sscanf(part, "%d", &index); err == nil && n == 1 {
-				if index >= 0 && index < len(v) {
-					current = v[index]
-				} else {
-					return ""
-				}
-			} else {
-				return ""
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(v) {
+				return "", false
 			}
+			current = v[index]
 		default:
-			return ""
+			return "", false
 		}
 	}
-
-	return ""
+	return jsonText(current), true
 }
 
 // LoadSRAIXConfigsFromFile loads SRAIX configurations from a JSON file

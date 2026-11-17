@@ -188,7 +188,10 @@ All `.properties` files must use JSON array format:
   - `{location}` - From session variable `location`
   - `{STAR1}`, `{STAR2}`, ... - Pattern wildcard values
   - `{param_name}` - Any other request param, e.g. `{list_id}` from form/JSON input or `{access_token}` from session variable `list_access_token`
-- Values that can come from the user are query-escaped in URLs; header values (e.g. `Bearer {access_token}`) are substituted without escaping
+- Values that can come from the user are escaped in URLs (as a path segment before the template's `?`, as a query value after it); header values (e.g. `Bearer {access_token}`) are substituted without escaping
+- A placeholder with no value, or an unset `${ENV_VAR}`, fails the request before it is sent
+- Request body: none for GET/HEAD/DELETE/OPTIONS; for `application/json` or no Content-Type, JSON input as-is and other input as `{"input": ...}`; for any other Content-Type, the input as-is
+- On failure `<sraix>` returns its `default` attribute, then the service's `fallback`, then its content
 - Automatically configured via `ConfigureFromProperties()` when knowledge base is set
 - Example: `export PIRATE_WEATHER_API_KEY="your-key"` then use `${PIRATE_WEATHER_API_KEY}` in URL templates
 

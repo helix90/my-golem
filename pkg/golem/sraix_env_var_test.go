@@ -227,15 +227,17 @@ func TestSRAIXEnvironmentVariableNotSet(t *testing.T) {
 
 	// Process input
 	session := g.CreateSession("test-session")
-	_, err = g.ProcessInput("TEST MISSING ENV", session)
+	response, err := g.ProcessInput("TEST MISSING ENV", session)
 	if err != nil {
 		t.Fatalf("ProcessInput failed: %v", err)
 	}
 
-	// Verify the environment variable placeholder was replaced with empty string
-	// This means the URL will have an empty segment, which is valid behavior
-	expectedPath := "//data" // Empty API key results in //
-	if !strings.Contains(requestedURL, expectedPath) {
-		t.Errorf("Expected URL to have empty env var segment, but got: %s", requestedURL)
+	// A missing environment variable fails the request before it is sent,
+	// so the tag falls back to its content
+	if requestedURL != "" {
+		t.Errorf("Expected no request with the variable missing, got %s", requestedURL)
+	}
+	if response != "test" {
+		t.Errorf("Expected the content 'test', got %q", response)
 	}
 }

@@ -590,8 +590,10 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 		return sraixContent
 	}
 
-	tp.golem.LogInfo("Processing SRAIX: service='%s', bot='%s', botid='%s', host='%s', default='%s', hint='%s', content='%s'",
-		serviceName, botName, botID, hostName, defaultResponse, hintText, sraixContent)
+	// The content and the response are logged only by size, since they
+	// often carry credentials or tokens
+	tp.golem.LogInfo("Processing SRAIX: service='%s', bot='%s', botid='%s', host='%s', hint='%s', content %d bytes",
+		serviceName, botName, botID, hostName, hintText, len(sraixContent))
 
 	// Determine which service to use based on available attributes
 	var targetService string
@@ -666,18 +668,21 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 	}
 
 	// Make the external service request
-	response, err := tp.golem.sraixMgr.ProcessSRAIX(targetService, sraixContent, requestParams)
+	response, config, err := tp.golem.sraixMgr.request(targetService, sraixContent, requestParams)
 	if err != nil {
 		tp.golem.LogInfo("SRAIX request failed: %v", err)
-		// Use default response if available
+		// The tag's default comes first, then the service's fallback, then
+		// the content (AIML2 spec behavior)
 		if defaultResponse != "" {
 			return defaultResponse
 		}
-		// Return content when service fails and no default (AIML2 spec behavior)
+		if config != nil && config.FallbackResponse != "" {
+			return config.FallbackResponse
+		}
 		return sraixContent
 	}
 
-	tp.golem.LogInfo("SRAIX result: service='%s', input='%s' -> '%s'", targetService, sraixContent, response)
+	tp.golem.LogInfo("SRAIX result: service='%s', %d bytes", targetService, len(response))
 	return response
 }
 

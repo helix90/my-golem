@@ -2,6 +2,7 @@ package golem
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -153,8 +154,8 @@ func TestSRAIXVerboseLogMasksSecrets(t *testing.T) {
 	}
 }
 
-// A response with no text must fall back: first to the configured fallback,
-// then to the default attribute, then to the tag content.
+// A response with no text must fall back: first to the default attribute,
+// then to the configured fallback, then to the tag content.
 func TestSRAIXEmptyResultFallsBack(t *testing.T) {
 	const aiml = `<aiml version="2.0">
 <category><pattern>WITH DEFAULT</pattern><template><sraix service="svc" default="DEFAULTED">question</sraix></template></category>
@@ -170,8 +171,9 @@ func TestSRAIXEmptyResultFallsBack(t *testing.T) {
 		want     string
 	}{
 		{"missing path uses default", `{"data":{"other":"x"}}`, "json", "data.answer", "", "with default", "DEFAULTED"},
-		{"missing path uses fallback", `{"data":{"other":"x"}}`, "json", "data.answer", "FALLBACK", "with default", "FALLBACK"},
-		{"invalid json uses fallback", `not json`, "json", "data.answer", "FALLBACK", "with default", "FALLBACK"},
+		{"default wins over fallback", `{"data":{"other":"x"}}`, "json", "data.answer", "FALLBACK", "with default", "DEFAULTED"},
+		{"missing path uses fallback", `{"data":{"other":"x"}}`, "json", "data.answer", "FALLBACK", "without default", "FALLBACK"},
+		{"invalid json uses fallback", `not json`, "json", "data.answer", "FALLBACK", "without default", "FALLBACK"},
 		{"empty text uses default", "  \n", "text", "", "", "with default", "DEFAULTED"},
 		{"empty text uses content", "", "text", "", "", "without default", "question"},
 		{"value found", `{"data":{"answer":"42"}}`, "json", "data.answer", "FALLBACK", "with default", "42"},
@@ -274,5 +276,214 @@ func TestSRAIXConcurrentConfigs(t *testing.T) {
 	delete(configs, "svc")
 	if _, exists := sm.GetConfig("svc"); !exists {
 		t.Error("Changing the ListConfigs result changed the manager's configs")
+	}
+}
+
+// sraixCall is a request a test server received
+type sraixCall struct {
+	method, path, contentType, body string
+}
+
+// newSRAIXBodyServer is a test server that records each request's body, and
+// answers DELETE with 204 No Content and everything else with reply
+func newSRAIXBodyServer(t *testing.T, reply string) (*[]sraixCall, *httptest.Server) {
+	var mu sync.Mutex
+	calls := []sraixCall{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		calls = append(calls, sraixCall{r.Method, r.URL.EscapedPath(), r.Header.Get("Content-Type"), string(body)})
+		mu.Unlock()
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Write([]byte(reply))
+	}))
+	t.Cleanup(srv.Close)
+	return &calls, srv
+}
+
+func lastSRAIXCall(t *testing.T, calls *[]sraixCall) sraixCall {
+	t.Helper()
+	if len(*calls) == 0 {
+		t.Fatal("Expected a request to the SRAIX service")
+	}
+	return (*calls)[len(*calls)-1]
+}
+
+// Services that are not JSON get the input as the body, and the input does
+// not fill a URL placeholder when it is the body.
+func TestSRAIXRawBodyForOtherContentTypes(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, "created")
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.AddConfig(&SRAIXConfig{Name: "cal", URLTemplate: srv.URL + "/cal/{uid}.ics", Method: "PUT",
+		Headers: map[string]string{"Content-Type": "text/calendar; charset=utf-8"}})
+
+	const event = "BEGIN:VCALENDAR\r\nEND:VCALENDAR"
+	if _, err := sm.ProcessSRAIX("cal", event, map[string]string{"uid": "abc"}); err != nil {
+		t.Fatalf("SRAIX failed: %v", err)
+	}
+	call := lastSRAIXCall(t, calls)
+	if call.path != "/cal/abc.ics" || call.body != event || call.contentType != "text/calendar; charset=utf-8" {
+		t.Errorf("Expected PUT /cal/abc.ics with the event as text/calendar, got %+v", call)
+	}
+
+	// Without a uid the request is not sent
+	if _, err := sm.ProcessSRAIX("cal", event, map[string]string{}); err == nil || !strings.Contains(err.Error(), "{uid}") {
+		t.Errorf("Expected an error naming {uid}, got %v", err)
+	}
+	if len(*calls) != 1 {
+		t.Errorf("Expected no request without a uid, got %d requests", len(*calls))
+	}
+}
+
+// DELETE sends no body, and 204 No Content is a success, not a fallback.
+func TestSRAIXDeleteNoContent(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, "")
+	g := newSRAIXGolem(t, &SRAIXConfig{Name: "svc", URLTemplate: srv.URL + "/lists/{list_id}", Method: "DELETE",
+		FallbackResponse: "Failed to delete list"}, `<aiml version="2.0">
+<category><pattern>DELETE *</pattern><template>[<sraix service="svc"><star/></sraix>]</template></category>
+</aiml>`)
+
+	response, err := g.ProcessInput("delete 7", g.CreateSession("test"))
+	if err != nil {
+		t.Fatalf("Failed to process input: %v", err)
+	}
+	if response != "[]" {
+		t.Errorf("Expected an empty success, got %q", response)
+	}
+	if call := lastSRAIXCall(t, calls); call.path != "/lists/7" || call.body != "" {
+		t.Errorf("Expected DELETE /lists/7 with no body, got %+v", call)
+	}
+}
+
+// JSON numbers keep their digits, in input params and in responses, and a
+// response path to an object gives JSON.
+func TestSRAIXJSONValuesAsWritten(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, `{"id":12345678,"price":1.50,"obj":{"a":1}}`)
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.AddConfig(&SRAIXConfig{Name: "id", URLTemplate: srv.URL + "/lists/{list_id}", Method: "POST", ResponseFormat: "json", ResponsePath: "id"})
+	sm.AddConfig(&SRAIXConfig{Name: "obj", BaseURL: srv.URL, Method: "GET", ResponseFormat: "json", ResponsePath: "obj"})
+	sm.AddConfig(&SRAIXConfig{Name: "price", BaseURL: srv.URL, Method: "GET", ResponseFormat: "json", ResponsePath: "price"})
+
+	response, err := sm.ProcessSRAIX("id", `{"list_id": 12345678}`, map[string]string{})
+	if err != nil || response != "12345678" {
+		t.Errorf("Expected '12345678', got %q (%v)", response, err)
+	}
+	if call := lastSRAIXCall(t, calls); call.path != "/lists/12345678" {
+		t.Errorf("Expected /lists/12345678, got %s", call.path)
+	}
+	if response, _ := sm.ProcessSRAIX("obj", "", map[string]string{}); response != `{"a":1}` {
+		t.Errorf(`Expected {"a":1}, got %q`, response)
+	}
+	if response, _ := sm.ProcessSRAIX("price", "", map[string]string{}); response != "1.50" {
+		t.Errorf("Expected '1.50', got %q", response)
+	}
+}
+
+// JSON input is sent as it is to a service with no Content-Type configured,
+// not wrapped in {"input": ...}.
+func TestSRAIXJSONInputNotWrapped(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, "ok")
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.AddConfig(&SRAIXConfig{Name: "toggle", URLTemplate: srv.URL + "/l/{list_id}/i/{item_id}", Method: "PATCH"})
+
+	const input = `{"list_id":"1","item_id":"2"}`
+	if _, err := sm.ProcessSRAIX("toggle", input, map[string]string{}); err != nil {
+		t.Fatalf("SRAIX failed: %v", err)
+	}
+	call := lastSRAIXCall(t, calls)
+	if call.path != "/l/1/i/2" || call.body != input || call.contentType != "application/json" {
+		t.Errorf("Expected PATCH /l/1/i/2 with the input as JSON, got %+v", call)
+	}
+}
+
+// Values in the input take precedence over the params passed in, form input
+// with one field is read, and form values are decoded once.
+func TestSRAIXInputParams(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, "ok")
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.AddConfig(&SRAIXConfig{Name: "svc", URLTemplate: srv.URL + "/lists/{list_id}", Method: "GET"})
+
+	tests := []struct{ input, want string }{
+		{`{"list_id": 5}`, "/lists/5"},
+		{"list_id=6", "/lists/6"},
+		{"list_id=a%20b&x=1", "/lists/a%20b"},
+	}
+	for _, tt := range tests {
+		if _, err := sm.ProcessSRAIX("svc", tt.input, map[string]string{"list_id": "999"}); err != nil {
+			t.Errorf("%q: SRAIX failed: %v", tt.input, err)
+		}
+		if call := lastSRAIXCall(t, calls); call.path != tt.want {
+			t.Errorf("%q: expected %s, got %s", tt.input, tt.want, call.path)
+		}
+	}
+}
+
+// A placeholder with no value fails the request before it is sent.
+func TestSRAIXMissingPlaceholderNotSent(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, "ok")
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.AddConfig(&SRAIXConfig{Name: "svc", URLTemplate: srv.URL + "/l/{list_id}/i/{item_id}", Method: "GET",
+		Headers: map[string]string{"Authorization": "Bearer {access_token}"}, FallbackResponse: "FALLBACK"})
+
+	if response, err := sm.ProcessSRAIX("svc", "list_id=1", map[string]string{"access_token": "t"}); err != nil || response != "FALLBACK" {
+		t.Errorf("Expected the fallback, got %q (%v)", response, err)
+	}
+	if response, _ := sm.ProcessSRAIX("svc", `{"list_id":"1","item_id":"2"}`, map[string]string{}); response != "FALLBACK" {
+		t.Errorf("Expected the fallback without a token, got %q", response)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("Expected no requests, got %+v", *calls)
+	}
+}
+
+// Values in the URL path are escaped as a path segment, and values in the
+// query as a query value.
+func TestSRAIXPathEscaping(t *testing.T) {
+	calls, srv := newSRAIXBodyServer(t, "ok")
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.AddConfig(&SRAIXConfig{Name: "svc", URLTemplate: srv.URL + "/l/{list_id}?q={input}", Method: "GET"})
+
+	if _, err := sm.ProcessSRAIX("svc", "a b+c", map[string]string{"list_id": "a b/c"}); err != nil {
+		t.Fatalf("SRAIX failed: %v", err)
+	}
+	if call := lastSRAIXCall(t, calls); call.path != "/l/a%20b%2Fc" {
+		t.Errorf("Expected /l/a%%20b%%2Fc, got %s", call.path)
+	}
+}
+
+// SRAIX does not log its content and responses, which carry credentials
+// and tokens.
+func TestSRAIXCredentialsNotLogged(t *testing.T) {
+	_, srv := newSRAIXBodyServer(t, `{"access_token":"TOKEN-XYZ"}`)
+	var logs bytes.Buffer
+	g := New(true)
+	g.logger.SetOutput(&logs)
+	g.sraixMgr.logger.SetOutput(&logs)
+	if err := g.AddSRAIXConfig(&SRAIXConfig{Name: "login", URLTemplate: srv.URL + "/auth/login", Method: "POST",
+		ResponseFormat: "json", ResponsePath: "access_token",
+		Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"}}); err != nil {
+		t.Fatalf("Failed to add SRAIX config: %v", err)
+	}
+	if err := g.LoadAIMLFromString(`<aiml version="2.0">
+<category><pattern>LOGIN</pattern><template><think><set name="token"><sraix service="login">username=bob&amp;password=PASS-123</sraix></set></think>ok</template></category>
+</aiml>`); err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	session := g.CreateSession("test")
+	if _, err := g.ProcessInput("login", session); err != nil {
+		t.Fatalf("Failed to process input: %v", err)
+	}
+	if session.Variables["token"] != "TOKEN-XYZ" {
+		t.Fatalf("Expected the token, got %q", session.Variables["token"])
+	}
+	// Verbose logging of other tags, such as <think>, still shows the values
+	// they process
+	for _, line := range strings.Split(logs.String(), "\n") {
+		if strings.Contains(line, "SRAIX") && (strings.Contains(line, "PASS-123") || strings.Contains(line, "TOKEN-XYZ")) {
+			t.Errorf("Credentials leaked into SRAIX log: %s", line)
+		}
 	}
 }

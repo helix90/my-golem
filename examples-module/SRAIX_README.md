@@ -171,27 +171,34 @@ The input is sent as JSON, along with wildcards (when `include_wildcards` is tru
 }
 ```
 
-The request body depends on the configured `Content-Type` header:
+GET, HEAD, DELETE and OPTIONS requests have no body. For the other methods the body depends on the configured `Content-Type` header:
 
-- **`application/x-www-form-urlencoded`**: the input is sent directly as the body, not wrapped in JSON. Use this for OAuth2 password flows and similar login endpoints, e.g. `<sraix service="login">username=user&amp;password=pass</sraix>`.
-- **`application/json`**: input that is already valid JSON (an object or array) is sent as-is; anything else is wrapped as above.
-- **Not set**: the input is wrapped as above.
+- **`application/json`, or not set**: input that is already valid JSON (an object or array) is sent as-is; anything else is wrapped as above.
+- **Any other type** (`application/x-www-form-urlencoded`, `text/calendar`, `application/xml`, ...): the input is sent as it is. Use form-urlencoded for OAuth2 password flows and similar login endpoints, e.g. `<sraix service="login">username=user&amp;password=pass</sraix>`.
 
-Form-urlencoded (`key=value&key2=value2`) and JSON object input also supply their keys as URL template placeholders, e.g. `{list_id}`. When the input is a single plain value and the URL template has exactly one placeholder, the input fills that placeholder.
+Form-urlencoded (`key=value&key2=value2`) and JSON object input also supply their keys as URL template placeholders, e.g. `{list_id}`, and these take precedence over wildcards and session values of the same name. JSON numbers keep their digits. For a request with no body, when the input is a single plain value and the URL template has exactly one placeholder, the input fills that placeholder.
+
+Values in the URL path are escaped as a path segment (a space becomes `%20`), and values after the template's `?` as a query value. If a placeholder has no value, or a `${ENV_VAR}` is not set, the request is not sent and the tag falls back.
 
 Placeholders in header values are substituted too (without URL escaping), e.g. `"Authorization": "Bearer {access_token}"`.
 
 ## Response Processing
 
-- **json**: The response is parsed and optionally filtered using `response_path`. With `response_path: "data.message"`, `{"data": {"message": "Sunny and 75°F"}}` yields "Sunny and 75°F".
+- **json**: The response is parsed and optionally filtered using `response_path`. With `response_path: "data.message"`, `{"data": {"message": "Sunny and 75°F"}}` yields "Sunny and 75°F". Array elements are selected by index (`0.lat`). A number is returned as written, and an object or array as JSON.
 - **text**: The raw response body is used directly.
-- **xml**: The raw XML response is used.
+- **xml**: The raw XML response is used. `response_path` applies only to json.
+
+A `204 No Content` response is a success with no text. An empty body from any other response, or a `response_path` with no value, is a failure.
 
 ## Error Handling
 
-1. **HTTP errors / timeouts**: The service's `fallback_response` is used if configured
-2. **Otherwise, on any failure** (service not configured, network error, no `service` or `bot` attribute): the tag's `default` attribute is used if provided
-3. **No default**: The tag's evaluated inner text is returned
+When the request fails (HTTP error, timeout, missing placeholder, empty response, service not configured, or no `service` or `bot` attribute), the tag returns, in order of preference:
+
+1. The tag's `default` attribute
+2. The service's `fallback_response`
+3. The tag's evaluated inner text
+
+Calling `ProcessSRAIX` directly returns the `fallback_response` on failure.
 
 ## Integration with Other AIML Tags
 
