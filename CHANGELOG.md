@@ -30,6 +30,7 @@ All notable changes to Golem are recorded here.
   - Values in the URL path are escaped as a path segment (`%20`, not `+`).
   - The SRAIX content and replies, request and response bodies, and response headers are no longer logged, since they carry credentials and tokens. Error messages include at most 200 bytes of the response.
   - A `responsepath` on a service whose response format is not json logs a warning; it is ignored.
+  - A SRAIX request no longer holds the knowledge base lock while it waits. Before, a slow service blocked loading and reloading for up to its timeout, and once a load was waiting, every other conversation too.
 
 ## v1.6.0 - 2026-11-16
 

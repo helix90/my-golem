@@ -1594,7 +1594,7 @@ func (g *Golem) processTemplateForSession(template string, wildcards map[string]
 
 // processTemplateWithContext parses a template into an AST and evaluates it
 // with the tree processor, which handles each tag where it appears, innermost
-// content first
+// content first. The caller must hold kbMu for reading, once.
 func (g *Golem) processTemplateWithContext(template string, wildcards map[string]string, ctx *VariableContext) string {
 	if g.treeProcessor == nil {
 		g.treeProcessor = NewTreeProcessor(g)
@@ -1602,7 +1602,7 @@ func (g *Golem) processTemplateWithContext(template string, wildcards map[string
 	// TreeProcessor holds per-call state (ctx, starCounter), so each call gets
 	// its own; sharing one across concurrent sessions mixed up their contexts.
 	// Only the metrics registry is shared.
-	tp := &TreeProcessor{golem: g, metrics: g.treeProcessor.metrics}
+	tp := &TreeProcessor{golem: g, metrics: g.treeProcessor.metrics, kbReadLocked: true}
 	response, err := tp.ProcessTemplate(template, wildcards, ctx)
 	if err != nil {
 		g.LogError("Error in tree-based template processing: %v", err)

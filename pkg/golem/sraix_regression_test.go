@@ -2,6 +2,7 @@ package golem
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // sraixRecorder is a test server that records the requests it receives
@@ -485,5 +487,56 @@ func TestSRAIXCredentialsNotLogged(t *testing.T) {
 		if strings.Contains(line, "SRAIX") && (strings.Contains(line, "PASS-123") || strings.Contains(line, "TOKEN-XYZ")) {
 			t.Errorf("Credentials leaked into SRAIX log: %s", line)
 		}
+	}
+}
+
+// A slow SRAIX request must not hold the knowledge base lock: loading AIML,
+// and other conversations, go ahead while it waits.
+func TestSRAIXRequestDoesNotBlockKnowledgeBase(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		w.Write([]byte("slow answer"))
+	}))
+	t.Cleanup(srv.Close)
+	g := newSRAIXGolem(t, &SRAIXConfig{Name: "svc", BaseURL: srv.URL, Method: "GET"}, `<aiml version="2.0">
+<category><pattern>SLOW</pattern><template><srai>INNER</srai></template></category>
+<category><pattern>INNER</pattern><template><sraix service="svc">question</sraix></template></category>
+<category><pattern>FAST</pattern><template>fast answer</template></category>
+</aiml>`)
+
+	slow := make(chan string)
+	go func() {
+		response, _ := g.ProcessInput("slow", g.CreateSession("slow"))
+		slow <- response
+	}()
+	<-started
+
+	done := make(chan error)
+	go func() {
+		if err := g.LoadAIMLFromString(`<aiml version="2.0"><category><pattern>NEW</pattern><template>new answer</template></category></aiml>`); err != nil {
+			done <- err
+			return
+		}
+		response, err := g.ProcessInput("new", g.CreateSession("other"))
+		if err == nil && response != "new answer" {
+			err = fmt.Errorf("expected 'new answer', got %q", response)
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Error(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("Loading AIML waited for the SRAIX request")
+	}
+
+	close(release)
+	if response := <-slow; response != "slow answer" {
+		t.Errorf("Expected 'slow answer', got %q", response)
 	}
 }

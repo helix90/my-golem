@@ -18,6 +18,9 @@ type TreeProcessor struct {
 	starCounter int                // Tracks auto-incrementing star index for <star/> tags without explicit index
 	metrics     *ProcessorRegistry // Tracks metrics for different tag types/operations
 	loop        bool               // Set by <loop/> inside the <li> a condition is processing
+	// kbReadLocked is set when the caller holds golem.kbMu for reading, so
+	// that <sraix> can release it for the length of its request
+	kbReadLocked bool
 }
 
 // NewTreeProcessor creates a new tree processor
@@ -668,7 +671,7 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 	}
 
 	// Make the external service request
-	response, config, err := tp.golem.sraixMgr.request(targetService, sraixContent, requestParams)
+	response, config, err := tp.requestSRAIX(targetService, sraixContent, requestParams)
 	if err != nil {
 		tp.golem.LogInfo("SRAIX request failed: %v", err)
 		// The tag's default comes first, then the service's fallback, then
@@ -684,6 +687,19 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 
 	tp.golem.LogInfo("SRAIX result: service='%s', %d bytes", targetService, len(response))
 	return response
+}
+
+// requestSRAIX makes a SRAIX request without holding the knowledge base lock.
+// A request can take as long as its timeout; holding the lock meanwhile
+// would block a reload or a load, and, once one of those was waiting, every
+// other conversation. The rest of the template sees the knowledge base as it
+// is when the request returns.
+func (tp *TreeProcessor) requestSRAIX(service, input string, params map[string]string) (string, *SRAIXConfig, error) {
+	if tp.kbReadLocked {
+		tp.golem.kbMu.RUnlock()
+		defer tp.golem.kbMu.RLock()
+	}
+	return tp.golem.sraixMgr.request(service, input, params)
 }
 
 func (tp *TreeProcessor) processThinkTag(_ *ASTNode, content string) string {

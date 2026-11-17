@@ -192,6 +192,7 @@ All `.properties` files must use JSON array format:
 - A placeholder with no value, or an unset `${ENV_VAR}`, fails the request before it is sent
 - Request body: none for GET/HEAD/DELETE/OPTIONS; for `application/json` or no Content-Type, JSON input as-is and other input as `{"input": ...}`; for any other Content-Type, the input as-is
 - On failure `<sraix>` returns its `default` attribute, then the service's `fallback`, then its content
+- `<sraix>` releases the knowledge base read lock (`kbMu`) for the length of its HTTP request (`TreeProcessor.requestSRAIX`); template processing must hold it exactly once
 - Automatically configured via `ConfigureFromProperties()` when knowledge base is set
 - Example: `export PIRATE_WEATHER_API_KEY="your-key"` then use `${PIRATE_WEATHER_API_KEY}` in URL templates
 
