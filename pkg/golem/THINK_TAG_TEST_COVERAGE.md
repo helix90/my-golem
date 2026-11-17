@@ -280,7 +280,7 @@ go test ./pkg/golem -run "TestThinkTagPerformance" -v -benchtime=10s
     <think>
       <set var="location"><star/></set>
       <set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
-      <set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
+      <set var="lon"><get name="geocode_lon"/></set>
       <set name="location"><get var="location"/></set>
       <set name="latitude"><get var="lat"/></set>
       <set name="longitude"><get var="lon"/></set>
@@ -291,7 +291,7 @@ go test ./pkg/golem -run "TestThinkTagPerformance" -v -benchtime=10s
 ```
 **Input**: "my location is Honolulu"
 **Output**: "I've set your location to Honolulu (coordinates: 21.3045470, -157.8556760)."
-**External Calls**: 2 SRAIX calls (geocode and geocode_lon) - all silent
+**External Calls**: 1 SRAIX call (geocode, which also sets `geocode_lon`) - silent
 **Variables Set**: location, latitude, longitude (with geocoded values)
 
 ## Maintenance

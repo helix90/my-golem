@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -13,7 +14,9 @@ import (
 // This tests the exact pattern used in weather.aiml
 func TestTreeProcessorThinkWithSRAIX(t *testing.T) {
 	// Create mock geocoding server
+	var requests int32
 	geocodeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&requests, 1)
 		response := []map[string]interface{}{
 			{
 				"lat": "21.3045470",
@@ -27,7 +30,8 @@ func TestTreeProcessorThinkWithSRAIX(t *testing.T) {
 
 	g := NewForTesting(t, false)
 
-	// Configure SRAIX services for geocoding
+	// Configure the geocoding service: it returns the latitude and sets the
+	// geocode_lon predicate from the same response
 	geocodeConfig := &SRAIXConfig{
 		Name:           "geocode",
 		URLTemplate:    geocodeServer.URL + "?q={input}",
@@ -35,18 +39,11 @@ func TestTreeProcessorThinkWithSRAIX(t *testing.T) {
 		Timeout:        10,
 		ResponseFormat: "json",
 		ResponsePath:   "0.lat",
+		Set:            map[string]string{"geocode_lon": "0.lon"},
 	}
-	g.AddSRAIXConfig(geocodeConfig)
-
-	geocodeLonConfig := &SRAIXConfig{
-		Name:           "geocode_lon",
-		URLTemplate:    geocodeServer.URL + "?q={input}",
-		Method:         "GET",
-		Timeout:        10,
-		ResponseFormat: "json",
-		ResponsePath:   "0.lon",
+	if err := g.AddSRAIXConfig(geocodeConfig); err != nil {
+		t.Fatalf("Failed to add SRAIX config: %v", err)
 	}
-	g.AddSRAIXConfig(geocodeLonConfig)
 
 	// Test AIML that matches weather.aiml pattern exactly
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -57,7 +54,7 @@ func TestTreeProcessorThinkWithSRAIX(t *testing.T) {
 			<think>
 				<set var="location"><star/></set>
 				<set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
-				<set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
+				<set var="lon"><get name="geocode_lon"/></set>
 				<set name="location"><get var="location"/></set>
 				<set name="latitude"><get var="lat"/></set>
 				<set name="longitude"><get var="lon"/></set>
@@ -120,6 +117,10 @@ func TestTreeProcessorThinkWithSRAIX(t *testing.T) {
 	// The response should show the coordinates
 	if !strings.Contains(response, "21.3045470") || !strings.Contains(response, "-157.8556760") {
 		t.Errorf("Response should contain coordinates, got: %s", response)
+	}
+
+	if n := atomic.LoadInt32(&requests); n != 1 {
+		t.Errorf("Expected one geocoding request, got %d", n)
 	}
 }
 

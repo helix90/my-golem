@@ -28,7 +28,7 @@
     <!-- Geocode the location to get coordinates -->
     <set var="location"><star/></set>
     <set var="lat"><sraix service="geocode"><get var="location"/></sraix></set>
-    <set var="lon"><sraix service="geocode_lon"><get var="location"/></sraix></set>
+    <set var="lon"><get name="geocode_lon"/></set>
 
     <!-- Get the user's Telegram user ID from session -->
     <set var="telegram_user"><get name="telegram_user"/></set>

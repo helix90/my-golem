@@ -144,27 +144,26 @@ The Pirate Weather API requires coordinates in the URL path:
 https://api.pirateweather.net/forecast/{apikey}/{lat},{lon}?units=si
 ```
 
-The SRAIX configuration uses URL templates with placeholders:
-```properties
-sraix.weather.urltemplate=https://api.pirateweather.net/forecast/{apikey}/{lat},{lon}?units=si
-sraix.weather.apikey=${PIRATE_WEATHER_API_KEY}
+The SRAIX configuration (`weather-config.properties`) uses a URL template with placeholders:
+```json
+["sraix.weather.urltemplate", "https://api.pirateweather.net/forecast/${PIRATE_WEATHER_API_KEY}/{lat},{lon}?units=si"]
 ```
 
 ### 2. Coordinate Passing
 
-Coordinates are passed through the `hint` attribute in AIML:
+Coordinates are passed in the SRAIX input as a JSON object, whose fields fill the placeholders:
 ```xml
-<sraix service="weather" hint="42.3601,-71.0589">weather</sraix>
+<sraix service="weather">{"lat":"<get name="latitude"/>","lon":"<get name="longitude"/>"}</sraix>
 ```
 
-The hint is parsed as `lat,lon` and substituted into the URL template.
+A query for another place passes that place's coordinates, so the user's own location is left alone.
 
 ### 3. Geocoding
 
-Location names are converted to coordinates using OpenStreetMap Nominatim:
+Location names are converted to coordinates using OpenStreetMap Nominatim. One request gives both: `geocode` returns the latitude and sets the `geocode_lon` predicate to the longitude (`["sraix.geocode.set.geocode_lon", "0.lon"]`):
 ```xml
 <set var="lat"><sraix service="geocode">San Francisco</sraix></set>
-<set var="lon"><sraix service="geocode_lon">San Francisco</sraix></set>
+<set var="lon"><get name="geocode_lon"/></set>
 ```
 
 ### 4. Session Predicates

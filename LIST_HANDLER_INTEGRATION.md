@@ -381,6 +381,7 @@ All List Handler services use the `sraix.{service}.{property}` format:
 | `responsepath` | JSON path to extract | `access_token`, `id` |
 | `fallback` | Fallback response on error | `"Unable to retrieve lists"` |
 | `header.*` | Custom HTTP headers | `header.Content-Type`, `header.Authorization` |
+| `param.*` | Predicate that fills a placeholder | `param.access_token` = `list_access_token` |
 
 ### Environment Variable Substitution
 
@@ -392,10 +393,10 @@ Properties support `${ENV_VAR}` syntax for environment variables:
 
 ### URL Template Placeholders
 
-- `{user_id}` - User ID from session variable `list_user_id`
 - `{list_id}` - List ID from input
 - `{item_id}` - Item ID from input
-- `{access_token}` - JWT token from session variable `list_access_token`
+- `{access_token}` - JWT token from session variable `list_access_token`, which each service names with `["sraix.<service>.param.access_token", "list_access_token"]`
+- `{user_id}` - User ID, if a service names a predicate for it, e.g. `["sraix.<service>.param.user_id", "list_user_id"]`
 
 ## REST API Protocol Details
 

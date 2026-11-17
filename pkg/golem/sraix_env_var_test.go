@@ -126,6 +126,7 @@ func TestSRAIXEnvironmentVariableWithSessionVariables(t *testing.T) {
 		Timeout:        10,
 		ResponseFormat: "json",
 		ResponsePath:   "weather",
+		Params:         map[string]string{"lat": "latitude", "lon": "longitude"},
 	}
 	err := g.AddSRAIXConfig(config)
 	if err != nil {

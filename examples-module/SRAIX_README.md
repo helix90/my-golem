@@ -75,15 +75,18 @@ Services can be configured in any `.properties` file using keys of the form `sra
 ]
 ```
 
-Available properties: `baseurl`, `urltemplate`, `queryparam`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `apikey`, `header.<HeaderName>`.
+Available properties: `baseurl`, `urltemplate`, `queryparam`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `apikey`, `header.<HeaderName>`, `param.<placeholder>`, `set.<predicate>`.
 
 URL template placeholders:
 - `${ENV_VAR}` - Environment variables
 - `{input}` - The SRAIX input text
 - `{apikey}` - API key
-- `{lat}`, `{lon}` - From session variables `latitude`/`longitude`
-- `{location}` - From session variable `location`
 - `{STAR1}`, `{STAR2}`, ... - Pattern wildcard values
+- `{botid}`, `{host}`, `{hint}` - The tag's attributes
+- `{name}` - A field of JSON or form input, e.g. `{"lat":"47.6","lon":"-122.3"}` fills `{lat}` and `{lon}`
+- `{name}` - A predicate the service names with `param.<name>`, e.g. `["sraix.lists.param.access_token", "list_access_token"]` fills `{access_token}` with what `<get name="list_access_token"/>` gives. Services get no predicates they do not name.
+
+`set.<predicate>` takes several values from one JSON response: `["sraix.geocode.set.geocode_lon", "0.lon"]` sets the `geocode_lon` predicate to the value at `0.lon` after each successful response, alongside the `responsepath` value the tag returns. If any path has no value, the request fails and no predicate is set.
 
 Placeholders are replaced in a single pass, and every value except `${ENV_VAR}` and `{apikey}` is URL-encoded, so user input cannot change the URL. Verbose logs mask environment variables and the API key.
 

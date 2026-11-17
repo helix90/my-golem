@@ -583,99 +583,14 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 	// AIML uses XML encoding (&amp;, &lt;, etc.) but external services expect plain text
 	sraixContent = html.UnescapeString(sraixContent)
 
-	// Check if SRAIX manager is configured
-	if tp.golem.sraixMgr == nil {
-		tp.golem.LogInfo("SRAIX manager not configured for service '%s'", serviceName)
-		// Use default response if provided
-		if defaultResponse != "" {
-			return defaultResponse
-		}
-		return sraixContent
-	}
-
 	// The content and the response are logged only by size, since they
 	// often carry credentials or tokens
 	tp.golem.LogInfo("Processing SRAIX: service='%s', bot='%s', botid='%s', host='%s', hint='%s', content %d bytes",
 		serviceName, botName, botID, hostName, hintText, len(sraixContent))
 
-	// Determine which service to use based on available attributes
-	var targetService string
-	if serviceName != "" {
-		targetService = serviceName
-	} else if botName != "" {
-		// Use bot name as service identifier
-		targetService = botName
-	} else {
-		tp.golem.LogInfo("SRAIX tag missing service or bot attribute")
-		// Use default response if available
-		if defaultResponse != "" {
-			return defaultResponse
-		}
-		// Return content when no service and no default (AIML2 spec behavior)
-		return sraixContent
-	}
-
-	// Build request parameters
-	requestParams := make(map[string]string)
-	if botID != "" {
-		requestParams["botid"] = botID
-	}
-	if hostName != "" {
-		requestParams["host"] = hostName
-	}
-	if hintText != "" {
-		requestParams["hint"] = hintText
-	}
-
-	// Pattern wildcards are available to URL templates as {STAR1}, {STAR2}, ...
-	if tp.ctx != nil {
-		for key, value := range tp.ctx.Wildcards {
-			requestParams[key] = value
-		}
-	}
-
-	// Add session variables needed for service calls (for weather and location-based services)
-	if tp.ctx != nil && tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
-		if location, exists := tp.ctx.Session.Variables["location"]; exists && location != "" {
-			requestParams["location"] = location
-		}
-
-		// Check for _coords first (temporary query coordinates take priority)
-		// This allows "weather in Seattle" to not overwrite "my location is Portland".
-		// An explicit hint attribute takes precedence.
-		if coords, exists := tp.ctx.Session.Variables["_coords"]; exists && coords != "" {
-			if hintText == "" {
-				requestParams["hint"] = coords
-			}
-		} else {
-			// Use permanent location coordinates as fallback
-			if lat, exists := tp.ctx.Session.Variables["latitude"]; exists && lat != "" {
-				requestParams["lat"] = lat
-			}
-			if lon, exists := tp.ctx.Session.Variables["longitude"]; exists && lon != "" {
-				requestParams["lon"] = lon
-			}
-		}
-
-		// Add List Handler authentication token if available
-		// This allows {access_token} placeholder in headers to be substituted
-		if token, exists := tp.ctx.Session.Variables["list_access_token"]; exists && token != "" {
-			requestParams["access_token"] = token
-		}
-
-		// Add List Handler user ID if available
-		// This allows {user_id} placeholder in URLs to be substituted
-		if userID, exists := tp.ctx.Session.Variables["list_user_id"]; exists && userID != "" {
-			requestParams["user_id"] = userID
-		}
-	}
-
-	// Make the external service request
-	response, config, err := tp.requestSRAIX(targetService, sraixContent, requestParams)
-	if err != nil {
-		tp.golem.LogInfo("SRAIX request failed: %v", err)
-		// The tag's default comes first, then the service's fallback, then
-		// the content (AIML2 spec behavior)
+	// The tag's default comes first, then the service's fallback, then the
+	// content (AIML2 spec behavior)
+	fallBack := func(config *SRAIXConfig) string {
 		if defaultResponse != "" {
 			return defaultResponse
 		}
@@ -685,8 +600,52 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 		return sraixContent
 	}
 
-	tp.golem.LogInfo("SRAIX result: service='%s', %d bytes", targetService, len(response))
-	return response
+	// The bot attribute names the service when service does not
+	targetService := serviceName
+	if targetService == "" {
+		targetService = botName
+	}
+	if targetService == "" {
+		tp.golem.LogInfo("SRAIX tag missing service or bot attribute")
+		return fallBack(nil)
+	}
+	config, exists := tp.golem.sraixMgr.GetConfig(targetService)
+	if !exists {
+		tp.golem.LogInfo("SRAIX service '%s' not configured", targetService)
+		return fallBack(nil)
+	}
+
+	// The tag's attributes, and the predicates the service names, fill
+	// placeholders such as {hint} and {access_token}
+	requestParams := make(map[string]string)
+	for key, value := range map[string]string{"botid": botID, "host": hostName, "hint": hintText} {
+		if value != "" {
+			requestParams[key] = value
+		}
+	}
+	for placeholder, predicate := range config.Params {
+		if value, exists := tp.predicateValue(predicate); exists && value != "" {
+			requestParams[placeholder] = value
+		}
+	}
+
+	// Pattern wildcards are available to URL templates as {STAR1}, {STAR2}, ...
+	var wildcards map[string]string
+	if tp.ctx != nil {
+		wildcards = tp.ctx.Wildcards
+	}
+
+	response, err := tp.requestSRAIX(config, sraixContent, wildcards, requestParams)
+	if err != nil {
+		tp.golem.LogInfo("SRAIX request failed: %v", err)
+		return fallBack(config)
+	}
+	for predicate, value := range response.set {
+		tp.setPredicate(predicate, value)
+	}
+
+	tp.golem.LogInfo("SRAIX result: service='%s', %d bytes, %d predicates set", targetService, len(response.text), len(response.set))
+	return response.text
 }
 
 // requestSRAIX makes a SRAIX request without holding the knowledge base lock.
@@ -694,12 +653,12 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 // would block a reload or a load, and, once one of those was waiting, every
 // other conversation. The rest of the template sees the knowledge base as it
 // is when the request returns.
-func (tp *TreeProcessor) requestSRAIX(service, input string, params map[string]string) (string, *SRAIXConfig, error) {
+func (tp *TreeProcessor) requestSRAIX(config *SRAIXConfig, input string, wildcards, params map[string]string) (sraixResponse, error) {
 	if tp.kbReadLocked {
 		tp.golem.kbMu.RUnlock()
 		defer tp.golem.kbMu.RLock()
 	}
-	return tp.golem.sraixMgr.request(service, input, params)
+	return tp.golem.sraixMgr.send(config, input, wildcards, params)
 }
 
 func (tp *TreeProcessor) processThinkTag(_ *ASTNode, content string) string {
@@ -966,29 +925,50 @@ func (tp *TreeProcessor) processGetTag(node *ASTNode, content string) string {
 			return ""
 		}
 
-		// For session predicates (name attribute), check in order:
-		// 1. Local variables (for compatibility)
-		if tp.ctx.LocalVars != nil {
-			if value, exists := tp.ctx.LocalVars[varKey]; exists {
-				return value
-			}
-		}
-		// 2. Session variables
-		if tp.ctx.Session != nil && tp.ctx.Session.Variables != nil {
-			if value, exists := tp.ctx.Session.Variables[varKey]; exists {
-				return value
-			}
-		}
-		// 3-5. Topic variables, global variables (from knowledge base), bot properties
-		if tp.ctx.KnowledgeBase != nil {
-			if value, exists := tp.ctx.KnowledgeBase.lookupVariable(tp.ctx.Topic, varKey); exists {
-				return value
-			}
+		if value, exists := tp.predicateValue(varKey); exists {
+			return value
 		}
 	}
 
 	// If variable not found, return the processed content as default
 	return content
+}
+
+// predicateValue returns the value <get name="..."/> gives, looking in
+// order at local variables (for compatibility), session predicates, and the
+// topic and global variables and bot properties of the knowledge base
+func (tp *TreeProcessor) predicateValue(name string) (string, bool) {
+	if tp.ctx == nil {
+		return "", false
+	}
+	if value, exists := tp.ctx.LocalVars[name]; exists {
+		return value, true
+	}
+	if tp.ctx.Session != nil {
+		if value, exists := tp.ctx.Session.Variables[name]; exists {
+			return value, true
+		}
+	}
+	if tp.ctx.KnowledgeBase != nil {
+		return tp.ctx.KnowledgeBase.lookupVariable(tp.ctx.Topic, name)
+	}
+	return "", false
+}
+
+// setPredicate sets a session predicate, or a global variable when there is
+// no session
+func (tp *TreeProcessor) setPredicate(name, value string) {
+	if tp.ctx == nil {
+		return
+	}
+	if tp.ctx.Session != nil {
+		if tp.ctx.Session.Variables == nil {
+			tp.ctx.Session.Variables = make(map[string]string)
+		}
+		tp.ctx.Session.Variables[name] = value
+	} else if tp.ctx.KnowledgeBase != nil {
+		tp.ctx.KnowledgeBase.setVariable(name, value)
+	}
 }
 
 func (tp *TreeProcessor) processBotTag(node *ASTNode, content string) string {

@@ -71,7 +71,7 @@ func TestTestDataSRAIXConfiguration(t *testing.T) {
 	// CRITICAL: weather-config.properties intentionally omits responsepath
 	// to return full JSON for weatherformat tag processing
 	t.Run("WeatherServiceConfig", func(t *testing.T) {
-		config, exists := g.sraixMgr.GetServiceConfig("weather")
+		config, exists := g.sraixMgr.GetConfig("weather")
 		if !exists {
 			t.Fatal("Weather service not configured")
 		}
@@ -100,7 +100,7 @@ func TestTestDataSRAIXConfiguration(t *testing.T) {
 
 	// Test geocode service configuration
 	t.Run("GeocodeServiceConfig", func(t *testing.T) {
-		config, exists := g.sraixMgr.GetServiceConfig("geocode")
+		config, exists := g.sraixMgr.GetConfig("geocode")
 		if !exists {
 			t.Skip("Geocode service not configured (optional)")
 		}
@@ -118,19 +118,15 @@ func TestTestDataSRAIXConfiguration(t *testing.T) {
 		t.Logf("Geocode service config: ResponsePath='%s'", config.ResponsePath)
 	})
 
-	// Test geocode_lon service configuration
-	t.Run("GeocodeLonServiceConfig", func(t *testing.T) {
-		config, exists := g.sraixMgr.GetServiceConfig("geocode_lon")
+	// geocode sets the longitude from the same response
+	t.Run("GeocodeSetsLongitude", func(t *testing.T) {
+		config, exists := g.sraixMgr.GetConfig("geocode")
 		if !exists {
-			t.Skip("Geocode_lon service not configured (optional)")
+			t.Skip("Geocode service not configured (optional)")
 		}
-
-		// Geocode_lon should have ResponsePath to extract longitude
-		if config.ResponsePath != "0.lon" {
-			t.Errorf("Geocode_lon service should have ResponsePath '0.lon', got '%s'", config.ResponsePath)
+		if config.Set["geocode_lon"] != "0.lon" {
+			t.Errorf("Geocode service should set geocode_lon from '0.lon', got %v", config.Set)
 		}
-
-		t.Logf("Geocode_lon service config: ResponsePath='%s'", config.ResponsePath)
 	})
 
 	// Check for unexpected service configurations that might indicate conflicts
@@ -280,7 +276,7 @@ func TestWeatherConfigurationSpecifically(t *testing.T) {
 	g.SetKnowledgeBase(kb)
 
 	// Get weather service config
-	config, exists := g.sraixMgr.GetServiceConfig("weather")
+	config, exists := g.sraixMgr.GetConfig("weather")
 	if !exists {
 		t.Fatal("Weather service not configured after loading testdata")
 	}

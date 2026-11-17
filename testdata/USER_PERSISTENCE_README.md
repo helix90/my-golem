@@ -174,7 +174,7 @@ This pattern can be extended to save other user preferences:
 - Check logs for SRAI calls to `GET LOCATION FOR [user_id]`
 
 ### Geocoding Failures
-- Ensure geocode and geocode_lon SRAIX services are configured
+- Ensure the geocode SRAIX service is configured, with `set.geocode_lon`
 - Check `geocode-config.properties` is loaded
 - Verify internet connection for Nominatim API calls
 

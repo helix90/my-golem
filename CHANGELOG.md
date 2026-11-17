@@ -11,11 +11,16 @@ All notable changes to Golem are recorded here.
 - **`<shuffle>` gives a fresh order each time.** Before, its result was cached, so the same words always came back in the same order.
 - **A `<sraix>` tag's `default` attribute now comes before the service's configured `fallback`.** Before, a configured fallback hid the tag's default.
 - **SRAIX requests that cannot be completed are not sent.** A URL or header placeholder with no value, or an unset `${ENV_VAR}`, now fails the request and falls back. Before, the placeholder was sent as it was, or the variable as an empty string.
+- **SRAIX services get only the session values they name.** `<sraix>` no longer passes `location`, `latitude`/`longitude`, `_coords`, `list_access_token` and `list_user_id` to every service. Name what a service needs with `["sraix.<service>.param.<placeholder>", "<predicate>"]` (or `Params` in a `SRAIXConfig`), or pass values in the input as JSON, e.g. `{"lat":"..","lon":".."}`. `testdata/list-handler-config.properties` and `testdata/weather.aiml` are updated.
+- **A `hint` attribute no longer fills `{lat}` and `{lon}`.** Any hint with one comma, such as "Paris, France", used to be split into coordinates. Pass coordinates in the input instead.
+- **`geocode_lon` is gone from `testdata`.** `geocode` now sets the `geocode_lon` predicate from the same reply, so geocoding takes one request instead of two; use `<get name="geocode_lon"/>`.
+- **`SRAIXManager.GetServiceConfig` is removed.** Use `GetConfig`. `AddConfig` stores a copy of the config, and `ListConfigs` returns copies.
 - **SRAIX request bodies follow the configured `Content-Type`.** GET, HEAD, DELETE and OPTIONS send no body. JSON input is sent as it is when no Content-Type is configured, not wrapped in `{"input": ...}`. Any Content-Type other than JSON (e.g. `text/calendar`, `application/xml`) gets the input as it is.
 
 ### Added
 
 - `<botid/>` returns the bot's `id` property, or `golem` when it is not set.
+- SRAIX `param.<placeholder>` names the predicate that fills a placeholder, and `set.<predicate>` sets predicates from several paths of one JSON reply.
 
 ### Fixed
 
@@ -30,6 +35,9 @@ All notable changes to Golem are recorded here.
   - Values in the URL path are escaped as a path segment (`%20`, not `+`).
   - The SRAIX content and replies, request and response bodies, and response headers are no longer logged, since they carry credentials and tokens. Error messages include at most 200 bytes of the response.
   - A `responsepath` on a service whose response format is not json logs a warning; it is ignored.
+  - Reloading properties removes the SRAIX services whose properties are gone.
+  - `sraix list` and `sraix test` show the URL template of template-based services, not an empty base URL.
+  - `WEATHER FORECAST` in `testdata/weather.aiml` formats the forecast instead of showing raw JSON.
   - A SRAIX request no longer holds the knowledge base lock while it waits. Before, a slow service blocked loading and reloading for up to its timeout, and once a load was waiting, every other conversation too.
 
 ## v1.6.0 - 2026-11-16

@@ -2136,9 +2136,13 @@ func (g *Golem) sraixListCommand() error {
 
 	fmt.Println("Configured SRAIX Services:")
 	fmt.Println("==========================================")
-	for name, config := range configs {
+	for _, name := range g.sraixMgr.ListServices() {
+		config, exists := configs[name]
+		if !exists {
+			continue
+		}
 		fmt.Printf("Name: %s\n", name)
-		fmt.Printf("  URL: %s %s\n", config.Method, config.BaseURL)
+		fmt.Printf("  URL: %s %s\n", config.Method, config.target())
 		fmt.Printf("  Timeout: %ds\n", config.Timeout)
 		fmt.Printf("  Format: %s\n", config.ResponseFormat)
 		if config.ResponsePath != "" {
@@ -2148,6 +2152,12 @@ func (g *Golem) sraixListCommand() error {
 			fmt.Printf("  Fallback: %s\n", config.FallbackResponse)
 		}
 		fmt.Printf("  Wildcards: %t\n", config.IncludeWildcards)
+		if len(config.Params) > 0 {
+			fmt.Printf("  Params: %v\n", config.Params)
+		}
+		if len(config.Set) > 0 {
+			fmt.Printf("  Sets: %v\n", config.Set)
+		}
 		fmt.Println()
 	}
 
@@ -2169,7 +2179,7 @@ func (g *Golem) sraixTestCommand(args []string) error {
 	}
 
 	fmt.Printf("Testing SRAIX service '%s' with input: '%s'\n", serviceName, testInput)
-	fmt.Printf("Service URL: %s %s\n", config.Method, config.BaseURL)
+	fmt.Printf("Service URL: %s %s\n", config.Method, config.target())
 	fmt.Println("Making request...")
 
 	// Make the SRAIX request

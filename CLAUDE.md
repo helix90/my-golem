@@ -179,15 +179,17 @@ All `.properties` files must use JSON array format:
 **SRAIX Configuration** (e.g., `weather-config.properties`, `sraix-config-example.properties`):
 - Configure external SRAIX services via properties
 - Property format: `sraix.servicename.property`
-- Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`
+- Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`, `param.<placeholder>`, `set.<predicate>`
 - URL template placeholders:
   - `${ENV_VAR}` - Environment variables (e.g., `${PIRATE_WEATHER_API_KEY}`)
   - `{input}` - The SRAIX input text
   - `{apikey}` - API key from headers (Authorization header)
-  - `{lat}`, `{lon}` - Automatically from session variables `latitude`/`longitude`
-  - `{location}` - From session variable `location`
   - `{STAR1}`, `{STAR2}`, ... - Pattern wildcard values
-  - `{param_name}` - Any other request param, e.g. `{list_id}` from form/JSON input or `{access_token}` from session variable `list_access_token`
+  - `{botid}`, `{host}`, `{hint}` - The tag's attributes
+  - `{name}` - A field of JSON or form input, e.g. `{list_id}`, or `{lat}`/`{lon}` from `{"lat":"..","lon":".."}`
+  - `{name}` - A predicate the service names with `param.<name>`, e.g. `["sraix.list_get.param.access_token", "list_access_token"]`; the engine passes no session values otherwise
+- `set.<predicate>` = JSON path sets a predicate from each successful JSON response, e.g. `geocode` returns `0.lat` and sets `geocode_lon` from `0.lon`
+- Reloading properties removes services whose properties are gone
 - Values that can come from the user are escaped in URLs (as a path segment before the template's `?`, as a query value after it); header values (e.g. `Bearer {access_token}`) are substituted without escaping
 - A placeholder with no value, or an unset `${ENV_VAR}`, fails the request before it is sent
 - Request body: none for GET/HEAD/DELETE/OPTIONS; for `application/json` or no Content-Type, JSON input as-is and other input as `{"input": ...}`; for any other Content-Type, the input as-is

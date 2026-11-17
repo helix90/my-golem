@@ -105,14 +105,15 @@ func TestSRAIXInputPlaceholdersNotSubstituted(t *testing.T) {
 	}
 }
 
-// Pattern wildcards and the location predicate must be available to URL
-// templates.
+// Pattern wildcards, and the predicates a service names, must be available
+// to URL templates.
 func TestSRAIXTemplateWildcardsAndLocation(t *testing.T) {
 	rec, srv := newSRAIXRecorder(t, "sunny")
 	g := newSRAIXGolem(t, &SRAIXConfig{
 		Name:        "svc",
 		URLTemplate: srv.URL + "/weather?q={location}&day={STAR2}&city={STAR1}",
 		Method:      "GET",
+		Params:      map[string]string{"location": "location"},
 	}, `<aiml version="2.0">
 <category><pattern>WEATHER IN * ON *</pattern><template><think><set name="location">New York</set></think><sraix service="svc">weather</sraix></template></category>
 </aiml>`)
@@ -202,22 +203,23 @@ func TestSRAIXEmptyResultFallsBack(t *testing.T) {
 	}
 }
 
-// An explicit hint attribute must not be replaced by the _coords predicate.
-func TestSRAIXExplicitHintKept(t *testing.T) {
+// The hint attribute fills {hint} as it is; a predicate named _coords no
+// longer replaces it, and a "lat,lon" hint does not fill {lat} and {lon}.
+func TestSRAIXHintAttribute(t *testing.T) {
 	rec, srv := newSRAIXRecorder(t, "answer")
 	g := newSRAIXGolem(t, &SRAIXConfig{
 		Name:        "svc",
 		URLTemplate: srv.URL + "/q?hint={hint}",
 		Method:      "GET",
 	}, `<aiml version="2.0">
-<category><pattern>ASK</pattern><template><think><set name="_coords">1,2</set></think><sraix service="svc" hint="explicit">question</sraix></template></category>
+<category><pattern>ASK</pattern><template><think><set name="_coords">1,2</set></think><sraix service="svc" hint="Paris, France">question</sraix></template></category>
 </aiml>`)
 
 	if _, err := g.ProcessInput("ask", g.CreateSession("test")); err != nil {
 		t.Fatalf("Failed to process input: %v", err)
 	}
-	if got := rec.last(t).URL.Query().Get("hint"); got != "explicit" {
-		t.Errorf("Expected hint 'explicit', got %q", got)
+	if got := rec.last(t).URL.Query().Get("hint"); got != "Paris, France" {
+		t.Errorf("Expected hint 'Paris, France', got %q", got)
 	}
 }
 
@@ -538,5 +540,137 @@ func TestSRAIXRequestDoesNotBlockKnowledgeBase(t *testing.T) {
 	close(release)
 	if response := <-slow; response != "slow answer" {
 		t.Errorf("Expected 'slow answer', got %q", response)
+	}
+}
+
+// A service gets session predicates only through its params: the engine
+// adds none of its own, and a wrapped body's wildcards hold only wildcards.
+func TestSRAIXParamsFromPredicates(t *testing.T) {
+	var mu sync.Mutex
+	var auth, body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		auth, body = r.Header.Get("Authorization"), string(data)
+		mu.Unlock()
+		w.Write([]byte("ok"))
+	}))
+	t.Cleanup(srv.Close)
+
+	g := New(false)
+	for _, config := range []*SRAIXConfig{
+		{Name: "lists", BaseURL: srv.URL, Method: "POST", IncludeWildcards: true, FallbackResponse: "NO TOKEN",
+			Headers: map[string]string{"Authorization": "Bearer {access_token}"},
+			Params:  map[string]string{"access_token": "list_access_token"}},
+		{Name: "other", BaseURL: srv.URL, Method: "GET", FallbackResponse: "NOT SENT",
+			Headers: map[string]string{"Authorization": "Bearer {access_token}"}},
+	} {
+		if err := g.AddSRAIXConfig(config); err != nil {
+			t.Fatalf("Failed to add SRAIX config: %v", err)
+		}
+	}
+	if err := g.LoadAIMLFromString(`<aiml version="2.0">
+<category><pattern>LISTS *</pattern><template><sraix service="lists"><star/></sraix></template></category>
+<category><pattern>OTHER</pattern><template><sraix service="other">x</sraix></template></category>
+</aiml>`); err != nil {
+		t.Fatalf("Failed to load AIML: %v", err)
+	}
+	session := g.CreateSession("test")
+
+	if response, _ := g.ProcessInput("lists milk", session); response != "NO TOKEN" {
+		t.Errorf("Expected the fallback without a token, got %q", response)
+	}
+
+	session.Variables["list_access_token"] = "TOKEN-1"
+	if response, _ := g.ProcessInput("lists milk", session); response != "ok" {
+		t.Fatalf("Expected 'ok', got %q", response)
+	}
+	mu.Lock()
+	if auth != "Bearer TOKEN-1" {
+		t.Errorf("Expected 'Bearer TOKEN-1', got %q", auth)
+	}
+	if strings.Contains(body, "TOKEN-1") || !strings.Contains(body, `"star1":"milk"`) {
+		t.Errorf("Expected the wildcards without the token in the body, got %s", body)
+	}
+	mu.Unlock()
+
+	if response, _ := g.ProcessInput("other", session); response != "NOT SENT" {
+		t.Errorf("Expected a service without params not to get the token, got %q", response)
+	}
+}
+
+// A service's set paths set predicates from one response; a missing path
+// fails the request and sets nothing.
+func TestSRAIXSetPredicates(t *testing.T) {
+	var reply string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(reply))
+	}))
+	t.Cleanup(srv.Close)
+	g := newSRAIXGolem(t, &SRAIXConfig{Name: "geo", BaseURL: srv.URL, Method: "GET", ResponseFormat: "json",
+		ResponsePath: "0.lat", Set: map[string]string{"geo_lon": "0.lon", "geo_name": "0.name"}, FallbackResponse: "NOT FOUND"},
+		`<aiml version="2.0">
+<category><pattern>WHERE IS *</pattern><template><sraix service="geo"><star/></sraix>,<get name="geo_lon"/> <get name="geo_name"/></template></category>
+</aiml>`)
+	session := g.CreateSession("test")
+
+	reply = `[{"lat":"48.85","lon":2.35,"name":"Paris"}]`
+	if response, _ := g.ProcessInput("where is paris", session); response != "48.85,2.35 Paris" {
+		t.Errorf("Expected '48.85,2.35 Paris', got %q", response)
+	}
+
+	reply = `[{"lat":"1","lon":"2"}]`
+	if response, _ := g.ProcessInput("where is nowhere", session); response != "NOT FOUND,2.35 Paris" {
+		t.Errorf("Expected the fallback and the earlier predicates, got %q", response)
+	}
+
+	if err := g.AddSRAIXConfig(&SRAIXConfig{Name: "bad", BaseURL: srv.URL, Set: map[string]string{"x": "y"}}); err == nil {
+		t.Error("Expected an error for set without the json response format")
+	}
+}
+
+// Properties configure params and set, and a reload removes the services
+// whose properties are gone, but not services added with AddConfig.
+func TestSRAIXPropertiesParamsSetAndReload(t *testing.T) {
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	sm.ConfigureFromProperties(map[string]string{
+		"sraix.geo.urltemplate":            "https://geo.example.com/?q={input}",
+		"sraix.geo.responseformat":         "json",
+		"sraix.geo.set.geo_lon":            "0.lon",
+		"sraix.lists.baseurl":              "https://lists.example.com",
+		"sraix.lists.param.access_token":   "list_access_token",
+		"sraix.lists.header.Authorization": "Bearer {access_token}",
+		"sraix.weather.urltemplate":        "https://weather.example.com/{lat},{lon}",
+	})
+	if err := sm.AddConfig(&SRAIXConfig{Name: "manual", BaseURL: "https://manual.example.com"}); err != nil {
+		t.Fatalf("Failed to add config: %v", err)
+	}
+
+	geo, _ := sm.GetConfig("geo")
+	lists, _ := sm.GetConfig("lists")
+	if geo == nil || geo.Set["geo_lon"] != "0.lon" || lists == nil || lists.Params["access_token"] != "list_access_token" {
+		t.Fatalf("Expected set and params from properties, got %+v and %+v", geo, lists)
+	}
+
+	sm.ConfigureFromProperties(map[string]string{
+		"sraix.geo.urltemplate":    "https://geo.example.com/?q={input}",
+		"sraix.geo.responseformat": "json",
+	})
+	if got := sm.ListServices(); strings.Join(got, ",") != "geo,manual" {
+		t.Errorf("Expected geo and manual after the reload, got %v", got)
+	}
+}
+
+// ListConfigs returns copies that do not change the manager's configs.
+func TestSRAIXListConfigsCopies(t *testing.T) {
+	sm := NewSRAIXManager(log.New(&bytes.Buffer{}, "", 0), false)
+	config := &SRAIXConfig{Name: "svc", BaseURL: "https://example.com", Headers: map[string]string{"X-Key": "a"}}
+	if err := sm.AddConfig(config); err != nil {
+		t.Fatalf("Failed to add config: %v", err)
+	}
+	config.Headers["X-Key"] = "changed by caller"
+	sm.ListConfigs()["svc"].Headers["X-Key"] = "changed by list"
+	if got, _ := sm.GetConfig("svc"); got.Headers["X-Key"] != "a" {
+		t.Errorf("Expected the manager's header 'a', got %q", got.Headers["X-Key"])
 	}
 }

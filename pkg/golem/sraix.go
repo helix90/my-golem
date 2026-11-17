@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,7 +26,7 @@ type SRAIXConfig struct {
 	Name string `json:"name"`
 	// Base URL for the service
 	BaseURL string `json:"base_url"`
-	// URL template with placeholders like {input}, {apikey}, {lat}, {lon}
+	// URL template with placeholders like {input}, {apikey}, {list_id}
 	// If set, this overrides BaseURL and standard query param handling
 	URLTemplate string `json:"url_template"`
 	// Query parameter name for GET requests (default: "input")
@@ -44,6 +45,60 @@ type SRAIXConfig struct {
 	FallbackResponse string `json:"fallback_response"`
 	// Whether to include wildcards in the request
 	IncludeWildcards bool `json:"include_wildcards"`
+	// Params maps placeholders to the predicates that fill them, e.g.
+	// {"access_token": "list_access_token"} fills {access_token} with what
+	// <get name="list_access_token"/> returns
+	Params map[string]string `json:"params"`
+	// Set maps predicates to JSON paths: after a successful JSON response,
+	// a <sraix> tag sets each predicate to the value at its path, e.g.
+	// {"geocode_lon": "0.lon"}
+	Set map[string]string `json:"set"`
+}
+
+// applyDefaults fills in the method, timeout, response format and headers
+// when they are not set
+func (config *SRAIXConfig) applyDefaults() {
+	config.Method = strings.ToUpper(config.Method)
+	if config.Method == "" {
+		config.Method = http.MethodPost
+	}
+	if config.Timeout == 0 {
+		config.Timeout = 30
+	}
+	if config.ResponseFormat == "" {
+		config.ResponseFormat = "text"
+	}
+	if config.Headers == nil {
+		config.Headers = make(map[string]string)
+	}
+}
+
+// target returns the URL template, or the base URL when there is none
+func (config *SRAIXConfig) target() string {
+	if config.URLTemplate != "" {
+		return config.URLTemplate
+	}
+	return config.BaseURL
+}
+
+// clone returns a copy of the config that shares no maps with it
+func (config *SRAIXConfig) clone() *SRAIXConfig {
+	c := *config
+	c.Headers = cloneStringMap(config.Headers)
+	c.Params = cloneStringMap(config.Params)
+	c.Set = cloneStringMap(config.Set)
+	return &c
+}
+
+func cloneStringMap(m map[string]string) map[string]string {
+	if m == nil {
+		return nil
+	}
+	c := make(map[string]string, len(m))
+	for key, value := range m {
+		c[key] = value
+	}
+	return c
 }
 
 // maxSRAIXResponseSize limits how much of a service's response is read
@@ -51,19 +106,24 @@ const maxSRAIXResponseSize = 1 << 20
 
 // SRAIXManager manages external service configurations and HTTP client
 type SRAIXManager struct {
-	// mu guards configs, which are added when a knowledge base is loaded
-	// while sessions may be making SRAIX requests
+	// mu guards configs and fromProperties, which change when a knowledge
+	// base is loaded while sessions may be making SRAIX requests. A config
+	// is never changed once added, only replaced.
 	mu      sync.RWMutex
 	configs map[string]*SRAIXConfig
-	client  *http.Client
-	logger  *log.Logger
-	verbose bool
+	// fromProperties names the services configured from properties, so that
+	// a reload can remove the ones whose properties are gone
+	fromProperties map[string]bool
+	client         *http.Client
+	logger         *log.Logger
+	verbose        bool
 }
 
 // NewSRAIXManager creates a new SRAIX manager
 func NewSRAIXManager(logger *log.Logger, verbose bool) *SRAIXManager {
 	return &SRAIXManager{
-		configs: make(map[string]*SRAIXConfig),
+		configs:        make(map[string]*SRAIXConfig),
+		fromProperties: make(map[string]bool),
 		// No client-wide timeout: each request gets its config's timeout,
 		// and a client timeout would cap any config timeout above it
 		client:  &http.Client{},
@@ -72,26 +132,29 @@ func NewSRAIXManager(logger *log.Logger, verbose bool) *SRAIXManager {
 	}
 }
 
-// AddConfig adds a new SRAIX service configuration
+// AddConfig adds a copy of a SRAIX service configuration, with defaults
+// filled in
 func (sm *SRAIXManager) AddConfig(config *SRAIXConfig) error {
+	if err := sm.addConfig(config); err != nil {
+		return err
+	}
+	sm.mu.Lock()
+	delete(sm.fromProperties, config.Name)
+	sm.mu.Unlock()
+	return nil
+}
+
+func (sm *SRAIXManager) addConfig(config *SRAIXConfig) error {
 	if config.Name == "" {
 		return fmt.Errorf("SRAIX config name cannot be empty")
 	}
 	if config.BaseURL == "" && config.URLTemplate == "" {
 		return fmt.Errorf("SRAIX config base URL or URL template is required")
 	}
-	config.Method = strings.ToUpper(config.Method)
-	if config.Method == "" {
-		config.Method = "POST" // Default to POST
-	}
-	if config.Timeout == 0 {
-		config.Timeout = 30 // Default 30 seconds
-	}
-	if config.ResponseFormat == "" {
-		config.ResponseFormat = "text" // Default to text
-	}
-	if config.Headers == nil {
-		config.Headers = make(map[string]string)
+	config = config.clone()
+	config.applyDefaults()
+	if len(config.Set) > 0 && config.ResponseFormat != "json" {
+		return fmt.Errorf("SRAIX service '%s' sets predicates, which needs the json response format", config.Name)
 	}
 	if config.ResponsePath != "" && config.ResponseFormat != "json" {
 		sm.logger.Printf("Warning: SRAIX service '%s' has a response path, which is used only with the json response format", config.Name)
@@ -101,16 +164,13 @@ func (sm *SRAIXManager) AddConfig(config *SRAIXConfig) error {
 	sm.configs[config.Name] = config
 	sm.mu.Unlock()
 	if sm.verbose {
-		target := config.BaseURL
-		if target == "" {
-			target = config.URLTemplate
-		}
-		sm.logger.Printf("Added SRAIX config: %s -> %s", config.Name, target)
+		sm.logger.Printf("Added SRAIX config: %s -> %s", config.Name, config.target())
 	}
 	return nil
 }
 
-// GetConfig retrieves a SRAIX service configuration
+// GetConfig retrieves a SRAIX service configuration. The config must not be
+// changed; use AddConfig to replace it.
 func (sm *SRAIXManager) GetConfig(name string) (*SRAIXConfig, bool) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
@@ -118,46 +178,39 @@ func (sm *SRAIXManager) GetConfig(name string) (*SRAIXConfig, bool) {
 	return config, exists
 }
 
-// ListConfigs returns all configured SRAIX services
+// ListConfigs returns copies of all configured SRAIX services
 func (sm *SRAIXManager) ListConfigs() map[string]*SRAIXConfig {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 	configs := make(map[string]*SRAIXConfig, len(sm.configs))
 	for name, config := range sm.configs {
-		configs[name] = config
+		configs[name] = config.clone()
 	}
 	return configs
 }
 
 // ProcessSRAIX makes the request a SRAIX tag asks for. When the request
 // fails it returns the service's fallback response, if one is configured.
-// params supplies values for the placeholders of the URL template and
-// headers, such as pattern wildcards; values given in the input take
-// precedence over them.
+// params supplies the pattern wildcards and any other values for the
+// placeholders of the URL template and headers; values given in the input
+// take precedence over them. It does not set the service's predicates,
+// which belong to a session.
 func (sm *SRAIXManager) ProcessSRAIX(serviceName, input string, params map[string]string) (string, error) {
-	response, config, err := sm.request(serviceName, input, params)
-	if err != nil && config != nil && config.FallbackResponse != "" {
-		return config.FallbackResponse, nil
-	}
-	return response, err
-}
-
-// request makes the request a SRAIX tag asks for, without falling back. It
-// returns the service's config, if it exists, so that the caller can choose
-// between the tag's default and the service's fallback.
-func (sm *SRAIXManager) request(serviceName, input string, params map[string]string) (string, *SRAIXConfig, error) {
 	config, exists := sm.GetConfig(serviceName)
 	if !exists {
-		return "", nil, fmt.Errorf("SRAIX service '%s' not configured", serviceName)
+		return "", fmt.Errorf("SRAIX service '%s' not configured", serviceName)
 	}
-	response, err := sm.send(config, input, params)
+	response, err := sm.send(config, input, params, params)
 	if err != nil {
 		if sm.verbose {
 			sm.logger.Printf("SRAIX request to %s failed: %v", serviceName, err)
 		}
-		return "", config, err
+		if config.FallbackResponse != "" {
+			return config.FallbackResponse, nil
+		}
+		return "", err
 	}
-	return response, config, nil
+	return response.text, nil
 }
 
 // methodHasBody reports whether requests with the method carry the input
@@ -170,14 +223,26 @@ func methodHasBody(method string) bool {
 	return true
 }
 
-// send builds the request for a service, sends it and returns the response
-// text
-func (sm *SRAIXManager) send(config *SRAIXConfig, input string, given map[string]string) (string, error) {
+// sraixResponse is the result of a SRAIX request: the response text, and
+// the values at the paths of the service's Set
+type sraixResponse struct {
+	text string
+	set  map[string]string
+}
+
+// send builds the request for a service, sends it and returns the
+// response. wildcards are the pattern wildcards, which a wrapped JSON body
+// includes when the service asks for them; they and the other params fill
+// placeholders.
+func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given map[string]string) (sraixResponse, error) {
 	hasBody := methodHasBody(config.Method)
 
 	// Values given in the input, as a JSON object or as form fields, take
-	// precedence over the params passed in
-	params := make(map[string]string, len(given))
+	// precedence over the params passed in, and those over the wildcards
+	params := make(map[string]string, len(wildcards)+len(given))
+	for key, value := range wildcards {
+		params[key] = value
+	}
 	for key, value := range given {
 		params[key] = value
 	}
@@ -201,7 +266,7 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, given map[string
 		var err error
 		requestURL, logURL, err = sm.substituteURLTemplate(config.URLTemplate, input, params, config.Headers)
 		if err != nil {
-			return "", err
+			return sraixResponse{}, err
 		}
 	} else {
 		requestURL = config.BaseURL
@@ -224,9 +289,9 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, given map[string
 	var contentType string
 	if hasBody {
 		var err error
-		body, contentType, err = requestBody(config, input, params)
+		body, contentType, err = requestBody(config, input, wildcards, params)
 		if err != nil {
-			return "", err
+			return sraixResponse{}, err
 		}
 	}
 
@@ -238,14 +303,14 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, given map[string
 	}
 	req, err := http.NewRequestWithContext(ctx, config.Method, requestURL, bodyReader)
 	if err != nil {
-		return "", fmt.Errorf("failed to create HTTP request: %v", err)
+		return sraixResponse{}, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 
 	// Configured headers can use placeholders, e.g. Bearer {access_token}
 	for key, value := range config.Headers {
 		substitutedValue, _, err := sm.substitutePlaceholders(value, input, params, config.Headers, nil)
 		if err != nil {
-			return "", fmt.Errorf("header %s: %v", key, err)
+			return sraixResponse{}, fmt.Errorf("header %s: %v", key, err)
 		}
 		req.Header.Set(key, substitutedValue)
 	}
@@ -355,8 +420,9 @@ func headerValue(headers map[string]string, name string) string {
 // requestBody returns the body of a request and, if the service does not
 // configure one, its content type. Form, XML, iCalendar and other non-JSON
 // services get the input as it is. JSON services get JSON input as it is,
-// and other input wrapped as {"input": ...}.
-func requestBody(config *SRAIXConfig, input string, params map[string]string) ([]byte, string, error) {
+// and other input wrapped as {"input": ...}, with the wildcards if the
+// service asks for them, and the tag's botid, host and hint.
+func requestBody(config *SRAIXConfig, input string, wildcards, params map[string]string) ([]byte, string, error) {
 	mediaType := ""
 	if configured := headerValue(config.Headers, "Content-Type"); configured != "" {
 		parsed, _, err := mime.ParseMediaType(configured)
@@ -377,8 +443,8 @@ func requestBody(config *SRAIXConfig, input string, params map[string]string) ([
 	requestData := map[string]interface{}{
 		"input": input,
 	}
-	if config.IncludeWildcards && len(params) > 0 {
-		requestData["wildcards"] = params
+	if config.IncludeWildcards && len(wildcards) > 0 {
+		requestData["wildcards"] = wildcards
 	}
 	for _, key := range []string{"botid", "host", "hint"} {
 		if value := params[key]; value != "" {
@@ -400,20 +466,20 @@ const maxSRAIXErrorBody = 200
 // including a response with no text (such as a missing response path), is
 // returned as an error, so that the caller falls back. A 204 No Content
 // response is a success with no text.
-func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (string, error) {
+func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (sraixResponse, error) {
 	resp, err := sm.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("SRAIX request failed: %v", err)
+		return sraixResponse{}, fmt.Errorf("SRAIX request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response body, up to the size limit
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxSRAIXResponseSize+1))
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %v", err)
+		return sraixResponse{}, fmt.Errorf("failed to read response body: %v", err)
 	}
 	if len(responseBody) > maxSRAIXResponseSize {
-		return "", fmt.Errorf("SRAIX response exceeds %d bytes", maxSRAIXResponseSize)
+		return sraixResponse{}, fmt.Errorf("SRAIX response exceeds %d bytes", maxSRAIXResponseSize)
 	}
 
 	if sm.verbose {
@@ -425,30 +491,44 @@ func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (strin
 		if len(detail) > maxSRAIXErrorBody {
 			detail = detail[:maxSRAIXErrorBody] + "..."
 		}
-		return "", fmt.Errorf("SRAIX request failed with status %d: %s", resp.StatusCode, detail)
+		return sraixResponse{}, fmt.Errorf("SRAIX request failed with status %d: %s", resp.StatusCode, detail)
 	}
-	if resp.StatusCode == http.StatusNoContent {
-		return "", nil
+	if resp.StatusCode == http.StatusNoContent && len(config.Set) == 0 {
+		return sraixResponse{}, nil
 	}
 
-	response := string(responseBody)
-	if config.ResponseFormat == "json" && config.ResponsePath != "" {
+	result := sraixResponse{text: string(responseBody)}
+	if config.ResponseFormat == "json" && (config.ResponsePath != "" || len(config.Set) > 0) {
 		var jsonData interface{}
 		if err := decodeJSON(responseBody, &jsonData); err != nil {
-			return "", fmt.Errorf("failed to parse JSON response: %v", err)
+			return sraixResponse{}, fmt.Errorf("failed to parse JSON response: %v", err)
 		}
-		value, found := extractJSONPath(jsonData, config.ResponsePath)
-		if !found {
-			return "", fmt.Errorf("SRAIX response has no value at path '%s'", config.ResponsePath)
+		if config.ResponsePath != "" {
+			value, found := extractJSONPath(jsonData, config.ResponsePath)
+			if !found {
+				return sraixResponse{}, fmt.Errorf("SRAIX response has no value at path '%s'", config.ResponsePath)
+			}
+			result.text = value
 		}
-		response = value
+		// Every path must have a value, so that a predicate is never left
+		// with a value from an earlier response
+		if len(config.Set) > 0 {
+			result.set = make(map[string]string, len(config.Set))
+			for predicate, path := range config.Set {
+				value, found := extractJSONPath(jsonData, path)
+				if !found {
+					return sraixResponse{}, fmt.Errorf("SRAIX response has no value at path '%s'", path)
+				}
+				result.set[predicate] = value
+			}
+		}
 	}
 
-	response = strings.TrimSpace(response)
-	if response == "" {
-		return "", fmt.Errorf("SRAIX response is empty")
+	result.text = strings.TrimSpace(result.text)
+	if result.text == "" && len(result.set) == 0 {
+		return sraixResponse{}, fmt.Errorf("SRAIX response is empty")
 	}
-	return response, nil
+	return result, nil
 }
 
 // extractPlaceholders finds all {placeholder} patterns in a string
@@ -471,9 +551,10 @@ var urlPlaceholderRe = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)\}|\{([A-Za-z_]
 //
 //	{input} - the SRAIX input text
 //	{apikey} - API key from headers (Authorization header)
-//	{lat}, {lon} - latitude/longitude from params or parsed from a "lat,lon" hint
-//	{param_name}, {PARAM_NAME} - any param value, e.g. {location}, {list_id},
-//	                             or {STAR1} for the first pattern wildcard
+//	{param_name}, {PARAM_NAME} - any param value, e.g. {list_id} from the
+//	                             input, {access_token} from a predicate the
+//	                             service names, or {STAR1} for the first
+//	                             pattern wildcard
 //	${ENV_VAR} - environment variable (e.g., ${PIRATE_WEATHER_API_KEY})
 //
 // All placeholders are replaced in one pass, so placeholder text inside a
@@ -512,17 +593,6 @@ func (sm *SRAIXManager) substitutePlaceholders(template, input string, params ma
 	// Params as given take precedence over uppercased ones
 	for key, value := range params {
 		values[key] = value
-	}
-
-	// Parse coordinates from hint if present (format: "lat,lon")
-	if hint := params["hint"]; hint != "" {
-		parts := strings.Split(hint, ",")
-		if len(parts) == 2 {
-			for i, key := range []string{"lat", "lon"} {
-				values[key] = strings.TrimSpace(parts[i])
-				values[strings.ToUpper(key)] = values[key]
-			}
-		}
 	}
 
 	var missing []string
@@ -603,7 +673,7 @@ func extractJSONPath(data interface{}, path string) (string, bool) {
 
 // LoadSRAIXConfigsFromFile loads SRAIX configurations from a JSON file
 func (sm *SRAIXManager) LoadSRAIXConfigsFromFile(filename string) error {
-	data, err := readFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("failed to read SRAIX config file: %v", err)
 	}
@@ -638,11 +708,6 @@ func (sm *SRAIXManager) LoadSRAIXConfigsFromDirectory(dirPath string) error {
 	return nil
 }
 
-// readFile reads the contents of a file
-func readFile(filename string) ([]byte, error) {
-	return os.ReadFile(filename)
-}
-
 // listFiles lists files in a directory with a specific extension
 func listFiles(dirPath, extension string) ([]string, error) {
 	var files []string
@@ -672,6 +737,11 @@ func listFiles(dirPath, extension string) ([]string, error) {
 //	sraix.servicename.fallback = Service unavailable
 //	sraix.servicename.header.Authorization = Bearer TOKEN
 //	sraix.servicename.header.Content-Type = application/json
+//	sraix.servicename.param.access_token = list_access_token
+//	sraix.servicename.set.geocode_lon = 0.lon
+//
+// Services configured from earlier properties that these no longer
+// configure are removed.
 func (sm *SRAIXManager) ConfigureFromProperties(properties map[string]string) error {
 	// Group properties by service name
 	serviceProps := make(map[string]map[string]string)
@@ -706,6 +776,7 @@ func (sm *SRAIXManager) ConfigureFromProperties(properties map[string]string) er
 	}
 
 	// Create SRAIX configs from grouped properties
+	configured := make(map[string]bool, len(serviceProps))
 	for serviceName, props := range serviceProps {
 		config, err := sm.buildConfigFromProperties(serviceName, props)
 		if err != nil {
@@ -713,15 +784,24 @@ func (sm *SRAIXManager) ConfigureFromProperties(properties map[string]string) er
 			continue
 		}
 
-		if err := sm.AddConfig(config); err != nil {
+		if err := sm.addConfig(config); err != nil {
 			sm.logger.Printf("Warning: Failed to add SRAIX config for service '%s': %v", serviceName, err)
 			continue
 		}
+		configured[serviceName] = true
+	}
 
-		if sm.verbose {
-			sm.logger.Printf("Configured SRAIX service from properties: %s -> %s", serviceName, config.BaseURL)
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	for serviceName := range sm.fromProperties {
+		if !configured[serviceName] {
+			delete(sm.configs, serviceName)
+			if sm.verbose {
+				sm.logger.Printf("Removed SRAIX service no longer in properties: %s", serviceName)
+			}
 		}
 	}
+	sm.fromProperties = configured
 
 	return nil
 }
@@ -774,6 +854,16 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 			if headerName != "" {
 				config.Headers[headerName] = value
 			}
+		case strings.HasPrefix(key, "param.") && len(key) > len("param."):
+			if config.Params == nil {
+				config.Params = make(map[string]string)
+			}
+			config.Params[strings.TrimPrefix(key, "param.")] = value
+		case strings.HasPrefix(key, "set.") && len(key) > len("set."):
+			if config.Set == nil {
+				config.Set = make(map[string]string)
+			}
+			config.Set[strings.TrimPrefix(key, "set.")] = value
 		default:
 			sm.logger.Printf("Warning: Unknown SRAIX property for service '%s': %s", serviceName, key)
 		}
@@ -784,27 +874,12 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 		return nil, fmt.Errorf("baseurl or urltemplate is required for SRAIX service '%s'", serviceName)
 	}
 
-	// Set defaults if not specified
-	if config.Method == "" {
-		config.Method = "POST"
-	}
-	if config.Timeout == 0 {
-		config.Timeout = 30
-	}
-	if config.ResponseFormat == "" {
-		config.ResponseFormat = "text"
-	}
+	config.applyDefaults()
 
 	return config, nil
 }
 
-// GetServiceConfig returns the configuration for a specific SRAIX service.
-// Returns the config and true if the service exists, or nil and false if not.
-func (sm *SRAIXManager) GetServiceConfig(serviceName string) (*SRAIXConfig, bool) {
-	return sm.GetConfig(serviceName)
-}
-
-// ListServices returns a list of all configured SRAIX service names.
+// ListServices returns the names of all configured SRAIX services, sorted
 func (sm *SRAIXManager) ListServices() []string {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
@@ -812,5 +887,6 @@ func (sm *SRAIXManager) ListServices() []string {
 	for name := range sm.configs {
 		services = append(services, name)
 	}
+	sort.Strings(services)
 	return services
 }
