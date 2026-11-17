@@ -60,7 +60,7 @@ export AIML_PATH="testdata"
 export VERBOSE="true"
 
 # Run the bot
-go run examples/telegram_bot.go
+go run examples-module/telegram_bot.go
 ```
 
 ### Bot Commands
@@ -212,14 +212,14 @@ export TELEGRAM_BOT_TOKEN="your_token"
 export AIML_PATH="testdata"
 
 # Run the bot
-go run examples/telegram_bot.go
+go run examples-module/telegram_bot.go
 ```
 
 ### Production Deployment
 
 1. **Build the binary**:
    ```bash
-   go build -o telegram-bot examples/telegram_bot.go
+   go build -o telegram-bot examples-module/telegram_bot.go
    ```
 
 2. **Set up environment variables**:
@@ -243,7 +243,7 @@ FROM golang:1.19-alpine AS builder
 WORKDIR /app
 COPY . .
 RUN go mod tidy
-RUN go build -o telegram-bot examples/telegram_bot.go
+RUN go build -o telegram-bot examples-module/telegram_bot.go
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
@@ -288,7 +288,7 @@ Enable verbose logging for detailed debugging:
 
 ```bash
 export VERBOSE="true"
-go run examples/telegram_bot.go
+go run examples-module/telegram_bot.go
 ```
 
 ## Contributing

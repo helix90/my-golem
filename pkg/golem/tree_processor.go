@@ -221,11 +221,7 @@ func (tp *TreeProcessor) processNode(node *ASTNode) string {
 	case NodeTypeText:
 		// If this is a text node with children, process children
 		if len(node.Children) > 0 {
-			children := ""
-			for _, child := range node.Children {
-				children += tp.processNode(child)
-			}
-			return children
+			return tp.processChildren(node)
 		}
 		// Decode entities (&amp;, &lt;, ...) on output. Content itself keeps
 		// the source text so that re-serialized templates (e.g. in <learn>)
@@ -1963,58 +1959,6 @@ var learnWildcardTags = map[string]bool{
 	"topicstar": true,
 }
 
-// processTagWithContent processes a tag with given content
-// This is similar to processTag but uses provided content instead of processing children
-func (tp *TreeProcessor) processTagWithContent(node *ASTNode, content string) string {
-	// Helper function to format tag with attributes
-	formatTag := func(tagName string, attrs map[string]string, content string) string {
-		return fmt.Sprintf("<%s%s>%s</%s>", tagName, formatAttributes(attrs), content, tagName)
-	}
-
-	// Process the tag based on its name
-	switch node.TagName {
-	case "template", "think", "random", "li":
-		// For structural tags, preserve with attributes if any
-		return formatTag(node.TagName, node.Attributes, content)
-	case "condition":
-		// Condition tags need special handling - preserve the structure
-		return formatTag("condition", node.Attributes, content)
-	case "pattern", "that", "topic":
-		// Pattern-related tags should be preserved with their content and attributes
-		return formatTag(node.TagName, node.Attributes, content)
-	case "category":
-		// Category tag should be preserved
-		return fmt.Sprintf("<category>%s</category>", content)
-	case "get":
-		return tp.processGetTag(node, content)
-	case "set":
-		return tp.processSetTag(node, content)
-	case "bot":
-		return tp.processBotTag(node, content)
-	case "uppercase":
-		return tp.processUppercaseTag(node, content)
-	case "lowercase":
-		return tp.processLowercaseTag(node, content)
-	case "formal":
-		return tp.processFormalTag(node, content)
-	case "sentence":
-		return tp.processSentenceTag(node, content)
-	case "person":
-		return tp.processPersonTag(node, content)
-	case "person2":
-		return tp.processPerson2Tag(node, content)
-	case "gender":
-		return tp.processGenderTag(node, content)
-	case "srai":
-		return tp.processSRAITag(node, content)
-	case "eval":
-		return tp.processEvalTag(node, content)
-	default:
-		// For unknown tags, return content wrapped in the tag with attributes
-		return formatTag(node.TagName, node.Attributes, content)
-	}
-}
-
 // Text processing tags
 
 func (tp *TreeProcessor) processUppercaseTag(_ *ASTNode, content string) string {
@@ -3544,16 +3488,6 @@ func (tp *TreeProcessor) processUniqTag(_ *ASTNode, content string) string {
 	}
 
 	return strings.Join(words, " ")
-}
-
-// escapeXMLChars escapes only the core XML special characters: &, <, >
-// This preserves entities in output while not breaking contractions (apostrophes) or quotes
-func (tp *TreeProcessor) escapeXMLChars(s string) string {
-	// Replace & first to avoid double-escaping
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	return s
 }
 
 // Helper method for random number generation

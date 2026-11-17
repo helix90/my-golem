@@ -237,7 +237,7 @@ go test ./pkg/golem -run TestArray -v
 
 Try the interactive demo:
 ```bash
-go run examples/list_demo.go
+go run examples-module/list_demo.go
 ```
 
 This demonstrates real-world usage patterns for both lists and arrays in a conversational AI context.

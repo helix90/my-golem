@@ -44,7 +44,7 @@ func TestTimeBasedGreetingWithCondition(t *testing.T) {
 			}
 
 			// Process the template
-			result := g.processConditionTags(template, nil)
+			result := g.processTemplateWithContext(template, nil, &VariableContext{KnowledgeBase: kb})
 
 			// Verify the greeting prefix is correct
 			if !strings.HasPrefix(result, tc.expectedPrefix) {

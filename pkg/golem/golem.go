@@ -132,7 +132,7 @@ type VariableResolutionCache struct {
 	Timestamps  map[string]time.Time `json:"timestamps"`
 	AccessOrder []string             `json:"access_order"` // Kept for JSON compat; not populated
 	// Scope tracking for cache invalidation
-	ScopeHashes map[string]string        `json:"scope_hashes"` // Maps cache key to scope hash
+	ScopeHashes map[string]string `json:"scope_hashes"` // Maps cache key to scope hash
 	lruList     *list.List
 	lruIndex    map[string]*list.Element
 }
@@ -2229,25 +2229,6 @@ func (g *Golem) ProcessTemplateWithSession(template string, wildcards map[string
 	}
 
 	return g.processTemplateWithContext(template, wildcards, ctx)
-}
-
-// replaceSessionVariableTags replaces <get name="var"/> tags with session variables
-func (g *Golem) replaceSessionVariableTags(template string, session *ChatSession) string {
-	// Find all <get name="var"/> tags
-	getTagRegex := regexp.MustCompile(`<get name="([^"]+)"/>`)
-	matches := getTagRegex.FindAllStringSubmatch(template, -1)
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			varName := match[1]
-			varValue := session.Variables[varName]
-			if varValue != "" {
-				template = strings.ReplaceAll(template, match[0], varValue)
-			}
-		}
-	}
-
-	return template
 }
 
 // OOBCommand handles OOB-related commands

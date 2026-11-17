@@ -382,10 +382,6 @@ func (p *ASTParser) isWhitespace() bool {
 	return char == ' ' || char == '\t' || char == '\n' || char == '\r'
 }
 
-func (p *ASTParser) isAtEnd() bool {
-	return p.pos >= p.len
-}
-
 func (p *ASTParser) peek(n int) string {
 	if p.pos+n > p.len {
 		return p.input[p.pos:]

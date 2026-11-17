@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -50,7 +52,8 @@ func main() {
 	fmt.Println("=== SRAIX Demo ===")
 	fmt.Println("This demo shows SRAIX (external service integration) in action.")
 	fmt.Println("The bot will use an external echo service to process your messages.")
-	fmt.Println("Type 'quit' to exit.\n")
+	fmt.Println("Type 'quit' to exit.")
+	fmt.Println()
 
 	// Interactive chat loop
 	for {

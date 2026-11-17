@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -11,17 +13,18 @@ func main() {
 	// Create a new Golem instance
 	g := golem.New(true) // Enable verbose logging
 
-	// Set up bot properties
-	g.aimlKB.Properties["name"] = "GolemBot"
-	g.aimlKB.Properties["version"] = "1.0.0"
-	g.aimlKB.Properties["author"] = "Golem Team"
-	g.aimlKB.Properties["language"] = "en"
-
 	// Load the bot tag example AIML file
-	err := g.LoadAIMLFromFile("bot_tag_example.aiml")
+	kb, err := g.LoadAIML("bot_tag_example.aiml")
 	if err != nil {
 		log.Fatalf("Failed to load AIML file: %v", err)
 	}
+
+	// Set up bot properties
+	kb.Properties["name"] = "GolemBot"
+	kb.Properties["version"] = "1.0.0"
+	kb.Properties["author"] = "Golem Team"
+	kb.Properties["language"] = "en"
+	g.SetKnowledgeBase(kb)
 
 	// Create a chat session
 	session := g.CreateSession("bot-tag-demo")

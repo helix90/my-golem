@@ -109,4 +109,4 @@ echo "   Press Ctrl+C to stop the bot"
 echo
 
 # Run the bot
-go run examples/telegram_bot.go
+go run examples-module/telegram_bot.go

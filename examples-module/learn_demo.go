@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -81,7 +83,8 @@ func main() {
 
 	fmt.Println("=== AIML Learning Demo ===")
 	fmt.Println("This demo shows how AIML bots can learn new patterns dynamically.")
-	fmt.Println("Type 'quit' to exit.\n")
+	fmt.Println("Type 'quit' to exit.")
+	fmt.Println()
 
 	// Interactive chat loop
 	scanner := bufio.NewScanner(os.Stdin)
