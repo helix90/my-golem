@@ -139,7 +139,7 @@ func TestTreeProcessorSRTagWithTreeProcessor(t *testing.T) {
 	// Create a session
 	session := &ChatSession{
 		ID:           "test-tree-processor",
-		Variables:    map[string]string{"star1": "HELLO"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -192,10 +192,7 @@ func TestTreeProcessorSRTagWithTreeProcessor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Update star1
-			session.Variables["star1"] = tt.star1
-
-			result, err := tp.ProcessTemplate(tt.template, make(map[string]string), ctx)
+			result, err := tp.ProcessTemplate(tt.template, map[string]string{"star1": tt.star1}, ctx)
 			if err != nil {
 				t.Fatalf("Failed to process template: %v", err)
 			}

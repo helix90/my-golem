@@ -29,7 +29,7 @@ func TestTreeProcessorSRTagBasic(t *testing.T) {
 	// Create a session with star1 wildcard
 	session := &ChatSession{
 		ID:           "test-session",
-		Variables:    map[string]string{"star1": "HELLO"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -38,6 +38,7 @@ func TestTreeProcessorSRTagBasic(t *testing.T) {
 
 	// Create variable context
 	ctx := &VariableContext{
+		Wildcards:      map[string]string{"star1": "HELLO"},
 		LocalVars:      make(map[string]string),
 		Session:        session,
 		Topic:          "",
@@ -79,8 +80,8 @@ func TestTreeProcessorSRTagBasic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Update star1 in session
-			session.Variables["star1"] = tt.star1
+			// Update star1 in the context
+			ctx.Wildcards["star1"] = tt.star1
 
 			// Create tree processor
 			tp := NewTreeProcessor(g)
@@ -125,7 +126,7 @@ func TestTreeProcessorSRTagNoMatch(t *testing.T) {
 	// Create a session with non-matching wildcard
 	session := &ChatSession{
 		ID:           "test-session",
-		Variables:    map[string]string{"star1": "NONEXISTENT"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -134,6 +135,7 @@ func TestTreeProcessorSRTagNoMatch(t *testing.T) {
 
 	// Create variable context
 	ctx := &VariableContext{
+		Wildcards:      map[string]string{"star1": "NONEXISTENT"},
 		LocalVars:      make(map[string]string),
 		Session:        session,
 		Topic:          "",
@@ -220,7 +222,7 @@ func TestTreeProcessorSRTagNoKnowledgeBase(t *testing.T) {
 	// Create a session with star1 wildcard
 	session := &ChatSession{
 		ID:           "test-session",
-		Variables:    map[string]string{"star1": "HELLO"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -229,6 +231,7 @@ func TestTreeProcessorSRTagNoKnowledgeBase(t *testing.T) {
 
 	// Create variable context without knowledge base
 	ctx := &VariableContext{
+		Wildcards:      map[string]string{"star1": "HELLO"},
 		LocalVars:      make(map[string]string),
 		Session:        session,
 		Topic:          "",
@@ -321,7 +324,7 @@ func TestTreeProcessorSRTagRecursion(t *testing.T) {
 	// Create a session with star1 wildcard
 	session := &ChatSession{
 		ID:           "test-session",
-		Variables:    map[string]string{"star1": "LEVEL1"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -330,6 +333,7 @@ func TestTreeProcessorSRTagRecursion(t *testing.T) {
 
 	// Create variable context
 	ctx := &VariableContext{
+		Wildcards:      map[string]string{"star1": "LEVEL1"},
 		LocalVars:      make(map[string]string),
 		Session:        session,
 		Topic:          "",
@@ -385,7 +389,7 @@ func TestTreeProcessorSRTagWithNestedTags(t *testing.T) {
 	// Create a session with star1 wildcard
 	session := &ChatSession{
 		ID:           "test-session",
-		Variables:    map[string]string{"star1": "HELLO"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -394,6 +398,7 @@ func TestTreeProcessorSRTagWithNestedTags(t *testing.T) {
 
 	// Create variable context
 	ctx := &VariableContext{
+		Wildcards:      map[string]string{"star1": "HELLO"},
 		LocalVars:      make(map[string]string),
 		Session:        session,
 		Topic:          "",
@@ -468,7 +473,7 @@ func TestTreeProcessorSRTagMaxRecursionDepth(t *testing.T) {
 	// Create a session with star1 wildcard
 	session := &ChatSession{
 		ID:           "test-session",
-		Variables:    map[string]string{"star1": "RECURSIVE"},
+		Variables:    make(map[string]string),
 		History:      make([]string, 0),
 		CreatedAt:    time.Now().Format(time.RFC3339),
 		LastActivity: time.Now().Format(time.RFC3339),
@@ -477,6 +482,7 @@ func TestTreeProcessorSRTagMaxRecursionDepth(t *testing.T) {
 
 	// Create variable context with high recursion depth
 	ctx := &VariableContext{
+		Wildcards:      map[string]string{"star1": "RECURSIVE"},
 		LocalVars:      make(map[string]string),
 		Session:        session,
 		Topic:          "",

@@ -180,7 +180,7 @@ func (tp *TreeProcessor) ProcessTemplate(template string, wildcards map[string]s
 		return template, err
 	}
 
-	// Store wildcards in context so they can be accessed by learn tag processing
+	// Store wildcards in context for <star/>, <thatstar/> and learn tag processing
 	if ctx != nil {
 		// Save current wildcards to restore them later
 		oldWildcards := ctx.Wildcards
@@ -188,37 +188,6 @@ func (tp *TreeProcessor) ProcessTemplate(template string, wildcards map[string]s
 
 		defer func() {
 			ctx.Wildcards = oldWildcards
-		}()
-	}
-
-	// Store wildcards in session variables so they can be accessed by <star/> tags
-	if ctx != nil && ctx.Session != nil && len(wildcards) > 0 {
-		// Save current wildcards to restore them later
-		oldSessionWildcards := make(map[string]string)
-		for key := range wildcards {
-			if value, exists := ctx.Session.Variables[key]; exists {
-				oldSessionWildcards[key] = value
-			}
-		}
-
-		// Set new wildcards
-		if ctx.Session.Variables == nil {
-			ctx.Session.Variables = make(map[string]string)
-		}
-		for key, value := range wildcards {
-			ctx.Session.Variables[key] = value
-		}
-
-		// Restore old wildcards after processing
-		defer func() {
-			// Remove current wildcards
-			for key := range wildcards {
-				delete(ctx.Session.Variables, key)
-			}
-			// Restore old wildcards
-			for key, value := range oldSessionWildcards {
-				ctx.Session.Variables[key] = value
-			}
 		}()
 	}
 
@@ -635,35 +604,6 @@ func (tp *TreeProcessor) matchSRAI(kb *AIMLKnowledgeBase, input string) (*Catego
 	return category, wildcards, topic, err
 }
 
-// sessionWildcardKeyRe matches the session variables that hold wildcards
-// (star1, that_star1, ...), as opposed to ordinary predicates such as "starsign"
-var sessionWildcardKeyRe = regexp.MustCompile(`^(that_|topic_)?(star|wildcard)\d+$`)
-
-// hideSessionWildcards removes the wildcard variables from the session and
-// returns a function that puts them back.
-func hideSessionWildcards(session *ChatSession) func() {
-	if session == nil || session.Variables == nil {
-		return func() {}
-	}
-	hidden := make(map[string]string)
-	for key, value := range session.Variables {
-		if sessionWildcardKeyRe.MatchString(key) {
-			hidden[key] = value
-			delete(session.Variables, key)
-		}
-	}
-	return func() {
-		for key := range session.Variables {
-			if sessionWildcardKeyRe.MatchString(key) {
-				delete(session.Variables, key)
-			}
-		}
-		for key, value := range hidden {
-			session.Variables[key] = value
-		}
-	}
-}
-
 func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 	// Process SRAI tag - recursive AIML processing (Symbolic Reduction and Inference)
 	// Check recursion depth to prevent infinite recursion
@@ -701,12 +641,9 @@ func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 				RecursionDepth: tp.ctx.RecursionDepth + 1,
 			}
 
-			// Process the matched template with the new context. Its <star/>
-			// tags refer to its own match, so the outer match's wildcards are
-			// hidden from the session while it runs.
-			restore := hideSessionWildcards(tp.ctx.Session)
+			// Process the matched template with the new context; its <star/>
+			// tags refer to its own match
 			response := tp.golem.processTemplateWithContext(category.Template, wildcards, newCtx)
-			restore()
 			tp.golem.LogInfo("SRAI result: '%s' -> '%s'", sraiContent, response)
 			return response
 		} else {
@@ -1184,14 +1121,8 @@ func (tp *TreeProcessor) processStarTag(node *ASTNode, _ string) string {
 
 	key := fmt.Sprintf("star%d", index)
 
-	// Get wildcard value - check session variables first, then wildcards in context
+	// Get wildcard value from the context
 	if tp.ctx != nil {
-		if tp.ctx.Session != nil {
-			if value, exists := tp.ctx.Session.Variables[key]; exists {
-				return value
-			}
-		}
-		// Also check the Wildcards map directly (for cases without a session)
 		if tp.ctx.Wildcards != nil {
 			if value, exists := tp.ctx.Wildcards[key]; exists {
 				return value
@@ -1312,14 +1243,6 @@ func (tp *TreeProcessor) processThatWildcardTag(node *ASTNode, wildcardType stri
 
 	// Get wildcard value from context
 	if tp.ctx != nil {
-		// Check session variables first
-		if tp.ctx.Session != nil {
-			if value, exists := tp.ctx.Session.Variables[key]; exists {
-				tp.golem.LogDebug("That wildcard tag: key=%s, value='%s' (from session)", key, value)
-				return value
-			}
-		}
-		// Check the Wildcards map directly
 		if tp.ctx.Wildcards != nil {
 			if value, exists := tp.ctx.Wildcards[key]; exists {
 				tp.golem.LogDebug("That wildcard tag: key=%s, value='%s' (from context)", key, value)
@@ -1352,14 +1275,6 @@ func (tp *TreeProcessor) processThatWildcardWithEmbeddedIndex(node *ASTNode, wil
 
 	// Get wildcard value from context
 	if tp.ctx != nil {
-		// Check session variables first
-		if tp.ctx.Session != nil {
-			if value, exists := tp.ctx.Session.Variables[key]; exists {
-				tp.golem.LogDebug("That wildcard tag (embedded index): key=%s, value='%s' (from session)", key, value)
-				return value
-			}
-		}
-		// Check the Wildcards map directly
 		if tp.ctx.Wildcards != nil {
 			if value, exists := tp.ctx.Wildcards[key]; exists {
 				tp.golem.LogDebug("That wildcard tag (embedded index): key=%s, value='%s' (from context)", key, value)
