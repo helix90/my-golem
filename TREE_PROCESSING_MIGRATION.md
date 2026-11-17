@@ -39,7 +39,7 @@ The new system supports **95% of AIML tags** with direct implementation:
 - **Text Processing**: `uppercase`, `lowercase`, `formal`, `capitalize`, `explode`, `reverse`, `acronym`, `trim`
 - **Variables**: `set`, `get`, `bot`, `star`, `that`, `topic`
 - **Control Flow**: `srai`, `sraix`, `think`, `condition`, `random`, `li`
-- **System Info**: `size`, `version`, `id`, `request`, `response`
+- **System Info**: `size`, `version`, `id`, `botid`, `request`, `response`
 - **Data Structures**: `map`, `list`, `array`, `set`, `first`, `rest`
 - **Text Analysis**: `sentence`, `word`, `person`, `person2`, `gender`
 - **Learning**: `learn`, `unlearn`, `unlearnf`

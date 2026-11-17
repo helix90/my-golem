@@ -2,6 +2,23 @@
 
 All notable changes to Golem are recorded here.
 
+## Unreleased
+
+### Upgrading: behaviour changes
+
+- **`<id/>` returns the client ID, as AIML 2.0 specifies.** This is the ID of the session being answered (e.g. `telegram_42`), or empty without a session. It used to return the bot's `id` property, or `golem`. Use the new `<botid/>` tag for that.
+- **The regex-based template processors are removed.** The tree processor was already the only one in use. These methods are gone: `EnableTreeProcessing`, `DisableTreeProcessing`, `IsTreeProcessingEnabled`, `GetConsolidatedProcessor`, `GetProcessorMetrics`, `SetProcessingOrder`, `GetProcessor`, `GetProcessorsByType`, and the stats, clear and invalidate methods of the regex, template, pattern-matching and that-pattern caches, which were never filled. `GetProcessorStats`, `ResetProcessorMetrics` and `GetProcessingOrder` remain.
+- **`<shuffle>` gives a fresh order each time.** Before, its result was cached, so the same words always came back in the same order.
+
+### Added
+
+- `<botid/>` returns the bot's `id` property, or `golem` when it is not set.
+
+### Fixed
+
+- `ProcessTemplate`, `ProcessTemplateWithContext` and `ProcessTemplateWithSession` hold the knowledge base lock, so they no longer race with `SetKnowledgeBase` or loading.
+- `<split>` works with its `limit` attribute written before `delimiter`.
+
 ## v1.6.0 - 2026-11-16
 
 This release replaces Golem's pattern matcher with an AIML 2.0 graphmaster. It also fixes many template, loader, concurrency and SRAIX bugs. Some changes alter how existing bots answer, so read **Upgrading** before you update.

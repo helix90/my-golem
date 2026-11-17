@@ -77,6 +77,7 @@ var implicitlySelfClosingTags = map[string]bool{
 	"size":     true,
 	"version":  true,
 	"id":       true,
+	"botid":    true,
 	"request":  true,
 	"response": true,
 	"repeat":   true,

@@ -234,7 +234,7 @@ Golem features a revolutionary **tree-based processing system** that eliminates 
 - **Text Processing**: `<uppercase>`, `<lowercase>`, `<formal>`, `<capitalize>`, `<explode>`, `<reverse>`, `<acronym>`, `<trim>`
 - **Variables**: `<set>`, `<get>`, `<bot>`, `<star>`, `<that>`, `<topic>`
 - **Control Flow**: `<srai>`, `<sraix>`, `<think>`, `<condition>`, `<random>`, `<li>`
-- **System Info**: `<size>`, `<version>`, `<id>`, `<request>`, `<response>`
+- **System Info**: `<size>`, `<version>`, `<id>` (client ID), `<botid>` (bot ID), `<request>`, `<response>`
 - **Data Structures**: `<map>`, `<list>`, `<array>`, `<set>`, `<first>`, `<rest>`
 - **Text Analysis**: `<sentence>`, `<word>`, `<person>`, `<person2>`, `<gender>`
 - **Learning**: `<learn>`, `<unlearn>`, `<unlearnf>`
@@ -345,7 +345,7 @@ Golem implements **85% of the AIML2 specification** with revolutionary tree-base
 - Comprehensive text processing (95% tag coverage)
 - Enhanced that pattern matching with debugging tools
 - Pattern conflict detection and analysis
-- System information tags (`<size>`, `<version>`, `<id>`)
+- System information tags (`<size>`, `<version>`, `<id>`, `<botid>`)
 - RDF operations (`<subj>`, `<pred>`, `<obj>`, `<uniq>`)
 
 ### 🔄 Partially Implemented

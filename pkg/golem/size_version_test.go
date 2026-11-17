@@ -262,3 +262,53 @@ func TestSizeVersionPerformance(t *testing.T) {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
 }
+
+// <id/> returns the client ID (the session's ID), as AIML 2.0 specifies;
+// <botid/> returns the bot's "id" property, or "golem" when it is not set.
+func TestIdAndBotIdTags(t *testing.T) {
+	g, session := loadTemplateTestAIML(t, `
+<category><pattern>WHO AM I</pattern><template>You are <id/>.</template></category>
+<category><pattern>WHO ARE YOU</pattern><template>I am <botid/>.</template></category>
+<category><pattern>BOTH</pattern><template><uppercase><id/></uppercase> and <botid></botid></template></category>`)
+
+	if response := askTemplate(t, g, session, "who am i"); response != "You are test." {
+		t.Errorf("Expected <id/> to be the session ID: 'You are test.', got %q", response)
+	}
+	other := g.CreateSession("telegram_42")
+	if response := askTemplate(t, g, other, "who am i"); response != "You are telegram_42." {
+		t.Errorf("Expected <id/> to be the other session's ID: 'You are telegram_42.', got %q", response)
+	}
+
+	if response := askTemplate(t, g, session, "who are you"); response != "I am golem." {
+		t.Errorf("Expected <botid/> to default to golem: 'I am golem.', got %q", response)
+	}
+	g.GetKnowledgeBase().Properties["id"] = "helper-bot"
+	if response := askTemplate(t, g, session, "who are you"); response != "I am helper-bot." {
+		t.Errorf("Expected <botid/> to be the id property: 'I am helper-bot.', got %q", response)
+	}
+	if response := askTemplate(t, g, session, "both"); response != "TEST and helper-bot" {
+		t.Errorf("Expected 'TEST and helper-bot', got %q", response)
+	}
+
+	// Without a session there is no client
+	if response := g.ProcessTemplate("[<id/>]", nil); response != "[]" {
+		t.Errorf("Expected <id/> without a session to be empty: '[]', got %q", response)
+	}
+}
+
+// Inside <sraix>, <botid> is still the botid attribute written as a child,
+// not the <botid/> tag
+func TestSraixBotIdChildIsAttribute(t *testing.T) {
+	root, err := NewASTParser(`<sraix><botid>weather</botid>forecast</sraix>`).Parse()
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+	tp := &TreeProcessor{golem: New(false), ctx: &VariableContext{KnowledgeBase: NewAIMLKnowledgeBase()}}
+	sraix := tp.liftAttributeChildren(root.Children[0])
+	if sraix.Attributes["botid"] != "weather" {
+		t.Errorf("Expected botid attribute 'weather', got %q", sraix.Attributes["botid"])
+	}
+	if len(sraix.Children) != 1 || sraix.Children[0].Content != "forecast" {
+		t.Errorf("Expected only the 'forecast' text to remain, got %v", sraix.Children)
+	}
+}

@@ -212,7 +212,7 @@ This is Golem's main innovation. When working with tag processing:
 2. AST → Tree Processor (`tree_processor.go`) → Evaluated result
 3. Each tag type has dedicated processing in `processTag()` and `processSelfClosingTag()`
 
-**Supported Tags**: uppercase, lowercase, formal, capitalize, explode, reverse, acronym, trim, set, get, bot, star, that, topic, srai, sraix, think, condition, random, li, size, version, id, request, response, map, list, array, set, first, rest, sentence, word, person, person2, gender, learn, unlearn, unlearnf, subj, pred, obj, uniq (see `TREE_PROCESSING_MIGRATION.md` for AST architecture details)
+**Supported Tags**: uppercase, lowercase, formal, capitalize, explode, reverse, acronym, trim, set, get, bot, star, that, topic, srai, sraix, think, condition, random, li, size, version, id (client/session ID), botid (bot's id property, default golem), request, response, map, list, array, set, first, rest, sentence, word, person, person2, gender, learn, unlearn, unlearnf, subj, pred, obj, uniq (see `TREE_PROCESSING_MIGRATION.md` for AST architecture details)
 
 ### Tag Evaluation Order
 

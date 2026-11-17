@@ -81,7 +81,8 @@ their children to evaluate, and when.
 - **Session management** - Multi-session chat support
 - **RDF Operations** - `<uniq>`, `<subj>`, `<pred>`, `<obj>` tags
 - **List Operations** - `<first>`, `<rest>` tags
-- **System Information** - `<size>`, `<version>`, `<id>` tags
+- **System Information** - `<size>`, `<version>`, `<id>` tags (`<id/>` is the client ID: the session's ID)
+- **`<botid/>` (extension)** - The bot's `id` property, or `golem` when it is not set
 - **OOB (Out-of-Band) System** - Full OOB handler framework with extensible handler registration
 
 #### List and Array Operations (Fully Implemented)
@@ -238,7 +239,7 @@ their children to evaluate, and when.
 - **Advanced Learning System** - Session and persistent learning with comprehensive management
 - **Context-Aware Processing** - Full support for `<that>` and `<topic>` with index support
 - **RDF Operations** - Complete support for `<uniq>`, `<subj>`, `<pred>`, `<obj>` tags
-- **System Information** - Full support for `<size>`, `<version>`, `<id>` tags
+- **System Information** - Full support for `<size>`, `<version>`, `<id>` tags, plus the `<botid>` extension
 - **Expression Evaluation** - Full `<eval>` tag support for dynamic AIML template evaluation
 - **OOB Framework** - Extensible out-of-band handler system with registration and processing
 - **Enhanced SRAIX** - Complete support for all SRAIX attributes (`bot`, `botid`, `host`, `default`, `hint`)

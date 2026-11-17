@@ -350,6 +350,8 @@ func (tp *TreeProcessor) processTag(node *ASTNode) string {
 		return tp.processVersionTag(node, content)
 	case "id":
 		return tp.processIdTag(node, content)
+	case "botid":
+		return tp.processBotIdTag(node, content)
 	case "request":
 		return tp.processRequestTag(node, content)
 	case "response":
@@ -429,6 +431,8 @@ func (tp *TreeProcessor) processSelfClosingTag(node *ASTNode) string {
 		return tp.processVersionTag(node, "")
 	case "id":
 		return tp.processIdTag(node, "")
+	case "botid":
+		return tp.processBotIdTag(node, "")
 	case "request":
 		return tp.processRequestTag(node, "")
 	case "response":
@@ -3241,8 +3245,19 @@ func (tp *TreeProcessor) processVersionTag(_ *ASTNode, _ string) string {
 	return "1.0"
 }
 
+// processIdTag returns the client ID, as AIML 2.0 specifies: the ID of the
+// session the template is answering, or "" without a session
 func (tp *TreeProcessor) processIdTag(_ *ASTNode, _ string) string {
-	// ID tag - bot ID
+	if tp.ctx != nil && tp.ctx.Session != nil {
+		return tp.ctx.Session.ID
+	}
+	return ""
+}
+
+// processBotIdTag returns the bot's ID: its "id" property, or "golem" when
+// that is not set. This extension keeps what <id/> returned before it
+// followed the spec.
+func (tp *TreeProcessor) processBotIdTag(_ *ASTNode, _ string) string {
 	if tp.ctx != nil && tp.ctx.KnowledgeBase != nil {
 		if id, exists := tp.ctx.KnowledgeBase.Properties["id"]; exists {
 			return id
