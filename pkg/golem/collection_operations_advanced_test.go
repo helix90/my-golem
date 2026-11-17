@@ -802,11 +802,11 @@ func TestCollectionOperationsWithVariables(t *testing.T) {
 	session.Variables["index"] = "0"
 
 	testCases := []struct {
-		name     string
-		template string
-		expected string
-		setup    func()
-		skip     bool
+		name       string
+		template   string
+		expected   string
+		setup      func()
+		skip       bool
 		skipReason string
 	}{
 		{
@@ -816,19 +816,19 @@ func TestCollectionOperationsWithVariables(t *testing.T) {
 			setup:    func() {},
 		},
 		{
-			name:     "Array with variables in attribute",
-			template: `<array name="items" index="<get name="index"/>" operation="set"><get name="item"/></array>`,
-			expected: "",
-			setup:    func() {},
-			skip:     true,
+			name:       "Array with variables in attribute",
+			template:   `<array name="items" index="<get name="index"/>" operation="set"><get name="item"/></array>`,
+			expected:   "",
+			setup:      func() {},
+			skip:       true,
 			skipReason: "AST processor limitation: tags cannot be embedded in XML attributes (invalid XML)",
 		},
 		{
-			name:     "Map with variables in attribute",
-			template: `<map name="data" key="<get name="item"/>" operation="set">fruit</map>`,
-			expected: "",
-			setup:    func() {},
-			skip:     true,
+			name:       "Map with variables in attribute",
+			template:   `<map name="data" key="<get name="item"/>" operation="set">fruit</map>`,
+			expected:   "",
+			setup:      func() {},
+			skip:       true,
 			skipReason: "AST processor limitation: tags cannot be embedded in XML attributes (invalid XML)",
 		},
 		{
@@ -838,11 +838,11 @@ func TestCollectionOperationsWithVariables(t *testing.T) {
 			setup:    func() {},
 		},
 		{
-			name:     "Retrieve with variables in attribute",
-			template: `<list name="fruits" index="<get name="index"/>"></list>`,
-			expected: "apple",
-			setup:    func() {},
-			skip:     true,
+			name:       "Retrieve with variables in attribute",
+			template:   `<list name="fruits" index="<get name="index"/>"></list>`,
+			expected:   "apple",
+			setup:      func() {},
+			skip:       true,
 			skipReason: "AST processor limitation: tags cannot be embedded in XML attributes (invalid XML)",
 		},
 	}
@@ -878,11 +878,11 @@ func TestCollectionOperationsWithWildcards(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		template string
-		expected string
-		setup    func()
-		skip     bool
+		name       string
+		template   string
+		expected   string
+		setup      func()
+		skip       bool
 		skipReason string
 	}{
 		{
@@ -892,19 +892,19 @@ func TestCollectionOperationsWithWildcards(t *testing.T) {
 			setup:    func() {},
 		},
 		{
-			name:     "Array with wildcards in attribute",
-			template: `<array name="items" index="<star/>" operation="set"><star/></array>`,
-			expected: "",
-			setup:    func() {},
-			skip:     true,
+			name:       "Array with wildcards in attribute",
+			template:   `<array name="items" index="<star/>" operation="set"><star/></array>`,
+			expected:   "",
+			setup:      func() {},
+			skip:       true,
 			skipReason: "AST processor limitation: tags cannot be embedded in XML attributes (invalid XML)",
 		},
 		{
-			name:     "Map with wildcards in attribute",
-			template: `<map name="data" key="<star/>" operation="set">fruit</map>`,
-			expected: "",
-			setup:    func() {},
-			skip:     true,
+			name:       "Map with wildcards in attribute",
+			template:   `<map name="data" key="<star/>" operation="set">fruit</map>`,
+			expected:   "",
+			setup:      func() {},
+			skip:       true,
 			skipReason: "AST processor limitation: tags cannot be embedded in XML attributes (invalid XML)",
 		},
 		{
@@ -914,11 +914,11 @@ func TestCollectionOperationsWithWildcards(t *testing.T) {
 			setup:    func() {},
 		},
 		{
-			name:     "Retrieve with wildcards in attribute",
-			template: `<list name="fruits" index="<star/>"></list>`,
-			expected: "",
-			setup:    func() {},
-			skip:     true,
+			name:       "Retrieve with wildcards in attribute",
+			template:   `<list name="fruits" index="<star/>"></list>`,
+			expected:   "",
+			setup:      func() {},
+			skip:       true,
 			skipReason: "AST processor limitation: tags cannot be embedded in XML attributes (invalid XML)",
 		},
 	}

@@ -70,25 +70,25 @@ func substituteEnvVars(content string) string {
 		if start == -1 {
 			break
 		}
-		
+
 		end := strings.Index(content[start:], "}")
 		if end == -1 {
 			break
 		}
-		
+
 		end += start
 		varName := content[start+2 : end]
-		
+
 		// Get environment variable value
 		value := os.Getenv(varName)
 		if value == "" {
 			fmt.Printf("Warning: Environment variable %s is not set\n", varName)
 		}
-		
+
 		// Replace the pattern with the value
 		content = content[:start] + value + content[end+1:]
 	}
-	
+
 	return content
 }
 

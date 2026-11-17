@@ -717,10 +717,10 @@ func TestConditionTagAIML2Examples(t *testing.T) {
 	}
 
 	tests := []struct {
-		input    string
-		vars     map[string]string
-		expected string
-		skip     bool
+		input      string
+		vars       map[string]string
+		expected   string
+		skip       bool
 		skipReason string
 	}{
 		{
@@ -739,24 +739,24 @@ func TestConditionTagAIML2Examples(t *testing.T) {
 			expected: "Check the weather first!",
 		},
 		{
-			input:    "greeting",
-			vars:     map[string]string{},
-			expected: "Hello, stranger!",
-			skip:     true,
+			input:      "greeting",
+			vars:       map[string]string{},
+			expected:   "Hello, stranger!",
+			skip:       true,
 			skipReason: "Uses Form 3 multi-predicate",
 		},
 		{
-			input:    "greeting",
-			vars:     map[string]string{"name": "Alice", "time": "morning"},
-			expected: "Good morning, Alice!",
-			skip:     true,
+			input:      "greeting",
+			vars:       map[string]string{"name": "Alice", "time": "morning"},
+			expected:   "Good morning, Alice!",
+			skip:       true,
 			skipReason: "Uses Form 3 multi-predicate",
 		},
 		{
-			input:    "greeting",
-			vars:     map[string]string{"name": "Bob", "time": "evening"},
-			expected: "Good evening, Bob!",
-			skip:     true,
+			input:      "greeting",
+			vars:       map[string]string{"name": "Bob", "time": "evening"},
+			expected:   "Good evening, Bob!",
+			skip:       true,
 			skipReason: "Uses Form 3 multi-predicate",
 		},
 	}

@@ -198,8 +198,8 @@ func TestEnhancedWeatherFormatWithWindWarnings(t *testing.T) {
 
 			// Create AST node for weatherformat tag
 			node := &ASTNode{
-				Type:     NodeTypeTag,
-				TagName:  "weatherformat",
+				Type:       NodeTypeTag,
+				TagName:    "weatherformat",
 				Attributes: map[string]string{},
 			}
 

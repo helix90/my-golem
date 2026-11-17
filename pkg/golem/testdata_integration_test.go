@@ -166,7 +166,7 @@ func TestTestDataBasicFunctionality(t *testing.T) {
 	sessionID := "test-session-1"
 	session := g.CreateSession(sessionID)
 
-	testCases := []struct{
+	testCases := []struct {
 		name     string
 		input    string
 		contains []string // Response should contain at least one of these

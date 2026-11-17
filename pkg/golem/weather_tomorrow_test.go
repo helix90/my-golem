@@ -37,8 +37,8 @@ func TestWeatherFormatTomorrow(t *testing.T) {
 	}`
 
 	testCases := []struct {
-		name           string
-		day            string
+		name            string
+		day             string
 		expectedPhrases []string // Should contain these phrases
 	}{
 		{
@@ -46,7 +46,7 @@ func TestWeatherFormatTomorrow(t *testing.T) {
 			day:  "today",
 			expectedPhrases: []string{
 				"Partly Cloudy",
-				"°F", // Has temperature in Fahrenheit
+				"°F",   // Has temperature in Fahrenheit
 				"59°F", // 15°C high
 				"46°F", // 8°C low
 			},

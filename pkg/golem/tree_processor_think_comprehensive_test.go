@@ -73,11 +73,11 @@ func TestThinkTagVariableScopes(t *testing.T) {
 	g.EnableTreeProcessing()
 
 	tests := []struct {
-		name      string
-		template  string
-		checkVar  string
-		checkVal  string
-		scope     string
+		name     string
+		template string
+		checkVar string
+		checkVal string
+		scope    string
 	}{
 		{
 			name:     "Session variable with name attribute",
@@ -567,7 +567,7 @@ func TestThinkTagPerformance(t *testing.T) {
 	var templateParts []string
 	templateParts = append(templateParts, "<think>")
 	for i := 0; i < 100; i++ {
-		templateParts = append(templateParts, "<set name=\"var"+string(rune('0'+i%10))+"\">" + string(rune('a'+i%26)) + "</set>")
+		templateParts = append(templateParts, "<set name=\"var"+string(rune('0'+i%10))+"\">"+string(rune('a'+i%26))+"</set>")
 	}
 	templateParts = append(templateParts, "</think>Done")
 	template := strings.Join(templateParts, "")

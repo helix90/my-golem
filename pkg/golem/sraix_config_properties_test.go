@@ -12,13 +12,13 @@ func TestSRAIXConfigureFromProperties(t *testing.T) {
 
 	properties := map[string]string{
 		// OpenAI service configuration
-		"sraix.openai.baseurl":        "https://api.openai.com/v1/chat/completions",
-		"sraix.openai.apikey":         "Bearer sk-test-key-12345",
-		"sraix.openai.method":         "POST",
-		"sraix.openai.timeout":        "60",
-		"sraix.openai.responseformat": "json",
-		"sraix.openai.responsepath":   "choices.0.message.content",
-		"sraix.openai.fallback":       "AI service temporarily unavailable",
+		"sraix.openai.baseurl":             "https://api.openai.com/v1/chat/completions",
+		"sraix.openai.apikey":              "Bearer sk-test-key-12345",
+		"sraix.openai.method":              "POST",
+		"sraix.openai.timeout":             "60",
+		"sraix.openai.responseformat":      "json",
+		"sraix.openai.responsepath":        "choices.0.message.content",
+		"sraix.openai.fallback":            "AI service temporarily unavailable",
 		"sraix.openai.header.Content-Type": "application/json",
 
 		// Weather API service configuration
@@ -31,15 +31,15 @@ func TestSRAIXConfigureFromProperties(t *testing.T) {
 		"sraix.weather.fallback":       "Weather information unavailable",
 
 		// Custom service with custom headers
-		"sraix.custom.baseurl":               "https://custom-api.example.com",
-		"sraix.custom.header.X-API-Key":      "custom-key",
-		"sraix.custom.header.X-Client-ID":    "client-123",
-		"sraix.custom.includewildcards":      "true",
+		"sraix.custom.baseurl":            "https://custom-api.example.com",
+		"sraix.custom.header.X-API-Key":   "custom-key",
+		"sraix.custom.header.X-Client-ID": "client-123",
+		"sraix.custom.includewildcards":   "true",
 
 		// Invalid properties (should be ignored/warned)
-		"sraix.invalid.":                     "no property name",
-		"sraix..baseurl":                     "no service name",
-		"not.sraix.property":                 "wrong prefix",
+		"sraix.invalid.":     "no property name",
+		"sraix..baseurl":     "no service name",
+		"not.sraix.property": "wrong prefix",
 	}
 
 	err := sm.ConfigureFromProperties(properties)
