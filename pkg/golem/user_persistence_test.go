@@ -12,7 +12,6 @@ import (
 func TestUserLocationPersistence(t *testing.T) {
 	// Create golem instance
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Load the user persistence AIML file
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")
@@ -199,7 +198,6 @@ func TestUserLocationPersistence(t *testing.T) {
 func TestUserLocationPersistenceMultipleUsers(t *testing.T) {
 	// Create golem instance
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")
 	if err != nil {
@@ -329,7 +327,6 @@ func TestAutoLoadLocationForWeather(t *testing.T) {
 	// which is the core mechanism used by the AUTOLOAD LOCATION FOR WEATHER pattern
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")
 	if err != nil {
@@ -469,7 +466,6 @@ func TestUserLocationPersistenceWithFileSystem(t *testing.T) {
 
 	// Create first golem instance
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	_, err := g.LoadAIML("../../testdata/user-location-persistence.aiml")
 	if err != nil {
@@ -560,7 +556,6 @@ func TestUserLocationPersistenceWithFileSystem(t *testing.T) {
 
 		// Create a new golem instance to verify reload
 		g2 := New(false)
-		g2.EnableTreeProcessing()
 
 		_, err = g2.LoadAIML("../../testdata/user-location-persistence.aiml")
 		if err != nil {

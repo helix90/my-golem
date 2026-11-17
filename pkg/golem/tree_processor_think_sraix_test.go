@@ -26,7 +26,6 @@ func TestTreeProcessorThinkWithSRAIX(t *testing.T) {
 	defer geocodeServer.Close()
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Configure SRAIX services for geocoding
 	geocodeConfig := &SRAIXConfig{

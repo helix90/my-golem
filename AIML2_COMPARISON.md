@@ -23,16 +23,11 @@
 - **Topic filtering** - Topic-based pattern filtering with full context support
 
 #### Template Processing Pipeline
-The current implementation uses a **consolidated processor pipeline** with specialized processors in a specific order:
-
-1. **Wildcard Processing** - Star tags, that wildcards
-2. **Variable Processing** - Property, bot, think, topic, set, condition tags
-3. **Recursive Processing** - SR, SRAI, SRAIX, learn, unlearn tags
-4. **Data Processing** - Date, time, random, first, rest, loop, input, eval tags
-5. **Text Processing** - Person, gender, sentence, word tags
-6. **Format Processing** - Uppercase, lowercase, formal, explode, etc.
-7. **Collection Processing** - Map, list, array tags
-8. **System Processing** - Size, version, id, that, request, response tags
+Templates are parsed into an abstract syntax tree and evaluated by the tree
+processor (`tree_processor.go`). Each tag is evaluated where it appears, with
+its content evaluated first, so nested tags never interfere with each other.
+`<random>`, `<condition>`, `<learn>` and `<learnf>` instead choose which of
+their children to evaluate, and when.
 
 #### Core Template Tags
 - **`<srai>`** - Substitute, Resubstitute, and Input (recursive)
@@ -238,7 +233,6 @@ The current implementation uses a **consolidated processor pipeline** with speci
 ### 📝 **CURRENT IMPLEMENTATION HIGHLIGHTS**
 
 - **Tree-Based AST Processing** - Revolutionary AST-based template processing eliminating tag-in-tag bugs (default)
-- **Consolidated Processor Pipeline** - Uses specialized processors in a specific order for consistent behavior
 - **Full Text Processing** - All 29 text processing tags implemented (exceeds AIML2 spec) with proper processing order
 - **Complete Collection Management** - Maps, lists, arrays, and sets with full CRUD operations
 - **Advanced Learning System** - Session and persistent learning with comprehensive management

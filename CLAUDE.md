@@ -72,18 +72,17 @@ go mod tidy && go mod download
 
 ### Running Examples
 ```bash
-# Run library usage example
-go run examples/library_usage.go
-
-# Run demos from examples-module
+# Run demos from examples-module (its own module; each demo is a
+# //go:build ignore file run on its own)
 cd examples-module
+go run library_usage.go
 go run learn_demo.go
 go run bot_tag_demo.go
 go run list_demo.go
 
 # Telegram bot (requires TELEGRAM_BOT_TOKEN)
 export TELEGRAM_BOT_TOKEN="your_token_here"
-go run examples-module/telegram_bot.go
+cd examples-module && go run telegram_bot.go
 ```
 
 ### CLI Usage
@@ -123,14 +122,9 @@ See `ARCHITECTURE.md` for detailed explanation of state persistence patterns.
 - `ast_parser.go` - Parses AIML templates into Abstract Syntax Trees
 - `tree_processor.go` - Processes AST nodes for tag evaluation
 - **Eliminates tag-in-tag bugs** by parsing structure before processing
-- **95% tag coverage** vs 60% with regex-based processors
-- **Performance**: 50-70% faster than regex-based processing
-
-**Template Processing**:
-- `template_processor.go` - Legacy regex-based processing (fallback)
-- `consolidated_template_processor.go` - Unified processing interface
-- `aiml_native.go` - Native AIML processing with full pipeline
-- Standardized processing order documented in `TAG_PROCESSING_STANDARDIZATION.md`
+- The only template processor; the old regex-based processors have been removed
+- `processor_metrics.go` - Per-operation call counts behind `GetProcessorStats()`
+- `aiml_native.go` - Loading, the knowledge base, and helpers the tree processor calls (text, learning, collections)
 
 **Pattern Matching (`graphmaster.go`)**:
 - AIML 2.0 graphmaster: each category is a path of words (pattern, then `<that>`, then `<topic>`), matched word by word
@@ -159,10 +153,9 @@ See `ARCHITECTURE.md` for detailed explanation of state persistence patterns.
 
 ### Package Organization
 
-- **`/pkg/golem/`** - Main library (104 files: core engine, AST parser, tree processor, feature implementations, 73+ test files)
+- **`/pkg/golem/`** - Main library (19 source files: core engine, AST parser, tree processor, graphmaster, feature implementations; 95 test files)
 - **`/cmd/golem/`** - CLI with flag parsing and interactive mode
-- **`/examples/`** - Basic library usage, Telegram bot integration
-- **`/examples-module/`** - Comprehensive demos with documentation
+- **`/examples-module/`** - Library usage, Telegram bot, and tag demos with documentation
 - **`/testdata/`** - Primary test data (sample.aiml, bot.properties, loader tests)
 
 ### Configuration File Formats
@@ -214,13 +207,6 @@ g.LoadAIMLFromDirectory("testdata")
 
 This is Golem's main innovation. When working with tag processing:
 
-**Enable/Disable**:
-```go
-g := golem.New(true)  // Tree processing is now DEFAULT
-// g.EnableTreeProcessing()  // Already enabled by default
-g.DisableTreeProcessing()  // Opt-out to use legacy regex (not recommended)
-```
-
 **How It Works**:
 1. Template → AST Parser (`ast_parser.go`) → AST (tree of nodes)
 2. AST → Tree Processor (`tree_processor.go`) → Evaluated result
@@ -228,22 +214,17 @@ g.DisableTreeProcessing()  // Opt-out to use legacy regex (not recommended)
 
 **Supported Tags**: uppercase, lowercase, formal, capitalize, explode, reverse, acronym, trim, set, get, bot, star, that, topic, srai, sraix, think, condition, random, li, size, version, id, request, response, map, list, array, set, first, rest, sentence, word, person, person2, gender, learn, unlearn, unlearnf, subj, pred, obj, uniq (see `TREE_PROCESSING_MIGRATION.md` for AST architecture details)
 
-### Tag Processing Pipeline
+### Tag Evaluation Order
 
-All template processing follows standardized order (see `TAG_PROCESSING_STANDARDIZATION.md`):
-
-1. Wildcard replacement (indexed star tags, then generic `<star/>`)
-2. SR tags → Property tags → Bot tags
-3. **EARLY**: Think tags → Topic setting → Set tags
-4. Session variables → SRAI → SRAIX
-5. Learn tags → Condition tags
-6. Date/time → Random tags
-7. Collections (map, list, array)
-8. Text processing (person, gender, sentence, word)
-9. String operations (uppercase, lowercase, formal, etc.)
-10. Request/response history tags
-
-**Critical**: `processTemplateContentForVariable()` uses the same pipeline as `processTemplateWithContext()` to ensure consistency.
+There is no fixed stage order. `processTag()` evaluates a tag's children
+first and then the tag itself, so evaluation follows the template's nesting.
+The exceptions are `<random>`, `<condition>`, `<learn>` and `<learnf>`, which
+choose which children to evaluate, and when:
+- `<random>` and `<condition>` evaluate only the `<li>` they pick
+- `<learn>`/`<learnf>` evaluate only `<eval>` (and wildcard tags, when the
+  teaching category has wildcards) at learn time, keeping every other tag for
+  when the learned category is used; tags in a learned `<pattern>` are
+  evaluated at learn time, and a bare `<star/>` there becomes `*`
 
 ### Testing Strategy
 
@@ -270,9 +251,8 @@ When implementing a new tag:
    - Update tag list in README.md
    - Update `AIML2_COMPARISON.md` compliance matrix
 
-5. **Follow Processing Order**:
-   - Ensure tag is processed at correct stage in pipeline
-   - Update `TAG_PROCESSING_STANDARDIZATION.md` if adding new processing stage
+5. **Child Evaluation**:
+   - Children are evaluated before the tag; add the tag to the `skipChildProcessing` list in `processTag()` only if it must choose which children run
 
 ### Variable Context Pattern
 
@@ -305,32 +285,19 @@ Enable verbose logging:
 g := golem.New(true)  // Enable verbose logging
 ```
 
-Check processing mode:
-```go
-if g.IsTreeProcessingEnabled() {
-    // AST processing active
-} else {
-    // Regex processing active
-}
-```
-
-Run debugger demos:
-```bash
-go run pkg/golem/debugger_demo.go
-go run pkg/golem/conflict_demo.go
-```
+Debugging demos are library functions, not programs: `DemoThatContextDebugging()`
+(`debugger_demo.go`) and `RunConflictDetectionDemo()` (`conflict_demo.go`).
 
 ## Important Files
 
 - `ARCHITECTURE.md` - Critical state management patterns
 - `TREE_PROCESSING_MIGRATION.md` - AST architecture details
-- `TAG_PROCESSING_STANDARDIZATION.md` - Processing pipeline specification
 - `README.md` - User-facing documentation
 - `AIML2_COMPARISON.md` - Compliance matrix
 
 ## Performance
 
-Multiple caching layers: regex compilation, pattern matching, template processing, normalization, variable resolution. Reuse Golem instances (don't create per request). **Tree-based AST processing is the default** (50-70% faster than regex). Session history default max: 20 items.
+Caches: text normalization (including input/pattern normalization), variable resolution, and per-tag results for pure text tags (`TemplateTagProcessingCache`). The graphmaster is rebuilt only when categories are added or removed. Reuse Golem instances (don't create per request). Session history default max: 20 items.
 
 ## AIML2 Compliance
 
@@ -342,10 +309,8 @@ Multiple caching layers: regex compilation, pattern matching, template processin
 
 ## Recent Changes (from git log)
 
-- Convert string operation tags to native AST/Tree Processor
-- Convert `<srai>` and `<sraix>` tags to native AST/Tree Processor
-- Convert collection tags (`<map>`, `<list>`, `<array>`) to native AST/Tree Processor
-- Convert `<think>` tag to native AST/Tree Processor
-- Convert `<word>` tag to native AST/Tree Processor
-
-The project is actively migrating all tag processing to the AST-based system for consistency and performance.
+- Removed the regex-based template processors, the consolidated pipeline, the tree-processing switches, and the unused regex/template/pattern caches; the tree processor handles every tag natively
+- `ProcessTemplate*` methods hold the knowledge-base lock; `ChatSession.WithLock` lets callers touch session fields safely
+- Wildcards live only in `VariableContext.Wildcards`, not in session variables
+- AIML 2.0 graphmaster pattern matching
+- Merged Golem v1.6.0: `<learn>` evaluates only `<eval>` at learn time; `<set>` outputs its value

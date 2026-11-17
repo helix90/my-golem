@@ -35,7 +35,6 @@ func TestListCredentialsSaveAndRetrieve(t *testing.T) {
 			storageDir := t.TempDir()
 
 			g := NewForTestingWithDir(t, false, storageDir)
-			g.EnableTreeProcessing()
 
 			// Load test AIML files
 			kb, err := g.LoadAIMLFromDirectory("../../testdata")
@@ -66,7 +65,6 @@ func TestListCredentialsSaveAndRetrieve(t *testing.T) {
 
 			// Create new Golem instance to simulate bot restart (same storage dir)
 			g2 := NewForTestingWithDir(t, false, storageDir)
-			g2.EnableTreeProcessing()
 
 			kb2, err := g2.LoadAIMLFromDirectory("../../testdata")
 			if err != nil {
@@ -102,7 +100,6 @@ func TestListCredentialsVariations(t *testing.T) {
 	for _, variation := range variations {
 		t.Run(variation, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing()
 
 			kb, err := g.LoadAIMLFromDirectory("../../testdata")
 			if err != nil {
@@ -135,7 +132,6 @@ func TestListCredentialsLoadManual(t *testing.T) {
 	// Note: This test doesn't actually call the SRAIX service
 	// It only tests that credentials can be loaded
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
@@ -180,7 +176,6 @@ func TestListCredentialsLoadManual(t *testing.T) {
 // TestListCredentialsForget tests clearing saved credentials
 func TestListCredentialsForget(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
@@ -220,7 +215,6 @@ func TestListCredentialsForget(t *testing.T) {
 
 	// Create new instance to verify unlearning worked
 	g2 := NewForTesting(t, false)
-	g2.EnableTreeProcessing()
 
 	kb2, err := g2.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
@@ -254,7 +248,6 @@ func TestListCredentialsForgetVariations(t *testing.T) {
 	for _, variation := range variations {
 		t.Run(variation, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing()
 
 			kb, err := g.LoadAIMLFromDirectory("../../testdata")
 			if err != nil {
@@ -287,7 +280,6 @@ func TestListCredentialsForgetVariations(t *testing.T) {
 // TestListCredentialsWithoutTelegramID tests behavior without telegram_user set
 func TestListCredentialsWithoutTelegramID(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
@@ -323,7 +315,6 @@ func TestListCredentialsWithoutTelegramID(t *testing.T) {
 // TestListCredentialsCheckStatus tests the credentials status command
 func TestListCredentialsCheckStatus(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
@@ -369,7 +360,6 @@ func TestListCredentialsIntegration(t *testing.T) {
 	defer os.Unsetenv("LIST_HANDLER_URL")
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {
@@ -419,7 +409,6 @@ func TestListCredentialsIntegration(t *testing.T) {
 // TestListCredentialsHelp tests the help command
 func TestListCredentialsHelp(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb, err := g.LoadAIMLFromDirectory("../../testdata")
 	if err != nil {

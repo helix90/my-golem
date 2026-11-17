@@ -81,21 +81,10 @@ type TreeProcessor struct {
 }
 ```
 
-### Feature Flag
-The migration includes a feature flag for backward compatibility:
-
-```go
-// Enable tree-based processing (default)
-g.EnableTreeProcessing()
-
-// Disable tree-based processing (fallback to regex)
-g.DisableTreeProcessing()
-
-// Check current processing mode
-if g.IsTreeProcessingEnabled() {
-    // Tree-based processing active
-}
-```
+### No Feature Flag
+Tree-based processing is the only template processor. The regex-based
+processors, and the `EnableTreeProcessing` / `DisableTreeProcessing` /
+`IsTreeProcessingEnabled` switches, have been removed.
 
 ## Usage Examples
 
@@ -188,12 +177,10 @@ go test ./pkg/golem -v
 
 ## Backward Compatibility
 
-The migration maintains full backward compatibility:
-
-1. **Feature Flag**: Can disable tree processing if needed
-2. **Fallback System**: Falls back to regex processing on errors
-3. **Same API**: No changes to existing API
-4. **Same Results**: Produces identical output for valid templates
+The template-processing API (`ProcessInput`, `ProcessTemplate`,
+`ProcessTemplateWithContext`, `ProcessTemplateWithSession`) is unchanged. If
+the tree processor returns an error, the response is
+`[Error processing template]`; there is no regex fallback.
 
 ## Performance Comparison
 
@@ -209,17 +196,14 @@ The migration maintains full backward compatibility:
 ### Common Issues
 
 1. **Template Not Processing**
-   - Check if tree processing is enabled
    - Verify template syntax is valid AIML
    - Check for malformed tags
 
 2. **Unexpected Output**
-   - Compare with regex-based processing
    - Check tag nesting structure
    - Verify attribute values
 
 3. **Performance Issues**
-   - Ensure tree processing is enabled
    - Check for very deep nesting
    - Monitor memory usage
 
@@ -227,13 +211,6 @@ The migration maintains full backward compatibility:
 ```go
 // Enable debug logging
 g := golem.New(true) // Verbose logging enabled
-
-// Check processing mode
-if g.IsTreeProcessingEnabled() {
-    fmt.Println("Tree processing enabled")
-} else {
-    fmt.Println("Regex processing enabled")
-}
 ```
 
 ## Future Enhancements

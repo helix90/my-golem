@@ -1,7 +1,6 @@
 package golem
 
 import (
-	"regexp"
 	"testing"
 	"time"
 )
@@ -150,90 +149,6 @@ func TestEnhancedThatHistoryManagement(t *testing.T) {
 		lastThat := session.GetLastThat()
 		if lastThat != "" {
 			t.Errorf("Expected empty last that after clear, got '%s'", lastThat)
-		}
-	})
-}
-
-func TestThatPatternCache(t *testing.T) {
-	// Create a new pattern cache
-	cache := NewThatPatternCache(10)
-
-	// Test cache operations
-	t.Run("CacheOperations", func(t *testing.T) {
-		// Test getting non-existent pattern
-		pattern, found := cache.GetCompiledPattern("test pattern")
-		if found {
-			t.Error("Expected pattern not found, but it was found")
-		}
-		if pattern != nil {
-			t.Error("Expected nil pattern, got non-nil")
-		}
-
-		// Test setting and getting pattern
-		compiled, err := regexp.Compile("test.*pattern")
-		if err != nil {
-			t.Fatalf("Failed to compile regex: %v", err)
-		}
-
-		cache.SetCompiledPattern("test pattern", compiled)
-
-		retrieved, found := cache.GetCompiledPattern("test pattern")
-		if !found {
-			t.Error("Expected pattern to be found, but it wasn't")
-		}
-		if retrieved == nil {
-			t.Error("Expected non-nil pattern, got nil")
-		}
-	})
-
-	// Test cache statistics
-	t.Run("CacheStats", func(t *testing.T) {
-		stats := cache.GetCacheStats()
-
-		if stats["patterns"] != 1 {
-			t.Errorf("Expected 1 pattern in cache, got %v", stats["patterns"])
-		}
-
-		if stats["max_size"] != 10 {
-			t.Errorf("Expected max_size 10, got %v", stats["max_size"])
-		}
-
-		if stats["misses"] == nil {
-			t.Error("Expected misses in stats")
-		}
-
-		if stats["hit_rate"] == nil {
-			t.Error("Expected hit_rate in stats")
-		}
-	})
-
-	// Test cache eviction
-	t.Run("CacheEviction", func(t *testing.T) {
-		// Fill cache beyond capacity
-		for i := 0; i < 15; i++ {
-			pattern := "pattern" + string(rune(i+'A'))
-			compiled, _ := regexp.Compile("test.*" + pattern)
-			cache.SetCompiledPattern(pattern, compiled)
-		}
-
-		// Cache should not exceed max size
-		stats := cache.GetCacheStats()
-		if stats["patterns"].(int) > cache.MaxSize {
-			t.Errorf("Cache size %d exceeds max size %d", stats["patterns"], cache.MaxSize)
-		}
-	})
-
-	// Test cache clearing
-	t.Run("CacheClear", func(t *testing.T) {
-		cache.ClearCache()
-
-		stats := cache.GetCacheStats()
-		if stats["patterns"] != 0 {
-			t.Errorf("Expected 0 patterns after clear, got %v", stats["patterns"])
-		}
-
-		if stats["hits"] == nil {
-			t.Error("Expected hits in stats")
 		}
 	})
 }

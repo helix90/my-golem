@@ -9,7 +9,6 @@ import (
 // TestTreeProcessorEvalTagIntegration tests eval tag in full AIML conversation flow
 func TestTreeProcessorEvalTagIntegration(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Use AST processor
 
 	// Load AIML with eval tag patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -103,7 +102,6 @@ func TestTreeProcessorEvalTagIntegration(t *testing.T) {
 // TestTreeProcessorEvalTagWithVariables tests eval tag interaction with variables
 func TestTreeProcessorEvalTagWithVariables(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Load AIML with eval and variable operations
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -197,7 +195,6 @@ func TestTreeProcessorEvalTagWithVariables(t *testing.T) {
 // TestTreeProcessorEvalTagConversationFlow tests realistic conversation flow with eval
 func TestTreeProcessorEvalTagConversationFlow(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Load AIML with eval patterns
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -302,7 +299,6 @@ func TestTreeProcessorEvalTagConversationFlow(t *testing.T) {
 // TestTreeProcessorEvalTagWithRandom tests eval with random selections
 func TestTreeProcessorEvalTagWithRandom(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Load AIML with eval and random
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -379,7 +375,6 @@ func TestTreeProcessorEvalTagWithRandom(t *testing.T) {
 // TestTreeProcessorEvalTagWithHistory tests eval with input/request/response/that tags
 func TestTreeProcessorEvalTagWithHistory(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Load AIML with history tags
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -461,7 +456,6 @@ func TestTreeProcessorEvalTagWithHistory(t *testing.T) {
 // TestTreeProcessorEvalTagEmptyAndWhitespace tests eval with empty content and whitespace
 func TestTreeProcessorEvalTagEmptyAndWhitespace(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Load AIML with eval edge cases
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>

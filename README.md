@@ -242,9 +242,8 @@ Golem features a revolutionary **tree-based processing system** that eliminates 
 
 ### Usage
 ```go
-// Enable tree-based processing (default)
+// Tree-based processing is the only template processor
 g := golem.New(true)
-g.EnableTreeProcessing()
 
 // Process templates with tree-based system
 response, err := g.ProcessInput("Hello <uppercase>world</uppercase>!", session)

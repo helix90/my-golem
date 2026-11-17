@@ -165,7 +165,6 @@ func TestTreeProcessorMapTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -333,7 +332,6 @@ func TestTreeProcessorListTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -490,7 +488,6 @@ func TestTreeProcessorArrayTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -588,7 +585,6 @@ func TestTreeProcessorCollectionsWithVariables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -661,7 +657,6 @@ func TestTreeProcessorCollectionsIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -743,7 +738,6 @@ func TestTreeProcessorCollectionsEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 

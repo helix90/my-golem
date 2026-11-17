@@ -8,7 +8,6 @@ import (
 // TestTreeProcessorThinkTag tests the <think> tag with tree processor
 func TestTreeProcessorThinkTag(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Enable AST-based processing
 
 	tests := []struct {
 		name         string
@@ -75,7 +74,6 @@ func TestTreeProcessorThinkTag(t *testing.T) {
 // TestTreeProcessorThinkTagIntegration tests think tag integration with AIML categories
 func TestTreeProcessorThinkTagIntegration(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -175,7 +173,6 @@ func TestTreeProcessorThinkTagIntegration(t *testing.T) {
 // TestTreeProcessorThinkTagWithWildcards tests think tag with wildcards
 func TestTreeProcessorThinkTagWithWildcards(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -235,7 +232,6 @@ func TestTreeProcessorThinkTagWithWildcards(t *testing.T) {
 // TestTreeProcessorThinkTagEdgeCases tests edge cases for think tag
 func TestTreeProcessorThinkTagEdgeCases(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	tests := []struct {
 		name        string

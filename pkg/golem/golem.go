@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -68,45 +67,6 @@ type ContextAnalytics struct {
 	PruningCount     int            `json:"pruning_count"`
 }
 
-// TemplateProcessingMetrics represents metrics for template processing
-type TemplateProcessingMetrics struct {
-	TotalProcessed     int                `json:"total_processed"`
-	AverageProcessTime float64            `json:"average_process_time_ms"`
-	CacheHits          int                `json:"cache_hits"`
-	CacheMisses        int                `json:"cache_misses"`
-	CacheHitRate       float64            `json:"cache_hit_rate"`
-	TagProcessingTimes map[string]float64 `json:"tag_processing_times"`
-	ErrorCount         int                `json:"error_count"`
-	LastProcessed      string             `json:"last_processed"`
-	MemoryPeak         int                `json:"memory_peak_bytes"`
-	ParallelOps        int                `json:"parallel_operations"`
-}
-
-// TemplateCache represents a cache for processed templates
-type TemplateCache struct {
-	Cache      map[string]string `json:"cache"`
-	Timestamps map[string]string `json:"timestamps"`
-	Hits       map[string]int    `json:"hits"`
-	MaxSize    int               `json:"max_size"`
-	TTL        int64             `json:"ttl_seconds"`
-	// Mutex for thread safety
-	mutex sync.RWMutex
-}
-
-// RegexCache represents a cache for compiled regex patterns
-type RegexCache struct {
-	Patterns    map[string]*regexp.Regexp `json:"-"` // Don't serialize compiled regexes
-	Hits        map[string]int            `json:"hits"`
-	Misses      int                       `json:"misses"`
-	MaxSize     int                       `json:"max_size"`
-	TTL         int64                     `json:"ttl_seconds"`
-	Timestamps  map[string]time.Time      `json:"timestamps"`
-	AccessOrder []string                  `json:"access_order"` // Kept for JSON compat; not populated
-	mutex       sync.RWMutex              // Mutex for thread-safe access
-	lruList     *list.List                // O(1) LRU ordering
-	lruIndex    map[string]*list.Element  // O(1) element lookup
-}
-
 // TextNormalizationCache represents a cache for text normalization results
 type TextNormalizationCache struct {
 	Results     map[string]string    `json:"results"`
@@ -156,33 +116,6 @@ type TemplateTagProcessingCache struct {
 	lruIndex map[string]*list.Element
 }
 
-// PatternMatchingCache represents a cache for pattern matching results
-type PatternMatchingCache struct {
-	// Pattern priority cache
-	PatternPriorities map[string]PatternPriorityInfo `json:"pattern_priorities"`
-	// Wildcard match results cache
-	WildcardMatches map[string]WildcardMatchResult `json:"wildcard_matches"`
-	// Set regex cache
-	SetRegexes map[string]string `json:"set_regexes"`
-	// Exact match key cache
-	ExactMatchKeys map[string]string `json:"exact_match_keys"`
-	// Cache statistics
-	Hits        map[string]int       `json:"hits"`
-	Misses      int                  `json:"misses"`
-	MaxSize     int                  `json:"max_size"`
-	TTL         int64                `json:"ttl_seconds"`
-	Timestamps  map[string]time.Time `json:"timestamps"`
-	AccessOrder []string             `json:"access_order"` // Kept for JSON compat; not populated
-	// Knowledge base state tracking for invalidation
-	KnowledgeBaseHash string `json:"knowledge_base_hash"`
-	// Set state tracking for invalidation
-	SetHashes map[string]string `json:"set_hashes"` // Maps set name to content hash
-	// Mutex for thread safety
-	mutex    sync.RWMutex
-	lruList  *list.List
-	lruIndex map[string]*list.Element
-}
-
 // WildcardMatchResult represents the result of a wildcard pattern match
 type WildcardMatchResult struct {
 	Matched   bool              `json:"matched"`
@@ -190,20 +123,6 @@ type WildcardMatchResult struct {
 	Pattern   string            `json:"pattern"`
 	Input     string            `json:"input"`
 	Regex     string            `json:"regex"`
-}
-
-// TemplateProcessingConfig represents configuration for template processing
-type TemplateProcessingConfig struct {
-	EnableCaching     bool  `json:"enable_caching"`
-	CacheSize         int   `json:"cache_size"`
-	CacheTTL          int64 `json:"cache_ttl_seconds"`
-	EnableParallel    bool  `json:"enable_parallel"`
-	MaxParallelOps    int   `json:"max_parallel_operations"`
-	EnableMetrics     bool  `json:"enable_metrics"`
-	EnableValidation  bool  `json:"enable_validation"`
-	EnableDebugging   bool  `json:"enable_debugging"`
-	MemoryLimit       int   `json:"memory_limit_bytes"`
-	ProcessingTimeout int64 `json:"processing_timeout_ms"`
 }
 
 // ChatSession represents a single chat session
@@ -289,26 +208,12 @@ type Golem struct {
 	// Text processing components
 	sentenceSplitter     *SentenceSplitter
 	wordBoundaryDetector *WordBoundaryDetector
-	// Template processing components
-	templateCache   *TemplateCache
-	templateConfig  *TemplateProcessingConfig
-	templateMetrics *TemplateProcessingMetrics
-	// Regex compilation caches
-	patternRegexCache  *RegexCache
-	tagProcessingCache *RegexCache
-	normalizationCache *RegexCache
-	// Consolidated template processor
-	consolidatedProcessor *ConsolidatedTemplateProcessor
 	// Text normalization result cache
 	textNormalizationCache *TextNormalizationCache
 	// Variable resolution cache
 	variableResolutionCache *VariableResolutionCache
-	// That pattern cache
-	thatPatternCache *ThatPatternCache
 	// Template tag processing cache
 	templateTagProcessingCache *TemplateTagProcessingCache
-	// Pattern matching cache
-	patternMatchingCache *PatternMatchingCache
 	// Persistent learning components
 	persistentLearning *PersistentLearningManager
 	// Enhanced context resolution components
@@ -317,140 +222,7 @@ type Golem struct {
 	// Random seed for deterministic shuffling
 	randomSeed int64
 	// Tree-based processing components
-	treeProcessor     *TreeProcessor
-	useTreeProcessing bool // Feature flag for tree-based processing
-}
-
-// NewRegexCache creates a new regex cache
-func NewRegexCache(maxSize int, ttlSeconds int64) *RegexCache {
-	return &RegexCache{
-		Patterns:   make(map[string]*regexp.Regexp),
-		Hits:       make(map[string]int),
-		MaxSize:    maxSize,
-		TTL:        ttlSeconds,
-		Timestamps: make(map[string]time.Time),
-		lruList:    list.New(),
-		lruIndex:   make(map[string]*list.Element),
-	}
-}
-
-// GetCompiledRegex returns a compiled regex pattern from cache or compiles and caches it
-func (cache *RegexCache) GetCompiledRegex(pattern string) (*regexp.Regexp, error) {
-	// Check if pattern exists in cache
-	cache.mutex.RLock()
-	if compiled, exists := cache.Patterns[pattern]; exists {
-		// Check TTL
-		if time.Since(cache.Timestamps[pattern]).Seconds() < float64(cache.TTL) {
-			cache.mutex.RUnlock()
-			// Update access order for LRU (requires write lock)
-			cache.mutex.Lock()
-			cache.updateAccessOrder(pattern)
-			cache.Hits[pattern]++
-			cache.mutex.Unlock()
-			return compiled, nil
-		}
-		cache.mutex.RUnlock()
-		// TTL expired, remove from cache (requires write lock)
-		cache.mutex.Lock()
-		cache.removePattern(pattern)
-		cache.mutex.Unlock()
-	} else {
-		cache.mutex.RUnlock()
-	}
-
-	// Compile the pattern
-	compiled, err := regexp.Compile(pattern)
-	if err != nil {
-		cache.mutex.Lock()
-		cache.Misses++
-		cache.mutex.Unlock()
-		return nil, err
-	}
-
-	// Cache the compiled pattern
-	cache.mutex.Lock()
-	cache.setPattern(pattern, compiled)
-	cache.Misses++
-	cache.mutex.Unlock()
-	return compiled, nil
-}
-
-// updateAccessOrder updates the LRU access order in O(1).
-// Note: This method assumes the caller holds the appropriate lock
-func (cache *RegexCache) updateAccessOrder(pattern string) {
-	if elem, ok := cache.lruIndex[pattern]; ok {
-		cache.lruList.MoveToBack(elem)
-	} else {
-		cache.lruIndex[pattern] = cache.lruList.PushBack(pattern)
-	}
-}
-
-// setPattern adds a pattern to the cache with LRU eviction
-// Note: This method assumes the caller holds the appropriate lock
-func (cache *RegexCache) setPattern(pattern string, compiled *regexp.Regexp) {
-	// Evict if cache is full
-	if len(cache.Patterns) >= cache.MaxSize {
-		cache.evictLRU()
-	}
-
-	cache.Patterns[pattern] = compiled
-	cache.Timestamps[pattern] = time.Now()
-	cache.updateAccessOrder(pattern)
-}
-
-// removePattern removes a pattern from the cache
-// Note: This method assumes the caller holds the appropriate lock
-func (cache *RegexCache) removePattern(pattern string) {
-	delete(cache.Patterns, pattern)
-	delete(cache.Timestamps, pattern)
-	delete(cache.Hits, pattern)
-	if elem, ok := cache.lruIndex[pattern]; ok {
-		cache.lruList.Remove(elem)
-		delete(cache.lruIndex, pattern)
-	}
-}
-
-// evictLRU removes the least recently used pattern in O(1).
-// Note: This method assumes the caller holds the appropriate lock
-func (cache *RegexCache) evictLRU() {
-	front := cache.lruList.Front()
-	if front == nil {
-		return
-	}
-	cache.removePattern(front.Value.(string))
-}
-
-// GetCacheStats returns cache statistics
-func (cache *RegexCache) GetCacheStats() map[string]interface{} {
-	totalRequests := cache.Misses
-	for _, hits := range cache.Hits {
-		totalRequests += hits
-	}
-
-	hitRate := 0.0
-	if totalRequests > 0 {
-		hitRate = float64(len(cache.Hits)) / float64(totalRequests)
-	}
-
-	return map[string]interface{}{
-		"patterns":       len(cache.Patterns),
-		"max_size":       cache.MaxSize,
-		"ttl_seconds":    cache.TTL,
-		"hits":           cache.Hits,
-		"misses":         cache.Misses,
-		"hit_rate":       hitRate,
-		"total_requests": totalRequests,
-	}
-}
-
-// ClearCache clears the regex cache
-func (cache *RegexCache) ClearCache() {
-	cache.Patterns = make(map[string]*regexp.Regexp)
-	cache.Hits = make(map[string]int)
-	cache.Misses = 0
-	cache.Timestamps = make(map[string]time.Time)
-	cache.lruList = list.New()
-	cache.lruIndex = make(map[string]*list.Element)
+	treeProcessor *TreeProcessor
 }
 
 // NewTextNormalizationCache creates a new text normalization cache
@@ -1075,48 +847,8 @@ func New(verbose bool) *Golem {
 	sentenceSplitter := NewSentenceSplitter()
 	wordBoundaryDetector := NewWordBoundaryDetector()
 
-	// Create template processing components
-	templateCache := &TemplateCache{
-		Cache:      make(map[string]string),
-		Timestamps: make(map[string]string),
-		Hits:       make(map[string]int),
-		MaxSize:    1000,
-		TTL:        3600, // 1 hour
-	}
-
-	templateConfig := &TemplateProcessingConfig{
-		EnableCaching:     true,
-		CacheSize:         1000,
-		CacheTTL:          3600,
-		EnableParallel:    true,
-		MaxParallelOps:    4,
-		EnableMetrics:     true,
-		EnableValidation:  true,
-		EnableDebugging:   verbose,
-		MemoryLimit:       50 * 1024 * 1024, // 50MB
-		ProcessingTimeout: 5000,             // 5 seconds
-	}
-
-	templateMetrics := &TemplateProcessingMetrics{
-		TotalProcessed:     0,
-		AverageProcessTime: 0.0,
-		CacheHits:          0,
-		CacheMisses:        0,
-		CacheHitRate:       0.0,
-		TagProcessingTimes: make(map[string]float64),
-		ErrorCount:         0,
-		LastProcessed:      "",
-		MemoryPeak:         0,
-		ParallelOps:        0,
-	}
-
 	// Create persistent learning manager with default storage path
 	persistentLearning := NewPersistentLearningManager("./learned_categories")
-
-	// Create regex compilation caches
-	patternRegexCache := NewRegexCache(500, 3600)  // 500 patterns, 1 hour TTL
-	tagProcessingCache := NewRegexCache(200, 7200) // 200 patterns, 2 hours TTL
-	normalizationCache := NewRegexCache(100, 1800) // 100 patterns, 30 minutes TTL
 
 	// Create text normalization result cache
 	textNormalizationCache := NewTextNormalizationCache(1000, 1800) // 1000 results, 30 minutes TTL
@@ -1124,14 +856,8 @@ func New(verbose bool) *Golem {
 	// Create variable resolution cache
 	variableResolutionCache := NewVariableResolutionCache(500, 900) // 500 results, 15 minutes TTL
 
-	// Create that pattern cache
-	thatPatternCache := NewThatPatternCache(200) // 200 patterns
-
 	// Create template tag processing cache
 	templateTagProcessingCache := NewTemplateTagProcessingCache(1000, 1800) // 1000 results, 30 minutes TTL
-
-	// Create pattern matching cache
-	patternMatchingCache := NewPatternMatchingCache(2000, 3600) // 2000 results, 1 hour TTL
 
 	g := &Golem{
 		verbose:                    verbose,
@@ -1143,19 +869,10 @@ func New(verbose bool) *Golem {
 		sraixMgr:                   sraixMgr,
 		sentenceSplitter:           sentenceSplitter,
 		wordBoundaryDetector:       wordBoundaryDetector,
-		templateCache:              templateCache,
-		templateConfig:             templateConfig,
-		templateMetrics:            templateMetrics,
-		patternRegexCache:          patternRegexCache,
-		tagProcessingCache:         tagProcessingCache,
-		normalizationCache:         normalizationCache,
 		textNormalizationCache:     textNormalizationCache,
 		variableResolutionCache:    variableResolutionCache,
-		thatPatternCache:           thatPatternCache,
 		templateTagProcessingCache: templateTagProcessingCache,
-		patternMatchingCache:       patternMatchingCache,
 		persistentLearning:         persistentLearning,
-		useTreeProcessing:          true, // Tree-based AST processing is now the default (correct AIML behavior)
 	}
 	// Created up front so concurrent template processing never races to
 	// initialize it
@@ -1196,26 +913,6 @@ func (g *Golem) LogTrace(format string, args ...interface{}) {
 	if g.logLevel >= LogLevelTrace {
 		g.logger.Printf("[TRACE] "+format, args...)
 	}
-}
-
-// EnableTreeProcessing enables tree-based tag processing
-func (g *Golem) EnableTreeProcessing() {
-	g.useTreeProcessing = true
-	if g.treeProcessor == nil {
-		g.treeProcessor = NewTreeProcessor(g)
-	}
-	g.LogInfo("Tree-based tag processing enabled")
-}
-
-// DisableTreeProcessing disables tree-based tag processing (reverts to regex-based)
-func (g *Golem) DisableTreeProcessing() {
-	g.useTreeProcessing = false
-	g.LogInfo("Tree-based tag processing disabled, using regex-based processing")
-}
-
-// IsTreeProcessingEnabled returns whether tree-based processing is enabled
-func (g *Golem) IsTreeProcessingEnabled() bool {
-	return g.useTreeProcessing
 }
 
 // SetPersistentLearningPath sets the path for persistent learning storage
@@ -2485,52 +2182,6 @@ func (g *Golem) sraixTestCommand(args []string) error {
 	return nil
 }
 
-// GetTemplateProcessingMetrics returns current template processing metrics
-func (g *Golem) GetTemplateProcessingMetrics() *TemplateProcessingMetrics {
-	return g.templateMetrics
-}
-
-// GetTemplateProcessingConfig returns current template processing configuration
-func (g *Golem) GetTemplateProcessingConfig() *TemplateProcessingConfig {
-	return g.templateConfig
-}
-
-// UpdateTemplateProcessingConfig updates template processing configuration
-func (g *Golem) UpdateTemplateProcessingConfig(config *TemplateProcessingConfig) {
-	g.templateConfig = config
-	// Update cache settings
-	if g.templateCache != nil {
-		g.templateCache.MaxSize = config.CacheSize
-		g.templateCache.TTL = config.CacheTTL
-	}
-}
-
-// ClearTemplateCache clears the template cache
-func (g *Golem) ClearTemplateCache() {
-	if g.templateCache != nil {
-		g.templateCache.Cache = make(map[string]string)
-		g.templateCache.Timestamps = make(map[string]string)
-		g.templateCache.Hits = make(map[string]int)
-	}
-}
-
-// GetRegexCacheStats returns regex cache statistics
-func (g *Golem) GetRegexCacheStats() map[string]interface{} {
-	stats := make(map[string]interface{})
-
-	if g.patternRegexCache != nil {
-		stats["pattern_regex"] = g.patternRegexCache.GetCacheStats()
-	}
-	if g.tagProcessingCache != nil {
-		stats["tag_processing"] = g.tagProcessingCache.GetCacheStats()
-	}
-	if g.normalizationCache != nil {
-		stats["normalization"] = g.normalizationCache.GetCacheStats()
-	}
-
-	return stats
-}
-
 // GetTextNormalizationCacheStats returns text normalization cache statistics
 func (g *Golem) GetTextNormalizationCacheStats() map[string]interface{} {
 	if g.textNormalizationCache != nil {
@@ -2544,19 +2195,6 @@ func (g *Golem) GetTextNormalizationCacheStats() map[string]interface{} {
 		"misses":         0,
 		"hit_rate":       0.0,
 		"total_requests": 0,
-	}
-}
-
-// ClearRegexCaches clears all regex caches
-func (g *Golem) ClearRegexCaches() {
-	if g.patternRegexCache != nil {
-		g.patternRegexCache.ClearCache()
-	}
-	if g.tagProcessingCache != nil {
-		g.tagProcessingCache.ClearCache()
-	}
-	if g.normalizationCache != nil {
-		g.normalizationCache.ClearCache()
 	}
 }
 
@@ -2588,40 +2226,6 @@ func (g *Golem) GetVariableResolutionCacheStats() map[string]interface{} {
 func (g *Golem) ClearVariableResolutionCache() {
 	if g.variableResolutionCache != nil {
 		g.variableResolutionCache.ClearCache()
-	}
-}
-
-// GetThatPatternCacheStats returns that pattern cache statistics
-func (g *Golem) GetThatPatternCacheStats() map[string]interface{} {
-	if g.thatPatternCache != nil {
-		return g.thatPatternCache.GetCacheStats()
-	}
-	return map[string]interface{}{
-		"patterns":        0,
-		"max_size":        0,
-		"ttl_seconds":     0,
-		"hits":            map[string]int{},
-		"misses":          0,
-		"hit_rate":        0.0,
-		"total_requests":  0,
-		"match_results":   0,
-		"result_hits":     map[string]int{},
-		"result_hit_rate": 0.0,
-		"context_hashes":  0,
-	}
-}
-
-// ClearThatPatternCache clears the that pattern cache
-func (g *Golem) ClearThatPatternCache() {
-	if g.thatPatternCache != nil {
-		g.thatPatternCache.ClearCache()
-	}
-}
-
-// InvalidateThatPatternContext invalidates that pattern cache entries for a specific context
-func (g *Golem) InvalidateThatPatternContext(context string) {
-	if g.thatPatternCache != nil {
-		g.thatPatternCache.InvalidateContext(context)
 	}
 }
 
@@ -2661,411 +2265,6 @@ func (g *Golem) InvalidateTemplateTagType(tagType string) {
 func (g *Golem) InvalidateTemplateTagContext(context string) {
 	if g.templateTagProcessingCache != nil {
 		g.templateTagProcessingCache.InvalidateContext(context)
-	}
-}
-
-// GetPatternMatchingCacheStats returns pattern matching cache statistics
-func (g *Golem) GetPatternMatchingCacheStats() map[string]interface{} {
-	if g.patternMatchingCache != nil {
-		return g.patternMatchingCache.GetCacheStats()
-	}
-	return map[string]interface{}{
-		"pattern_priorities":  0,
-		"wildcard_matches":    0,
-		"set_regexes":         0,
-		"exact_match_keys":    0,
-		"max_size":            0,
-		"ttl_seconds":         0,
-		"hits":                map[string]int{},
-		"misses":              0,
-		"hit_rate":            0.0,
-		"total_requests":      0,
-		"knowledge_base_hash": "",
-		"set_hashes":          0,
-	}
-}
-
-// ClearPatternMatchingCache clears the pattern matching cache
-func (g *Golem) ClearPatternMatchingCache() {
-	if g.patternMatchingCache != nil {
-		g.patternMatchingCache.ClearCache()
-	}
-}
-
-// InvalidatePatternMatchingKnowledgeBase invalidates pattern matching cache when knowledge base changes
-func (g *Golem) InvalidatePatternMatchingKnowledgeBase() {
-	if g.patternMatchingCache != nil && g.aimlKB != nil {
-		// Generate a simple hash of the knowledge base state
-		kbHash := g.generateKnowledgeBaseHash()
-		g.patternMatchingCache.InvalidateKnowledgeBase(kbHash)
-	}
-}
-
-// InvalidatePatternMatchingSet invalidates pattern matching cache when a set changes
-func (g *Golem) InvalidatePatternMatchingSet(setName string) {
-	if g.patternMatchingCache != nil {
-		g.patternMatchingCache.InvalidateSet(setName)
-	}
-}
-
-// generateKnowledgeBaseHash creates a simple hash of the knowledge base state
-func (g *Golem) generateKnowledgeBaseHash() string {
-	if g.aimlKB == nil {
-		return ""
-	}
-
-	// Create a simple hash based on pattern count and set count
-	patternCount := g.aimlKB.patternCount()
-	setCount := 0
-	if g.aimlKB.Sets != nil {
-		setCount = len(g.aimlKB.Sets)
-	}
-
-	return fmt.Sprintf("patterns:%d,sets:%d", patternCount, setCount)
-}
-
-// NewPatternMatchingCache creates a new pattern matching cache
-func NewPatternMatchingCache(maxSize int, ttlSeconds int64) *PatternMatchingCache {
-	return &PatternMatchingCache{
-		PatternPriorities: make(map[string]PatternPriorityInfo),
-		WildcardMatches:   make(map[string]WildcardMatchResult),
-		SetRegexes:        make(map[string]string),
-		ExactMatchKeys:    make(map[string]string),
-		Hits:              make(map[string]int),
-		MaxSize:           maxSize,
-		TTL:               ttlSeconds,
-		Timestamps:        make(map[string]time.Time),
-		SetHashes:         make(map[string]string),
-		lruList:           list.New(),
-		lruIndex:          make(map[string]*list.Element),
-	}
-}
-
-// GetPatternPriority returns a cached pattern priority or calculates and caches it
-func (cache *PatternMatchingCache) GetPatternPriority(pattern string) (PatternPriorityInfo, bool) {
-	cache.mutex.RLock()
-	if priority, exists := cache.PatternPriorities[pattern]; exists {
-		// Check TTL
-		if time.Since(cache.Timestamps[pattern]).Seconds() < float64(cache.TTL) {
-			cache.mutex.RUnlock()
-			// Need write lock to update access order
-			cache.mutex.Lock()
-			cache.updateAccessOrder(pattern)
-			cache.Hits[pattern]++
-			cache.mutex.Unlock()
-			return priority, true
-		}
-		// TTL expired, remove from cache
-		cache.mutex.RUnlock()
-		cache.mutex.Lock()
-		cache.removePatternPriority(pattern)
-		cache.mutex.Unlock()
-	} else {
-		cache.mutex.RUnlock()
-	}
-
-	cache.mutex.Lock()
-	cache.Misses++
-	cache.mutex.Unlock()
-	return PatternPriorityInfo{}, false
-}
-
-// SetPatternPriority caches a pattern priority
-func (cache *PatternMatchingCache) SetPatternPriority(pattern string, priority PatternPriorityInfo) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-
-	// Evict if cache is full
-	if len(cache.PatternPriorities) >= cache.MaxSize {
-		cache.evictLRU()
-	}
-
-	cache.PatternPriorities[pattern] = priority
-	cache.Timestamps[pattern] = time.Now()
-	cache.updateAccessOrder(pattern)
-}
-
-// GetWildcardMatch returns a cached wildcard match result
-func (cache *PatternMatchingCache) GetWildcardMatch(input, pattern string) (WildcardMatchResult, bool) {
-	cacheKey := fmt.Sprintf("%s|%s", input, pattern)
-
-	cache.mutex.RLock()
-	if result, exists := cache.WildcardMatches[cacheKey]; exists {
-		// Check TTL
-		if time.Since(cache.Timestamps[cacheKey]).Seconds() < float64(cache.TTL) {
-			cache.mutex.RUnlock()
-			// Need write lock to update access order
-			cache.mutex.Lock()
-			cache.updateAccessOrder(cacheKey)
-			cache.Hits[cacheKey]++
-			cache.mutex.Unlock()
-			return result, true
-		}
-		// TTL expired, remove from cache
-		cache.mutex.RUnlock()
-		cache.mutex.Lock()
-		cache.removeWildcardMatch(cacheKey)
-		cache.mutex.Unlock()
-	} else {
-		cache.mutex.RUnlock()
-	}
-
-	cache.mutex.Lock()
-	cache.Misses++
-	cache.mutex.Unlock()
-	return WildcardMatchResult{}, false
-}
-
-// SetWildcardMatch caches a wildcard match result
-func (cache *PatternMatchingCache) SetWildcardMatch(input, pattern string, result WildcardMatchResult) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-
-	cacheKey := fmt.Sprintf("%s|%s", input, pattern)
-
-	// Evict if cache is full
-	if len(cache.WildcardMatches) >= cache.MaxSize {
-		cache.evictLRU()
-	}
-
-	cache.WildcardMatches[cacheKey] = result
-	cache.Timestamps[cacheKey] = time.Now()
-	cache.updateAccessOrder(cacheKey)
-}
-
-// GetSetRegex returns a cached set regex
-func (cache *PatternMatchingCache) GetSetRegex(setName string, setContent []string) (string, bool) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-
-	// Create content hash for set validation
-	contentHash := cache.generateSetContentHash(setContent)
-
-	// Check if set regex is cached and content hasn't changed
-	if regex, exists := cache.SetRegexes[setName]; exists {
-		if cache.SetHashes[setName] == contentHash {
-			// Update access order for LRU
-			cache.updateAccessOrder(setName)
-			cache.Hits[setName]++
-			return regex, true
-		}
-		// Set content changed, remove from cache
-		cache.removeSetRegex(setName)
-	}
-
-	cache.Misses++
-	return "", false
-}
-
-// SetSetRegex caches a set regex
-func (cache *PatternMatchingCache) SetSetRegex(setName string, setContent []string, regex string) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-
-	contentHash := cache.generateSetContentHash(setContent)
-
-	// Evict if cache is full
-	if len(cache.SetRegexes) >= cache.MaxSize {
-		cache.evictLRU()
-	}
-
-	cache.SetRegexes[setName] = regex
-	cache.SetHashes[setName] = contentHash
-	cache.Timestamps[setName] = time.Now()
-	cache.updateAccessOrder(setName)
-}
-
-// GetExactMatchKey returns a cached exact match key
-func (cache *PatternMatchingCache) GetExactMatchKey(input, topic, that string, thatIndex int) (string, bool) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-
-	cacheKey := cache.generateExactMatchKey(input, topic, that, thatIndex)
-
-	if key, exists := cache.ExactMatchKeys[cacheKey]; exists {
-		// Check TTL
-		if time.Since(cache.Timestamps[cacheKey]).Seconds() < float64(cache.TTL) {
-			// Update access order for LRU
-			cache.updateAccessOrder(cacheKey)
-			cache.Hits[cacheKey]++
-			return key, true
-		}
-		// TTL expired, remove from cache
-		cache.removeExactMatchKey(cacheKey)
-	}
-
-	cache.Misses++
-	return "", false
-}
-
-// SetExactMatchKey caches an exact match key
-func (cache *PatternMatchingCache) SetExactMatchKey(input, topic, that string, thatIndex int, key string) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-
-	cacheKey := cache.generateExactMatchKey(input, topic, that, thatIndex)
-
-	// Evict if cache is full
-	if len(cache.ExactMatchKeys) >= cache.MaxSize {
-		cache.evictLRU()
-	}
-
-	cache.ExactMatchKeys[cacheKey] = key
-	cache.Timestamps[cacheKey] = time.Now()
-	cache.updateAccessOrder(cacheKey)
-}
-
-// generateSetContentHash creates a hash of set content for validation
-func (cache *PatternMatchingCache) generateSetContentHash(setContent []string) string {
-	// Sort content for consistent hashing
-	sortedContent := make([]string, len(setContent))
-	copy(sortedContent, setContent)
-	sort.Strings(sortedContent)
-	return strings.Join(sortedContent, "|")
-}
-
-// generateExactMatchKey creates a cache key for exact match lookups
-func (cache *PatternMatchingCache) generateExactMatchKey(input, topic, that string, thatIndex int) string {
-	return fmt.Sprintf("%s|%s|%s|%d", input, topic, that, thatIndex)
-}
-
-// updateAccessOrder updates the LRU access order in O(1).
-func (cache *PatternMatchingCache) updateAccessOrder(key string) {
-	if elem, ok := cache.lruIndex[key]; ok {
-		cache.lruList.MoveToBack(elem)
-	} else {
-		cache.lruIndex[key] = cache.lruList.PushBack(key)
-	}
-}
-
-// removePatternPriority removes a pattern priority from the cache
-func (cache *PatternMatchingCache) removePatternPriority(pattern string) {
-	delete(cache.PatternPriorities, pattern)
-	delete(cache.Timestamps, pattern)
-	delete(cache.Hits, pattern)
-	cache.removeFromAccessOrder(pattern)
-}
-
-// removeWildcardMatch removes a wildcard match from the cache
-func (cache *PatternMatchingCache) removeWildcardMatch(cacheKey string) {
-	delete(cache.WildcardMatches, cacheKey)
-	delete(cache.Timestamps, cacheKey)
-	delete(cache.Hits, cacheKey)
-	cache.removeFromAccessOrder(cacheKey)
-}
-
-// removeSetRegex removes a set regex from the cache
-func (cache *PatternMatchingCache) removeSetRegex(setName string) {
-	delete(cache.SetRegexes, setName)
-	delete(cache.SetHashes, setName)
-	delete(cache.Timestamps, setName)
-	delete(cache.Hits, setName)
-	cache.removeFromAccessOrder(setName)
-}
-
-// removeExactMatchKey removes an exact match key from the cache
-func (cache *PatternMatchingCache) removeExactMatchKey(cacheKey string) {
-	delete(cache.ExactMatchKeys, cacheKey)
-	delete(cache.Timestamps, cacheKey)
-	delete(cache.Hits, cacheKey)
-	cache.removeFromAccessOrder(cacheKey)
-}
-
-// removeFromAccessOrder removes a key from the LRU list in O(1).
-func (cache *PatternMatchingCache) removeFromAccessOrder(key string) {
-	if elem, ok := cache.lruIndex[key]; ok {
-		cache.lruList.Remove(elem)
-		delete(cache.lruIndex, key)
-	}
-}
-
-// evictLRU removes the least recently used item in O(1).
-func (cache *PatternMatchingCache) evictLRU() {
-	front := cache.lruList.Front()
-	if front == nil {
-		return
-	}
-	oldestKey := front.Value.(string)
-	// Remove from all sub-caches; removeFromAccessOrder is called inside each remove*.
-	cache.removePatternPriority(oldestKey)
-	cache.removeWildcardMatch(oldestKey)
-	cache.removeSetRegex(oldestKey)
-	cache.removeExactMatchKey(oldestKey)
-}
-
-// GetCacheStats returns cache statistics
-func (cache *PatternMatchingCache) GetCacheStats() map[string]interface{} {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-
-	totalRequests := cache.Misses
-	for _, hits := range cache.Hits {
-		totalRequests += hits
-	}
-
-	hitRate := 0.0
-	if totalRequests > 0 {
-		hitRate = float64(len(cache.Hits)) / float64(totalRequests)
-	}
-
-	return map[string]interface{}{
-		"pattern_priorities":  len(cache.PatternPriorities),
-		"wildcard_matches":    len(cache.WildcardMatches),
-		"set_regexes":         len(cache.SetRegexes),
-		"exact_match_keys":    len(cache.ExactMatchKeys),
-		"max_size":            cache.MaxSize,
-		"ttl_seconds":         cache.TTL,
-		"hits":                cache.Hits,
-		"misses":              cache.Misses,
-		"hit_rate":            hitRate,
-		"total_requests":      totalRequests,
-		"knowledge_base_hash": cache.KnowledgeBaseHash,
-		"set_hashes":          len(cache.SetHashes),
-	}
-}
-
-// ClearCache clears the pattern matching cache
-func (cache *PatternMatchingCache) ClearCache() {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	cache.clear()
-}
-
-// clear empties the cache. The caller must hold cache.mutex.
-func (cache *PatternMatchingCache) clear() {
-	cache.PatternPriorities = make(map[string]PatternPriorityInfo)
-	cache.WildcardMatches = make(map[string]WildcardMatchResult)
-	cache.SetRegexes = make(map[string]string)
-	cache.ExactMatchKeys = make(map[string]string)
-	cache.Hits = make(map[string]int)
-	cache.Misses = 0
-	cache.Timestamps = make(map[string]time.Time)
-	cache.KnowledgeBaseHash = ""
-	cache.SetHashes = make(map[string]string)
-	cache.lruList = list.New()
-	cache.lruIndex = make(map[string]*list.Element)
-}
-
-// InvalidateKnowledgeBase invalidates all caches when knowledge base changes
-func (cache *PatternMatchingCache) InvalidateKnowledgeBase(newHash string) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	if cache.KnowledgeBaseHash != newHash {
-		cache.clear()
-		cache.KnowledgeBaseHash = newHash
-	}
-}
-
-// InvalidateSet invalidates set-related caches when a set changes
-func (cache *PatternMatchingCache) InvalidateSet(setName string) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	cache.removeSetRegex(setName)
-	// Also invalidate wildcard matches that might use this set
-	for key := range cache.WildcardMatches {
-		if strings.Contains(key, setName) {
-			cache.removeWildcardMatch(key)
-		}
 	}
 }
 
@@ -3143,224 +2342,4 @@ func (g *Golem) CachedExpandContractions(text string) string {
 	}
 	// Fallback to direct expansion
 	return expandContractions(text)
-}
-
-// GetTemplateCacheStats returns template cache statistics
-func (g *Golem) GetTemplateCacheStats() map[string]interface{} {
-	if g.templateCache == nil {
-		return map[string]interface{}{
-			"cache_size": 0,
-			"hits":       0,
-			"misses":     0,
-			"hit_rate":   0.0,
-		}
-	}
-
-	totalRequests := g.templateMetrics.CacheHits + g.templateMetrics.CacheMisses
-	hitRate := 0.0
-	if totalRequests > 0 {
-		hitRate = float64(g.templateMetrics.CacheHits) / float64(totalRequests)
-	}
-
-	return map[string]interface{}{
-		"cache_size":      len(g.templateCache.Cache),
-		"max_size":        g.templateCache.MaxSize,
-		"ttl_seconds":     g.templateCache.TTL,
-		"hits":            g.templateMetrics.CacheHits,
-		"misses":          g.templateMetrics.CacheMisses,
-		"hit_rate":        hitRate,
-		"total_processed": g.templateMetrics.TotalProcessed,
-		"average_time_ms": g.templateMetrics.AverageProcessTime,
-		"error_count":     g.templateMetrics.ErrorCount,
-	}
-}
-
-// ResetTemplateMetrics resets template processing metrics
-func (g *Golem) ResetTemplateMetrics() {
-	if g.templateMetrics != nil {
-		g.templateMetrics.TotalProcessed = 0
-		g.templateMetrics.AverageProcessTime = 0.0
-		g.templateMetrics.CacheHits = 0
-		g.templateMetrics.CacheMisses = 0
-		g.templateMetrics.CacheHitRate = 0.0
-		g.templateMetrics.TagProcessingTimes = make(map[string]float64)
-		g.templateMetrics.ErrorCount = 0
-		g.templateMetrics.LastProcessed = ""
-		g.templateMetrics.MemoryPeak = 0
-		g.templateMetrics.ParallelOps = 0
-	}
-}
-
-// generateTemplateCacheKey creates a cache key from template, wildcards and minimal ctx
-func (g *Golem) generateTemplateCacheKey(template string, wildcards map[string]string, ctx *VariableContext) string {
-	// Build a deterministic key: template + sorted wildcards + session/topic markers + state-dependent data
-	var b strings.Builder
-	b.WriteString("tpl:")
-	b.WriteString(template)
-	b.WriteString("|wc:")
-	// sort wildcards for deterministic order
-	keys := make([]string, 0, len(wildcards))
-	for k := range wildcards {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		b.WriteString(k)
-		b.WriteString("=")
-		b.WriteString(wildcards[k])
-		b.WriteString(";")
-	}
-	if ctx != nil && ctx.Session != nil {
-		b.WriteString("|sid:")
-		b.WriteString(ctx.Session.ID)
-	}
-	if ctx != nil {
-		b.WriteString("|topic:")
-		b.WriteString(ctx.Topic)
-	}
-
-	// Include state-dependent data in cache key
-	if ctx != nil && ctx.KnowledgeBase != nil {
-		// Include array state for templates that reference arrays
-		if strings.Contains(template, "<array ") {
-			b.WriteString("|arrays:")
-			arrayKeys := make([]string, 0, len(ctx.KnowledgeBase.Arrays))
-			for k := range ctx.KnowledgeBase.Arrays {
-				arrayKeys = append(arrayKeys, k)
-			}
-			sort.Strings(arrayKeys)
-			for _, k := range arrayKeys {
-				b.WriteString(k)
-				b.WriteString("=")
-				b.WriteString(strings.Join(ctx.KnowledgeBase.Arrays[k], ","))
-				b.WriteString(";")
-			}
-		}
-
-		// Include set state for templates that reference sets
-		if strings.Contains(template, "<set ") {
-			b.WriteString("|sets:")
-			setKeys := make([]string, 0, len(ctx.KnowledgeBase.Sets))
-			for k := range ctx.KnowledgeBase.Sets {
-				setKeys = append(setKeys, k)
-			}
-			sort.Strings(setKeys)
-			for _, k := range setKeys {
-				b.WriteString(k)
-				b.WriteString("=")
-				b.WriteString(strings.Join(ctx.KnowledgeBase.Sets[k], ","))
-				b.WriteString(";")
-			}
-		}
-
-		// Include map state for templates that reference maps
-		if strings.Contains(template, "<map ") {
-			b.WriteString("|maps:")
-			mapKeys := make([]string, 0, len(ctx.KnowledgeBase.Maps))
-			for k := range ctx.KnowledgeBase.Maps {
-				mapKeys = append(mapKeys, k)
-			}
-			sort.Strings(mapKeys)
-			for _, k := range mapKeys {
-				b.WriteString(k)
-				b.WriteString("=")
-				// Sort map entries for deterministic order
-				entryKeys := make([]string, 0, len(ctx.KnowledgeBase.Maps[k]))
-				for ek := range ctx.KnowledgeBase.Maps[k] {
-					entryKeys = append(entryKeys, ek)
-				}
-				sort.Strings(entryKeys)
-				for _, ek := range entryKeys {
-					b.WriteString(ek)
-					b.WriteString(":")
-					b.WriteString(ctx.KnowledgeBase.Maps[k][ek])
-					b.WriteString(",")
-				}
-				b.WriteString(";")
-			}
-		}
-
-		// Include list state for templates that reference lists
-		if strings.Contains(template, "<list ") {
-			b.WriteString("|lists:")
-			listKeys := make([]string, 0, len(ctx.KnowledgeBase.Lists))
-			for k := range ctx.KnowledgeBase.Lists {
-				listKeys = append(listKeys, k)
-			}
-			sort.Strings(listKeys)
-			for _, k := range listKeys {
-				b.WriteString(k)
-				b.WriteString("=")
-				b.WriteString(strings.Join(ctx.KnowledgeBase.Lists[k], ","))
-				b.WriteString(";")
-			}
-		}
-	}
-
-	return b.String()
-}
-
-// getFromTemplateCache fetches a cached response if present
-func (g *Golem) getFromTemplateCache(key string) (string, bool) {
-	if g.templateCache == nil {
-		return "", false
-	}
-
-	g.templateCache.mutex.RLock()
-	v, ok := g.templateCache.Cache[key]
-	if ok {
-		g.templateCache.mutex.RUnlock()
-		// Need write lock to update hits
-		g.templateCache.mutex.Lock()
-		g.templateCache.Hits[key] = g.templateCache.Hits[key] + 1
-		g.templateCache.mutex.Unlock()
-	} else {
-		g.templateCache.mutex.RUnlock()
-	}
-	return v, ok
-}
-
-// storeInTemplateCache stores a processed template result
-func (g *Golem) storeInTemplateCache(key, value string) {
-	if g.templateCache == nil {
-		return
-	}
-
-	g.templateCache.mutex.Lock()
-	defer g.templateCache.mutex.Unlock()
-
-	// Evict if over capacity (simple FIFO by timestamps if needed)
-	if len(g.templateCache.Cache) >= g.templateCache.MaxSize {
-		// naive eviction: remove an arbitrary oldest by timestamp string comparison
-		var oldestKey string
-		var oldestTs string
-		for k, ts := range g.templateCache.Timestamps {
-			if oldestTs == "" || ts < oldestTs {
-				oldestTs = ts
-				oldestKey = k
-			}
-		}
-		if oldestKey != "" {
-			delete(g.templateCache.Cache, oldestKey)
-			delete(g.templateCache.Timestamps, oldestKey)
-			delete(g.templateCache.Hits, oldestKey)
-		}
-	}
-	g.templateCache.Cache[key] = value
-	// store a simple increasing timestamp using TotalProcessed to keep it consistent
-	g.templateMetrics.TotalProcessed++
-	g.templateCache.Timestamps[key] = strconv.Itoa(g.templateMetrics.TotalProcessed)
-	if _, exists := g.templateCache.Hits[key]; !exists {
-		g.templateCache.Hits[key] = 0
-	}
-}
-
-// updateCacheHitRate recomputes cache hit rate metric
-func (g *Golem) updateCacheHitRate() {
-	total := g.templateMetrics.CacheHits + g.templateMetrics.CacheMisses
-	if total > 0 {
-		g.templateMetrics.CacheHitRate = float64(g.templateMetrics.CacheHits) / float64(total)
-	} else {
-		g.templateMetrics.CacheHitRate = 0
-	}
 }

@@ -22,132 +22,14 @@ type TreeProcessor struct {
 
 // NewTreeProcessor creates a new tree processor
 func NewTreeProcessor(golem *Golem) *TreeProcessor {
-	// Create metrics registry to track tag processing
-	metrics := NewProcessorRegistry()
-
-	// Register logical processors for metrics tracking
-	// These represent the types of operations the tree processor performs
-	metrics.RegisterProcessor(&TreeProcessorWildcard{name: "wildcard"})
-	metrics.RegisterProcessor(&TreeProcessorData{name: "data"})
-	metrics.RegisterProcessor(&TreeProcessorFormat{name: "format"})
-	metrics.RegisterProcessor(&TreeProcessorVariable{name: "variable"})
-	metrics.RegisterProcessor(&TreeProcessorLogic{name: "logic"})
+	// Count calls to the logical operations the tree processor performs
+	metrics := NewProcessorRegistry("wildcard", "variable", "data", "logic", "format")
 
 	return &TreeProcessor{
 		golem:   golem,
 		metrics: metrics,
 	}
 }
-
-// Dummy processor types for metrics tracking
-type TreeProcessorWildcard struct {
-	name    string
-	metrics *ProcessorMetrics
-}
-
-func (p *TreeProcessorWildcard) Name() string                  { return p.name }
-func (p *TreeProcessorWildcard) Type() ProcessorType           { return ProcessorTypeWildcard }
-func (p *TreeProcessorWildcard) Priority() ProcessorPriority   { return PriorityEarly }
-func (p *TreeProcessorWildcard) Condition() ProcessorCondition { return ProcessorCondition{} }
-func (p *TreeProcessorWildcard) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
-	return template, nil
-}
-func (p *TreeProcessorWildcard) ShouldProcess(template string, ctx *VariableContext) bool {
-	return true
-}
-func (p *TreeProcessorWildcard) GetMetrics() *ProcessorMetrics {
-	if p.metrics == nil {
-		p.metrics = &ProcessorMetrics{}
-	}
-	return p.metrics
-}
-func (p *TreeProcessorWildcard) ResetMetrics() { p.metrics = &ProcessorMetrics{} }
-
-type TreeProcessorData struct {
-	name    string
-	metrics *ProcessorMetrics
-}
-
-func (p *TreeProcessorData) Name() string                  { return p.name }
-func (p *TreeProcessorData) Type() ProcessorType           { return ProcessorTypeData }
-func (p *TreeProcessorData) Priority() ProcessorPriority   { return PriorityNormal }
-func (p *TreeProcessorData) Condition() ProcessorCondition { return ProcessorCondition{} }
-func (p *TreeProcessorData) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
-	return template, nil
-}
-func (p *TreeProcessorData) ShouldProcess(template string, ctx *VariableContext) bool { return true }
-func (p *TreeProcessorData) GetMetrics() *ProcessorMetrics {
-	if p.metrics == nil {
-		p.metrics = &ProcessorMetrics{}
-	}
-	return p.metrics
-}
-func (p *TreeProcessorData) ResetMetrics() { p.metrics = &ProcessorMetrics{} }
-
-type TreeProcessorFormat struct {
-	name    string
-	metrics *ProcessorMetrics
-}
-
-func (p *TreeProcessorFormat) Name() string                  { return p.name }
-func (p *TreeProcessorFormat) Type() ProcessorType           { return ProcessorTypeFormat }
-func (p *TreeProcessorFormat) Priority() ProcessorPriority   { return PriorityLate }
-func (p *TreeProcessorFormat) Condition() ProcessorCondition { return ProcessorCondition{} }
-func (p *TreeProcessorFormat) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
-	return template, nil
-}
-func (p *TreeProcessorFormat) ShouldProcess(template string, ctx *VariableContext) bool { return true }
-func (p *TreeProcessorFormat) GetMetrics() *ProcessorMetrics {
-	if p.metrics == nil {
-		p.metrics = &ProcessorMetrics{}
-	}
-	return p.metrics
-}
-func (p *TreeProcessorFormat) ResetMetrics() { p.metrics = &ProcessorMetrics{} }
-
-type TreeProcessorVariable struct {
-	name    string
-	metrics *ProcessorMetrics
-}
-
-func (p *TreeProcessorVariable) Name() string                  { return p.name }
-func (p *TreeProcessorVariable) Type() ProcessorType           { return ProcessorTypeVariable }
-func (p *TreeProcessorVariable) Priority() ProcessorPriority   { return PriorityEarly }
-func (p *TreeProcessorVariable) Condition() ProcessorCondition { return ProcessorCondition{} }
-func (p *TreeProcessorVariable) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
-	return template, nil
-}
-func (p *TreeProcessorVariable) ShouldProcess(template string, ctx *VariableContext) bool {
-	return true
-}
-func (p *TreeProcessorVariable) GetMetrics() *ProcessorMetrics {
-	if p.metrics == nil {
-		p.metrics = &ProcessorMetrics{}
-	}
-	return p.metrics
-}
-func (p *TreeProcessorVariable) ResetMetrics() { p.metrics = &ProcessorMetrics{} }
-
-type TreeProcessorLogic struct {
-	name    string
-	metrics *ProcessorMetrics
-}
-
-func (p *TreeProcessorLogic) Name() string                  { return p.name }
-func (p *TreeProcessorLogic) Type() ProcessorType           { return ProcessorTypeConditional }
-func (p *TreeProcessorLogic) Priority() ProcessorPriority   { return PriorityNormal }
-func (p *TreeProcessorLogic) Condition() ProcessorCondition { return ProcessorCondition{} }
-func (p *TreeProcessorLogic) Process(template string, wildcards map[string]string, ctx *VariableContext) (string, error) {
-	return template, nil
-}
-func (p *TreeProcessorLogic) ShouldProcess(template string, ctx *VariableContext) bool { return true }
-func (p *TreeProcessorLogic) GetMetrics() *ProcessorMetrics {
-	if p.metrics == nil {
-		p.metrics = &ProcessorMetrics{}
-	}
-	return p.metrics
-}
-func (p *TreeProcessorLogic) ResetMetrics() { p.metrics = &ProcessorMetrics{} }
 
 // trackMetric tracks metrics for a specific processor type
 func (tp *TreeProcessor) trackMetric(processorName string) {
@@ -1864,17 +1746,8 @@ func (tp *TreeProcessor) processLearnTag(node *ASTNode, _ string) string {
 	// Wildcards in the teaching pattern are evaluated and captured as literal values
 	processedContent := tp.processNodePreservingReferences(node)
 
-	// Pass the actual wildcard context so wildcards can be evaluated during learning
-	// This allows patterns like "TEACH ME * MEANS *" to capture the wildcard values
-	learnCtx := &VariableContext{
-		Session:       tp.ctx.Session,
-		LocalVars:     tp.ctx.LocalVars,
-		KnowledgeBase: tp.ctx.KnowledgeBase,
-		Wildcards:     tp.ctx.Wildcards, // Pass actual wildcards for evaluation
-	}
-
-	// The underlying function processes both <learn> and <learnf> tags via regex
-	return tp.golem.processLearnTagsWithContext(fmt.Sprintf("<learn>%s</learn>", processedContent), learnCtx)
+	tp.golem.learnCategories(processedContent, tp.learnContext(), false)
+	return ""
 }
 
 func (tp *TreeProcessor) processLearnfTag(node *ASTNode, _ string) string {
@@ -1886,17 +1759,19 @@ func (tp *TreeProcessor) processLearnfTag(node *ASTNode, _ string) string {
 	// Wildcards in the teaching pattern are evaluated and captured as literal values
 	processedContent := tp.processNodePreservingReferences(node)
 
-	// Pass the actual wildcard context so wildcards can be evaluated during learning
-	// This allows patterns like "TEACH ME * MEANS *" to capture the wildcard values
-	learnCtx := &VariableContext{
+	tp.golem.learnCategories(processedContent, tp.learnContext(), true)
+	return ""
+}
+
+// learnContext passes the actual wildcards so they can be evaluated during
+// learning; this lets patterns like "TEACH ME * MEANS *" capture their values
+func (tp *TreeProcessor) learnContext() *VariableContext {
+	return &VariableContext{
 		Session:       tp.ctx.Session,
 		LocalVars:     tp.ctx.LocalVars,
 		KnowledgeBase: tp.ctx.KnowledgeBase,
-		Wildcards:     tp.ctx.Wildcards, // Pass actual wildcards for evaluation
+		Wildcards:     tp.ctx.Wildcards,
 	}
-
-	// The underlying function processes both <learn> and <learnf> tags via regex
-	return tp.golem.processLearnTagsWithContext(fmt.Sprintf("<learnf>%s</learnf>", processedContent), learnCtx)
 }
 
 // processNodePreservingReferences processes a node's children while preserving reference tags
@@ -1937,6 +1812,10 @@ func (tp *TreeProcessor) processChildPreservingReferences(node *ASTNode) string 
 		return html.EscapeString(strings.TrimSpace(tp.processChildren(node)))
 	}
 
+	if node.TagName == "pattern" {
+		return "<pattern>" + tp.processLearnedPattern(node) + "</pattern>"
+	}
+
 	if learnWildcardTags[node.TagName] && tp.ctx != nil && len(tp.ctx.Wildcards) > 0 {
 		// Teaching scenario: capture the wildcard value
 		return html.EscapeString(tp.processNode(node))
@@ -1949,6 +1828,31 @@ func (tp *TreeProcessor) processChildPreservingReferences(node *ASTNode) string 
 	}
 	return fmt.Sprintf("<%s%s>%s</%s>", node.TagName, formatAttributes(node.Attributes),
 		tp.processNodePreservingReferences(node), node.TagName)
+}
+
+// processLearnedPattern renders the <pattern> of a learned category. Its tags
+// are evaluated now, since the pattern must be plain words and wildcards; a
+// <star/> becomes a * wildcard unless the teaching category has wildcards,
+// in which case it captures their value as above.
+func (tp *TreeProcessor) processLearnedPattern(node *ASTNode) string {
+	var result strings.Builder
+	for _, child := range node.Children {
+		switch {
+		case child.Type == NodeTypeText && len(child.Children) > 0:
+			result.WriteString(tp.processLearnedPattern(child))
+		case child.Type == NodeTypeText:
+			result.WriteString(child.Content)
+		case child.Type == NodeTypeComment || child.Type == NodeTypeCDATA:
+			result.WriteString(child.String())
+		case child.TagName == "star" && (tp.ctx == nil || len(tp.ctx.Wildcards) == 0):
+			result.WriteString("*")
+		case child.TagName == "eval":
+			result.WriteString(html.EscapeString(strings.TrimSpace(tp.processChildren(child))))
+		default:
+			result.WriteString(html.EscapeString(tp.processNode(child)))
+		}
+	}
+	return result.String()
 }
 
 // learnWildcardTags are the tags that <learn> evaluates when the teaching
@@ -2167,14 +2071,36 @@ func (tp *TreeProcessor) processReplaceTag(node *ASTNode, content string) string
 	return result
 }
 
+// cachedTagResult returns compute(), memoized per tag and key in the template
+// tag processing cache when one is configured
+func (tp *TreeProcessor) cachedTagResult(tag, key string, compute func() string) string {
+	cache := tp.golem.templateTagProcessingCache
+	if cache == nil {
+		return compute()
+	}
+	if cached, found := cache.GetProcessedTag(tag, key, tp.ctx); found {
+		return cached
+	}
+	result := compute()
+	cache.SetProcessedTag(tag, key, result, tp.ctx)
+	return result
+}
+
 func (tp *TreeProcessor) processPluralizeTag(_ *ASTNode, content string) string {
-	// Use the existing pluralize processing method
-	return tp.golem.processPluralizeTagsWithContext(fmt.Sprintf("<pluralize>%s</pluralize>", content), tp.ctx)
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	return tp.cachedTagResult("pluralize", content, func() string { return tp.golem.pluralizeText(content) })
 }
 
 func (tp *TreeProcessor) processShuffleTag(_ *ASTNode, content string) string {
-	// Use the existing shuffle processing method
-	return tp.golem.processShuffleTagsWithContext(fmt.Sprintf("<shuffle>%s</shuffle>", content), tp.ctx)
+	// Not cached: each <shuffle> should get a fresh order
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	return tp.golem.shuffleText(content)
 }
 
 func (tp *TreeProcessor) processLengthTag(node *ASTNode, content string) string {
@@ -2247,72 +2173,78 @@ func (tp *TreeProcessor) processCountTag(node *ASTNode, content string) string {
 }
 
 func (tp *TreeProcessor) processSplitTag(node *ASTNode, content string) string {
-	// Build tag with attributes
-	tag := "<split"
-	if delimiter, exists := node.Attributes["delimiter"]; exists {
-		tag += fmt.Sprintf(` delimiter="%s"`, delimiter)
+	delimiter := strings.TrimSpace(node.Attributes["delimiter"])
+	if delimiter == "" {
+		delimiter = " "
 	}
-	if limit, exists := node.Attributes["limit"]; exists {
-		tag += fmt.Sprintf(` limit="%s"`, limit)
+	limit := strings.TrimSpace(node.Attributes["limit"])
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
 	}
-	tag += fmt.Sprintf(">%s</split>", content)
-
-	// Use the existing split processing method
-	return tp.golem.processSplitTagsWithContext(tag, tp.ctx)
+	key := fmt.Sprintf("%s|%s|%s", delimiter, limit, content)
+	return tp.cachedTagResult("split", key, func() string { return tp.golem.splitText(content, delimiter, limit) })
 }
 
 func (tp *TreeProcessor) processJoinTag(node *ASTNode, content string) string {
-	// Build tag with attributes
-	tag := "<join"
-	if delimiter, exists := node.Attributes["delimiter"]; exists {
-		tag += fmt.Sprintf(` delimiter="%s"`, delimiter)
+	delimiter := node.Attributes["delimiter"]
+	if delimiter == "" {
+		delimiter = " "
 	}
-	tag += fmt.Sprintf(">%s</join>", content)
-
-	// Use the existing join processing method
-	return tp.golem.processJoinTagsWithContext(tag, tp.ctx)
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	key := fmt.Sprintf("%s|%s", delimiter, content)
+	return tp.cachedTagResult("join", key, func() string { return tp.golem.joinText(content, delimiter) })
 }
 
 func (tp *TreeProcessor) processUniqueTag(node *ASTNode, content string) string {
-	// Build tag with attributes
-	tag := "<unique"
-	if delimiter, exists := node.Attributes["delimiter"]; exists {
-		tag += fmt.Sprintf(` delimiter="%s"`, delimiter)
+	delimiter := strings.TrimSpace(node.Attributes["delimiter"])
+	if delimiter == "" {
+		delimiter = " "
 	}
-	tag += fmt.Sprintf(">%s</unique>", content)
+	if strings.TrimSpace(content) == "" {
+		return ""
+	}
+	key := fmt.Sprintf("%s|%s", delimiter, content)
+	return tp.cachedTagResult("unique", key, func() string { return tp.golem.uniqueText(content, delimiter) })
+}
 
-	// Use the existing unique processing method
-	return tp.golem.processUniqueTagsWithContext(tag, tp.ctx)
+// indentAttributes reads the level (default 1) and char (default space, with
+// \t, \n and \r escapes) attributes shared by <indent> and <dedent>
+func indentAttributes(node *ASTNode) (int, string) {
+	level := 1
+	if parsed, err := strconv.Atoi(strings.TrimSpace(node.Attributes["level"])); err == nil && parsed > 0 {
+		level = parsed
+	}
+	char := strings.TrimSpace(node.Attributes["char"])
+	if char == "" {
+		char = " "
+	} else {
+		char = strings.ReplaceAll(char, "\\t", "\t")
+		char = strings.ReplaceAll(char, "\\n", "\n")
+		char = strings.ReplaceAll(char, "\\r", "\r")
+	}
+	return level, char
 }
 
 func (tp *TreeProcessor) processIndentTag(node *ASTNode, content string) string {
-	// Build tag with attributes
-	tag := "<indent"
-	if level, exists := node.Attributes["level"]; exists {
-		tag += fmt.Sprintf(` level="%s"`, level)
+	if strings.TrimSpace(content) == "" {
+		return ""
 	}
-	if char, exists := node.Attributes["char"]; exists {
-		tag += fmt.Sprintf(` char="%s"`, char)
-	}
-	tag += fmt.Sprintf(">%s</indent>", content)
-
-	// Use the existing indent processing method
-	return tp.golem.processIndentTagsWithContext(tag, tp.ctx)
+	level, char := indentAttributes(node)
+	key := fmt.Sprintf("%d|%s|%s", level, char, content)
+	return tp.cachedTagResult("indent", key, func() string { return tp.golem.indentText(content, level, char) })
 }
 
 func (tp *TreeProcessor) processDedentTag(node *ASTNode, content string) string {
-	// Build tag with attributes
-	tag := "<dedent"
-	if level, exists := node.Attributes["level"]; exists {
-		tag += fmt.Sprintf(` level="%s"`, level)
+	if strings.TrimSpace(content) == "" {
+		return ""
 	}
-	if char, exists := node.Attributes["char"]; exists {
-		tag += fmt.Sprintf(` char="%s"`, char)
-	}
-	tag += fmt.Sprintf(">%s</dedent>", content)
-
-	// Use the existing dedent processing method
-	return tp.golem.processDedentTagsWithContext(tag, tp.ctx)
+	level, char := indentAttributes(node)
+	key := fmt.Sprintf("%d|%s|%s", level, char, content)
+	return tp.cachedTagResult("dedent", key, func() string { return tp.golem.dedentText(content, level, char) })
 }
 
 func (tp *TreeProcessor) processRepeatTag(node *ASTNode, _ string) string {
@@ -3371,8 +3303,8 @@ func (tp *TreeProcessor) processDenormalizeTag(_ *ASTNode, content string) strin
 
 func (tp *TreeProcessor) processUnlearnTag(_ *ASTNode, content string) string {
 	// Unlearn tag - remove learned categories
-	// Use the existing unlearn processing method
-	return tp.golem.processUnlearnTagsWithContext(fmt.Sprintf("<unlearn>%s</unlearn>", content), tp.ctx)
+	tp.golem.unlearnSessionCategories(content, tp.ctx)
+	return ""
 }
 
 func (tp *TreeProcessor) processUnlearnfTag(_ *ASTNode, content string) string {

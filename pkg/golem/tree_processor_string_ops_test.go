@@ -89,7 +89,6 @@ func TestTreeProcessorSubstringTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -186,7 +185,6 @@ func TestTreeProcessorReplaceTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -295,7 +293,6 @@ func TestTreeProcessorLengthTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -404,7 +401,6 @@ func TestTreeProcessorCountTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -419,7 +415,6 @@ func TestTreeProcessorCountTag(t *testing.T) {
 // TestTreeProcessorStringOpsIntegration tests complex integration scenarios
 func TestTreeProcessorStringOpsIntegration(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `
 <aiml version="2.0">
@@ -468,7 +463,6 @@ func TestTreeProcessorStringOpsIntegration(t *testing.T) {
 // TestTreeProcessorStringOpsWithVariables tests string operations with variables
 func TestTreeProcessorStringOpsWithVariables(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `
 <aiml version="2.0">
@@ -521,7 +515,6 @@ func TestTreeProcessorStringOpsWithVariables(t *testing.T) {
 // TestTreeProcessorStringOpsEdgeCases tests edge cases
 func TestTreeProcessorStringOpsEdgeCases(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `
 <aiml version="2.0">

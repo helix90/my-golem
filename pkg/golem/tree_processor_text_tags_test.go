@@ -8,7 +8,6 @@ import (
 // TestTreeProcessorPersonTag tests the <person> tag with tree processor
 func TestTreeProcessorPersonTag(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Enable AST-based processing
 
 	tests := []struct {
 		name     string
@@ -62,7 +61,6 @@ func TestTreeProcessorPersonTag(t *testing.T) {
 // TestTreeProcessorPerson2Tag tests the <person2> tag with tree processor
 func TestTreeProcessorPerson2Tag(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Enable AST-based processing
 
 	tests := []struct {
 		name     string
@@ -116,7 +114,6 @@ func TestTreeProcessorPerson2Tag(t *testing.T) {
 // TestTreeProcessorGenderTag tests the <gender> tag with tree processor
 func TestTreeProcessorGenderTag(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Enable AST-based processing
 
 	tests := []struct {
 		name     string
@@ -175,7 +172,6 @@ func TestTreeProcessorGenderTag(t *testing.T) {
 // TestTreeProcessorTextTagsIntegration tests person, person2, and gender tags in AIML categories
 func TestTreeProcessorTextTagsIntegration(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -281,7 +277,6 @@ func TestTreeProcessorTextTagsIntegration(t *testing.T) {
 // TestTreeProcessorSentenceTag tests the <sentence> tag with tree processor
 func TestTreeProcessorSentenceTag(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Enable AST-based processing
 
 	tests := []struct {
 		name     string
@@ -345,7 +340,6 @@ func TestTreeProcessorSentenceTag(t *testing.T) {
 // TestTreeProcessorWordTag tests the <word> tag with tree processor
 func TestTreeProcessorWordTag(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing() // Enable AST-based processing
 
 	tests := []struct {
 		name     string
@@ -419,7 +413,6 @@ func TestTreeProcessorWordTag(t *testing.T) {
 // TestTreeProcessorTextTagsWithWildcards tests text tags with wildcards
 func TestTreeProcessorTextTagsWithWildcards(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">

@@ -210,13 +210,6 @@ func TestVariableContextInRecursiveProcessing(t *testing.T) {
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
 
-	// Disable template caching for this test to avoid cache interference with session variables
-	g.UpdateTemplateProcessingConfig(&TemplateProcessingConfig{
-		EnableCaching: false,
-		CacheSize:     1000,
-		CacheTTL:      3600,
-	})
-
 	// Add test categories with proper termination conditions
 	kb.Categories = []Category{
 		{Pattern: "COUNT *", Template: "Count: <set name=\"count\">1</set> <get name=\"count\"/>"},
@@ -298,13 +291,6 @@ func TestVariableContextPersistence(t *testing.T) {
 	g := NewForTesting(t, false)
 	kb := NewAIMLKnowledgeBase()
 	g.SetKnowledgeBase(kb)
-
-	// Disable template caching for this test to avoid cache interference with session variables
-	g.UpdateTemplateProcessingConfig(&TemplateProcessingConfig{
-		EnableCaching: false,
-		CacheSize:     1000,
-		CacheTTL:      3600,
-	})
 
 	// Add test categories
 	kb.Categories = []Category{

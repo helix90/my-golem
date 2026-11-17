@@ -10,7 +10,6 @@ import (
 // According to AIML2, there are three forms of condition tags
 func TestConditionTagAIML2Compliance(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	tests := []struct {
 		name        string
@@ -147,7 +146,6 @@ func TestConditionTagMultiPredicate(t *testing.T) {
 	t.Skip("Multi-predicate conditions (Form 3) are not yet implemented in tree processor")
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	tests := []struct {
 		name        string
@@ -254,7 +252,6 @@ func TestConditionTagMultiPredicate(t *testing.T) {
 // TestConditionTagNested tests nested condition tags
 func TestConditionTagNested(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -333,7 +330,6 @@ func TestConditionTagWithLoop(t *testing.T) {
 	t.Skip("Loop functionality needs verification - may have recursion limits")
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -400,7 +396,6 @@ func TestConditionTagComplexScenarios(t *testing.T) {
 	t.Skip("Complex scenarios use Form 3 multi-predicate conditions which are not yet implemented")
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
@@ -560,7 +555,6 @@ func TestConditionTagComplexScenarios(t *testing.T) {
 // TestConditionTagEdgeCases tests edge cases for condition tags
 func TestConditionTagEdgeCases(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	tests := []struct {
 		name        string
@@ -617,7 +611,6 @@ func TestConditionTagEdgeCases(t *testing.T) {
 // TestConditionTagVariableTypes tests condition with different variable types
 func TestConditionTagVariableTypes(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	kb := NewAIMLKnowledgeBase()
 	kb.Properties = map[string]string{
@@ -680,7 +673,6 @@ func TestConditionTagVariableTypes(t *testing.T) {
 // Only Form 1 and Form 2 examples will pass
 func TestConditionTagAIML2Examples(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">

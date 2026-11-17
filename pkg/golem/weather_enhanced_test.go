@@ -189,7 +189,6 @@ func TestEnhancedWeatherFormatWithWindWarnings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing()
 
 			tp := &TreeProcessor{
 				golem: g,
@@ -222,7 +221,6 @@ func TestEnhancedWeatherFormatWithWindWarnings(t *testing.T) {
 
 func TestWeatherWarningEmoji(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	tp := &TreeProcessor{
 		golem: g,

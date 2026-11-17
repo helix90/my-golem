@@ -183,3 +183,24 @@ func TestLearnEvaluatesOnlyEvalAndWildcards(t *testing.T) {
 		t.Errorf("Expected the taught markup as text, got %q", response)
 	}
 }
+
+// In a learned pattern, <star/> becomes a * wildcard when the teaching
+// category has none, and other tags are evaluated when learned
+func TestLearnedPatternStarAndTags(t *testing.T) {
+	g, session := loadTemplateTestAIML(t, `
+<category><pattern>CALL ME *</pattern><template><think><set name="name"><star/></set></think>ok</template></category>
+<category><pattern>TEACH LIKES</pattern><template><learn><category><pattern>I LIKE <star/></pattern><template>You like <star/></template></category></learn>ok</template></category>
+<category><pattern>TEACH NAME</pattern><template><learn><category><pattern>HI <get name="name"/></pattern><template>That is you</template></category></learn>ok</template></category>`)
+
+	askTemplate(t, g, session, "teach likes")
+	if response := askTemplate(t, g, session, "i like green tea"); response != "You like green tea" {
+		t.Errorf("Expected <star/> to become a wildcard: 'You like green tea', got %q", response)
+	}
+
+	askTemplate(t, g, session, "call me alice")
+	askTemplate(t, g, session, "teach name")
+	askTemplate(t, g, session, "call me bob")
+	if response := askTemplate(t, g, session, "hi alice"); response != "That is you" {
+		t.Errorf("Expected <get> in the pattern to run when learned: 'That is you', got %q", response)
+	}
+}

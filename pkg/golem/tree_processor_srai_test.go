@@ -125,7 +125,6 @@ func TestTreeProcessorSRAITag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewForTesting(t, false)
-			g.EnableTreeProcessing() // Enable tree processing for native AST
 			_ = g.LoadAIMLFromString(tt.aiml)
 			session := g.CreateSession("test-session")
 
@@ -141,7 +140,6 @@ func TestTreeProcessorSRAITag(t *testing.T) {
 // leak its context or recursion depth back into the calling template
 func TestTreeProcessorSRAIRestoresCallerState(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 	aiml := `
 <aiml version="2.0">
     <category>
@@ -177,7 +175,6 @@ func TestTreeProcessorSRAIRestoresCallerState(t *testing.T) {
 // TestTreeProcessorSRAIRecursion tests recursion depth handling
 func TestTreeProcessorSRAIRecursion(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Create a circular SRAI that would cause infinite recursion
 	aimlContent := `
@@ -239,7 +236,6 @@ func TestTreeProcessorSRAIRecursion(t *testing.T) {
 // TestTreeProcessorSRAIWithWildcards tests SRAI with complex wildcard patterns
 func TestTreeProcessorSRAIWithWildcards(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `
 <aiml version="2.0">
@@ -282,7 +278,6 @@ func TestTreeProcessorSRAIWithWildcards(t *testing.T) {
 // TestTreeProcessorSRAIIntegration tests complex SRAI usage patterns
 func TestTreeProcessorSRAIIntegration(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `
 <aiml version="2.0">
@@ -380,7 +375,6 @@ func TestTreeProcessorSRAIXTag(t *testing.T) {
 
 	// Create Golem instance with SRAIX manager
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Configure SRAIX service
 	config := &SRAIXConfig{
@@ -480,7 +474,6 @@ func TestTreeProcessorSRAIXWithAttributes(t *testing.T) {
 	defer server.Close()
 
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	// Configure SRAIX service
 	config := &SRAIXConfig{
@@ -529,7 +522,6 @@ func TestTreeProcessorSRAIXWithAttributes(t *testing.T) {
 // TestTreeProcessorSRAIEdgeCases tests edge cases for SRAI processing
 func TestTreeProcessorSRAIEdgeCases(t *testing.T) {
 	g := NewForTesting(t, false)
-	g.EnableTreeProcessing()
 
 	aimlContent := `
 <aiml version="2.0">

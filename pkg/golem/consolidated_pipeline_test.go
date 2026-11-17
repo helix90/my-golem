@@ -23,18 +23,6 @@ func TestConsolidatedPipeline(t *testing.T) {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
 
-	// Test consolidated processor methods
-	processor := g.GetConsolidatedProcessor()
-	if processor == nil {
-		t.Error("Consolidated processor should not be nil")
-	}
-
-	// Test metrics
-	metrics := g.GetProcessorMetrics()
-	if metrics == nil {
-		t.Error("Processor metrics should not be nil")
-	}
-
 	// Test stats
 	stats := g.GetProcessorStats()
 	if stats == nil {
@@ -46,8 +34,6 @@ func TestConsolidatedPipeline(t *testing.T) {
 	if len(order) == 0 {
 		t.Error("Processing order should not be empty")
 	}
-
-	// Note: Consolidated pipeline cannot be disabled anymore
 }
 
 func TestConsolidatedPipelineWithComplexTemplate(t *testing.T) {
