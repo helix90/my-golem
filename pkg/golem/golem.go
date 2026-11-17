@@ -1574,7 +1574,7 @@ func (g *Golem) processSentence(input string, session *ChatSession) (string, err
 	}
 
 	// Process template with context
-	response := g.ProcessTemplateWithContext(category.Template, wildcards, session)
+	response := g.processTemplateForSession(category.Template, wildcards, session)
 
 	// Add to history
 	session.History = append(session.History, input)
@@ -1630,7 +1630,7 @@ func (g *Golem) ProcessInputWithThatIndex(input string, session *ChatSession, th
 	}
 
 	// Process template with context
-	response := g.ProcessTemplateWithContext(category.Template, wildcards, session)
+	response := g.processTemplateForSession(category.Template, wildcards, session)
 
 	// Add to history
 	session.History = append(session.History, input)
@@ -1923,7 +1923,8 @@ func (g *Golem) getCurrentSession() *ChatSession {
 // ProcessTemplateWithSession processes a template with session context
 func (g *Golem) ProcessTemplateWithSession(template string, wildcards map[string]string, session *ChatSession) string {
 	// Ensure knowledge base is initialized for variable/collection operations
-	g.ensureKnowledgeBase()
+	g.rlockKnowledgeBase()
+	defer g.kbMu.RUnlock()
 
 	// Create variable context for template processing with session
 	ctx := &VariableContext{

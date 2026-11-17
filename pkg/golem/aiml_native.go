@@ -1523,6 +1523,9 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopic(input string, topic string) (
 
 // ProcessTemplate processes an AIML template and returns the response
 func (g *Golem) ProcessTemplate(template string, wildcards map[string]string) string {
+	g.kbMu.RLock()
+	defer g.kbMu.RUnlock()
+
 	// Create variable context for template processing
 	ctx := &VariableContext{
 		LocalVars:     make(map[string]string),
@@ -1548,25 +1551,36 @@ func (g *Golem) ProcessTemplate(template string, wildcards map[string]string) st
 	return result
 }
 
-// ensureKnowledgeBase creates an empty knowledge base if none is loaded.
-// ProcessInput holds kbMu for reading and has already checked for a knowledge
-// base, so this never takes the lock there.
-func (g *Golem) ensureKnowledgeBase() {
-	if g.aimlKB != nil {
-		return
-	}
-	g.kbMu.Lock()
-	defer g.kbMu.Unlock()
-	if g.aimlKB == nil {
-		g.aimlKB = NewAIMLKnowledgeBase()
+// rlockKnowledgeBase takes kbMu for reading, first creating an empty
+// knowledge base if none is loaded. The caller must call kbMu.RUnlock.
+func (g *Golem) rlockKnowledgeBase() {
+	for {
+		g.kbMu.RLock()
+		if g.aimlKB != nil {
+			return
+		}
+		g.kbMu.RUnlock()
+
+		g.kbMu.Lock()
+		if g.aimlKB == nil {
+			g.aimlKB = NewAIMLKnowledgeBase()
+		}
+		g.kbMu.Unlock()
 	}
 }
 
 // ProcessTemplateWithContext processes an AIML template with full context support
 func (g *Golem) ProcessTemplateWithContext(template string, wildcards map[string]string, session *ChatSession) string {
-	// Create variable context for template processing
 	// Ensure knowledge base is initialized for variable/collection operations
-	g.ensureKnowledgeBase()
+	g.rlockKnowledgeBase()
+	defer g.kbMu.RUnlock()
+	return g.processTemplateForSession(template, wildcards, session)
+}
+
+// processTemplateForSession processes a template for a session. The caller
+// must hold kbMu (ProcessInput already does, and RWMutex read locks must not
+// be taken twice).
+func (g *Golem) processTemplateForSession(template string, wildcards map[string]string, session *ChatSession) string {
 	ctx := &VariableContext{
 		LocalVars:      make(map[string]string),
 		Session:        session,

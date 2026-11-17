@@ -161,3 +161,29 @@ func TestConcurrentWithLockAndProcessInput(t *testing.T) {
 	}()
 	wg.Wait()
 }
+
+// The exported ProcessTemplate* methods hold the knowledge base lock, so they
+// can run while another goroutine replaces the knowledge base.
+func TestConcurrentProcessTemplateAndSetKnowledgeBase(t *testing.T) {
+	g := newConcurrencyTestGolem(t)
+	session := g.CreateSession("templates")
+	kb := g.GetKnowledgeBase()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for n := 0; n < 50; n++ {
+			g.ProcessTemplateWithContext(`<size/> <bot name="name"/>`, nil, session)
+			g.ProcessTemplateWithSession(`<size/>`, nil, session)
+			g.ProcessTemplate(`<size/>`, nil)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for n := 0; n < 50; n++ {
+			g.SetKnowledgeBase(kb)
+		}
+	}()
+	wg.Wait()
+}
