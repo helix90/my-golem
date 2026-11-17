@@ -338,7 +338,7 @@ func TestThatHistoryPerformance(t *testing.T) {
 		elapsed := time.Since(start)
 
 		// Should complete within reasonable time (1 second)
-		if elapsed > time.Second {
+		if timingChecksEnabled() && elapsed > time.Second {
 			t.Errorf("That history operations took too long: %v", elapsed)
 		}
 	})

@@ -217,13 +217,13 @@ func TestContextResolutionPerformance(t *testing.T) {
 	longDuration := time.Since(start)
 
 	// Performance should be reasonable (less than 1 second for 1000 iterations)
-	if shortDuration > time.Second {
+	if timingChecksEnabled() && shortDuration > time.Second {
 		t.Errorf("Short string matching too slow: %v", shortDuration)
 	}
-	if mediumDuration > time.Second {
+	if timingChecksEnabled() && mediumDuration > time.Second {
 		t.Errorf("Medium string matching too slow: %v", mediumDuration)
 	}
-	if longDuration > time.Second {
+	if timingChecksEnabled() && longDuration > time.Second {
 		t.Errorf("Long string matching too slow: %v", longDuration)
 	}
 

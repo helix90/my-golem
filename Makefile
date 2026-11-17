@@ -3,7 +3,7 @@
 # Variables
 BINARY_NAME=golem
 BUILD_DIR=build
-VERSION=1.6.0
+VERSION=$(shell cat VERSION)
 GO_FILES=$(shell find . -name "*.go" -type f)
 
 # Default target
@@ -39,6 +39,12 @@ run: build
 test:
 	@echo "Running tests..."
 	go test -v ./...
+
+# Run tests under the race detector (needs cgo); wall-clock limits are skipped
+.PHONY: test-race
+test-race:
+	@echo "Running tests with the race detector..."
+	go test -race ./...
 
 # Run tests with coverage
 .PHONY: test-coverage

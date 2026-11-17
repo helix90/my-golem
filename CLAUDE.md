@@ -32,6 +32,10 @@ go test ./pkg/golem
 # Run with verbose output
 go test ./pkg/golem -v
 
+# Run under the race detector (wall-clock limits in performance tests are
+# skipped here and with -short)
+make test-race
+
 # Run specific test categories
 go test ./pkg/golem -run TestTreeProcessor
 go test ./pkg/golem -run TestThatTag

@@ -440,7 +440,7 @@ func TestFirstRestPerformance(t *testing.T) {
 		t.Errorf("Expected 'word', got %q", result)
 	}
 
-	if duration > 100*time.Millisecond {
+	if timingChecksEnabled() && duration > 100*time.Millisecond {
 		t.Errorf("Processing took too long: %v", duration)
 	}
 }

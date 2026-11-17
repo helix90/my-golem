@@ -101,7 +101,7 @@ func TestPatternMatchingPerformance(t *testing.T) {
 				t.Errorf("ProcessInput failed: %v", err)
 			}
 
-			if duration > tt.maxDuration {
+			if timingChecksEnabled() && duration > tt.maxDuration {
 				t.Errorf("Pattern matching took %v, expected less than %v", duration, tt.maxDuration)
 			}
 
@@ -238,7 +238,7 @@ func TestTemplateProcessingPerformance(t *testing.T) {
 				}
 			}
 
-			if duration > tt.maxDuration {
+			if timingChecksEnabled() && duration > tt.maxDuration {
 				t.Errorf("Template processing took %v, expected less than %v", duration, tt.maxDuration)
 			}
 
@@ -414,7 +414,7 @@ func TestConcurrentPerformance(t *testing.T) {
 
 			duration := time.Since(start)
 
-			if duration > tt.maxDuration {
+			if timingChecksEnabled() && duration > tt.maxDuration {
 				t.Errorf("Concurrent processing took %v, expected less than %v", duration, tt.maxDuration)
 			}
 
@@ -496,7 +496,7 @@ func TestScalabilityPerformance(t *testing.T) {
 
 			totalDuration := loadDuration + processDuration
 
-			if totalDuration > tt.maxDuration {
+			if timingChecksEnabled() && totalDuration > tt.maxDuration {
 				t.Errorf("Scalability test took %v, expected less than %v", totalDuration, tt.maxDuration)
 			}
 
@@ -593,7 +593,7 @@ func TestLoadTesting(t *testing.T) {
 
 			duration := time.Since(start)
 
-			if duration > tt.maxDuration {
+			if timingChecksEnabled() && duration > tt.maxDuration {
 				t.Errorf("Load test took %v, expected less than %v", duration, tt.maxDuration)
 			}
 
