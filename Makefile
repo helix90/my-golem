@@ -3,7 +3,7 @@
 # Variables
 BINARY_NAME=golem
 BUILD_DIR=build
-VERSION=1.5.0
+VERSION=1.6.0
 GO_FILES=$(shell find . -name "*.go" -type f)
 
 # Default target

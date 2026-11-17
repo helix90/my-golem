@@ -500,7 +500,7 @@ func TestSetOperationsAdvanced(t *testing.T) {
 		{
 			name:     "Assign multiple items to set",
 			template: `<set name="FRUITS" operation="assign">apple banana cherry</set>`,
-			expected: "",
+			expected: "apple banana cherry",
 			setup:    func() {},
 		},
 		{
@@ -512,7 +512,7 @@ func TestSetOperationsAdvanced(t *testing.T) {
 		{
 			name:     "Variable assignment (legacy syntax)",
 			template: `<set name="myvar">hello world</set>`,
-			expected: "",
+			expected: "hello world",
 			setup:    func() {},
 		},
 		{

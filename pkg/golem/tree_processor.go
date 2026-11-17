@@ -17,6 +17,7 @@ type TreeProcessor struct {
 	ctx         *VariableContext
 	starCounter int                // Tracks auto-incrementing star index for <star/> tags without explicit index
 	metrics     *ProcessorRegistry // Tracks metrics for different tag types/operations
+	loop        bool               // Set by <loop/> inside the <li> a condition is processing
 }
 
 // NewTreeProcessor creates a new tree processor
@@ -201,6 +202,9 @@ func (tp *TreeProcessor) ProcessTemplate(template string, wildcards map[string]s
 		}
 
 		// Set new wildcards
+		if ctx.Session.Variables == nil {
+			ctx.Session.Variables = make(map[string]string)
+		}
 		for key, value := range wildcards {
 			ctx.Session.Variables[key] = value
 		}
@@ -271,8 +275,65 @@ func (tp *TreeProcessor) processNode(node *ASTNode) string {
 	}
 }
 
+// attributeChildTags lists, per tag, the attributes that AIML 2.0 also
+// allows as child elements, e.g. <get><name>color</name></get>
+var attributeChildTags = map[string]map[string]bool{
+	"get":       {"name": true, "var": true},
+	"set":       {"name": true, "var": true},
+	"bot":       {"name": true},
+	"map":       {"name": true},
+	"condition": {"name": true, "var": true, "value": true},
+	"li":        {"name": true, "var": true, "value": true},
+	"date":      {"format": true, "jformat": true, "locale": true, "timezone": true},
+	"sraix":     {"bot": true, "botid": true, "host": true, "default": true, "hint": true, "service": true},
+	"star":      {"index": true},
+	"that":      {"index": true},
+	"input":     {"index": true},
+	"request":   {"index": true},
+	"response":  {"index": true},
+}
+
+// liftAttributeChildren returns the node with any attribute child elements
+// (see attributeChildTags) evaluated and moved into its attributes. The node
+// itself is not modified; if it has no such children it is returned as is.
+func (tp *TreeProcessor) liftAttributeChildren(node *ASTNode) *ASTNode {
+	names := attributeChildTags[node.TagName]
+	if names == nil {
+		return node
+	}
+
+	var lifted *ASTNode
+	for i, child := range node.Children {
+		isAttribute := child.Type == NodeTypeTag && names[child.TagName]
+		if isAttribute && lifted == nil {
+			copied := *node
+			lifted = &copied
+			lifted.Attributes = make(map[string]string, len(node.Attributes)+1)
+			for k, v := range node.Attributes {
+				lifted.Attributes[k] = v
+			}
+			lifted.Children = append([]*ASTNode(nil), node.Children[:i]...)
+		}
+		if isAttribute {
+			var value strings.Builder
+			for _, valueChild := range child.Children {
+				value.WriteString(tp.processNode(valueChild))
+			}
+			lifted.Attributes[child.TagName] = strings.TrimSpace(value.String())
+		} else if lifted != nil {
+			lifted.Children = append(lifted.Children, child)
+		}
+	}
+	if lifted == nil {
+		return node
+	}
+	return lifted
+}
+
 // processTag processes a tag node
 func (tp *TreeProcessor) processTag(node *ASTNode) string {
+	node = tp.liftAttributeChildren(node)
+
 	// Some tags need to process their children selectively (not all at once)
 	// For those tags, skip pre-processing children
 	skipChildProcessing := false
@@ -344,6 +405,8 @@ func (tp *TreeProcessor) processTag(node *ASTNode) string {
 		return tp.processThatDollarTag(node, content)
 	case "thatstar":
 		return tp.processThatStarTag(node, content)
+	case "topicstar":
+		return tp.processTopicStarTag(node, content)
 	case "topic":
 		return tp.processTopicTag(node, content)
 	case "random":
@@ -465,8 +528,8 @@ func (tp *TreeProcessor) processTag(node *ASTNode) string {
 	case "weatherformat":
 		return tp.processWeatherFormatTag(node, content)
 	default:
-		// Unknown tag, return as-is with processed content
-		return fmt.Sprintf("<%s>%s</%s>", node.TagName, content, node.TagName)
+		// Unknown tag (such as HTML), return as-is with its attributes and processed content
+		return fmt.Sprintf("<%s%s>%s</%s>", node.TagName, formatAttributes(node.Attributes), content, node.TagName)
 	}
 }
 
@@ -539,6 +602,8 @@ func (tp *TreeProcessor) processSelfClosingTag(node *ASTNode) string {
 		return tp.processThatDollarTag(node, "")
 	case "thatstar":
 		return tp.processThatStarTag(node, "")
+	case "topicstar":
+		return tp.processTopicStarTag(node, "")
 	case "bot":
 		return tp.processBotTag(node, "")
 	case "repeat":
@@ -563,7 +628,7 @@ func (tp *TreeProcessor) matchSRAI(kb *AIMLKnowledgeBase, input string) (*Catego
 	if tp.ctx.Session != nil {
 		topic = tp.ctx.Session.GetSessionTopic()
 		if lastThat := tp.ctx.Session.GetLastThat(); lastThat != "" {
-			that = tp.golem.CachedNormalizeThatPattern(lastThat)
+			that = tp.golem.normalizeThatContext(lastThat)
 		}
 	}
 	category, wildcards, err := kb.MatchPatternWithTopicAndThatIndexOriginalCached(tp.golem, tp.golem.CachedNormalizePattern(input), input, topic, that, 0)
@@ -626,8 +691,10 @@ func (tp *TreeProcessor) processSRAITag(_ *ASTNode, content string) string {
 		if err == nil && category != nil {
 			// Create a new context with incremented recursion depth
 			// Preserve all context except increment recursion depth
+			// Local variables (<set var>) belong to their category, so the
+			// matched template gets its own
 			newCtx := &VariableContext{
-				LocalVars:      tp.ctx.LocalVars,
+				LocalVars:      make(map[string]string),
 				Session:        tp.ctx.Session,
 				Topic:          topic,
 				KnowledgeBase:  kb,
@@ -926,9 +993,9 @@ func (tp *TreeProcessor) processSetTag(node *ASTNode, content string) string {
 		}
 	}
 
-	// Set tags return empty string for now (to avoid breaking existing tests)
-	// TODO: AIML spec says should return value, but many tests expect empty
-	return ""
+	// Like the AIML spec, <set> outputs the value it set; wrap it in <think>
+	// to set a variable silently
+	return value
 }
 
 func (tp *TreeProcessor) processSetCollectionTag(_ *ASTNode, name string, operation string, content string) string {
@@ -1202,6 +1269,12 @@ func (tp *TreeProcessor) processThatStarTag(node *ASTNode, _ string) string {
 	return tp.processThatWildcardTag(node, "that_star")
 }
 
+func (tp *TreeProcessor) processTopicStarTag(node *ASTNode, _ string) string {
+	// Process topicstar tag - wildcard reference from the topic pattern
+	// <topicstar index="2"/> refers to the second wildcard, etc.
+	return tp.processThatWildcardTag(node, "topic_star")
+}
+
 func (tp *TreeProcessor) processThatUnderscoreTag(node *ASTNode, _ string) string {
 	// Process that_underscore tag - underscore wildcard from that pattern
 	return tp.processThatWildcardTag(node, "that_underscore")
@@ -1319,16 +1392,13 @@ func (tp *TreeProcessor) processTopicTag(node *ASTNode, _ string) string {
 }
 
 func (tp *TreeProcessor) processRandomTag(node *ASTNode, content string) string {
-	// Process random tag - random selection from list items
-	var items []string
+	// Process random tag - random selection from list items. Only the chosen
+	// item is processed, so the others' <set>, <srai> and <learn> do not run.
+	// An empty item is a valid choice (it says nothing).
+	var items []*ASTNode
 	for _, child := range node.Children {
 		if child.Type == NodeTypeTag && child.TagName == "li" {
-			item := tp.processNode(child)
-			// Trim whitespace from each item
-			item = strings.TrimSpace(item)
-			if item != "" {
-				items = append(items, item)
-			}
+			items = append(items, child)
 		}
 	}
 
@@ -1338,11 +1408,40 @@ func (tp *TreeProcessor) processRandomTag(node *ASTNode, content string) string 
 
 	// Select random item
 	index := tp.golem.randomIntTree(len(items))
-	return items[index]
+	return strings.TrimSpace(tp.processNode(items[index]))
 }
 
-func (tp *TreeProcessor) processListItemTag(node *ASTNode, _ string) string {
-	// Process list item tag - process and return children
+func (tp *TreeProcessor) processListItemTag(_ *ASTNode, content string) string {
+	// Process list item tag - processTag has already processed the children
+	return content
+}
+
+// maxConditionLoops limits how many times <loop/> can repeat a condition
+const maxConditionLoops = 100
+
+// conditionValue returns the value of the variable a condition or <li>
+// tests: a session predicate for name, a local variable for var
+func (tp *TreeProcessor) conditionValue(node *ASTNode) (string, bool) {
+	if varName, exists := node.Attributes["var"]; exists {
+		return tp.ctx.LocalVars[tp.evaluateAttributeValue(varName)], true
+	}
+	if name, exists := node.Attributes["name"]; exists {
+		return tp.golem.resolveVariable(tp.evaluateAttributeValue(name), tp.ctx), true
+	}
+	return "", false
+}
+
+// conditionMatches reports whether a variable's value matches an expected
+// value. "*" matches any value; otherwise values are compared ignoring case.
+func conditionMatches(actual, expected string) bool {
+	if expected == "*" {
+		return actual != ""
+	}
+	return strings.EqualFold(actual, expected)
+}
+
+// processChildren processes a node's children and joins the results
+func (tp *TreeProcessor) processChildren(node *ASTNode) string {
 	var result strings.Builder
 	for _, child := range node.Children {
 		result.WriteString(tp.processNode(child))
@@ -1351,80 +1450,90 @@ func (tp *TreeProcessor) processListItemTag(node *ASTNode, _ string) string {
 }
 
 func (tp *TreeProcessor) processConditionTag(node *ASTNode, _ string) string {
-	// Process condition tag - conditional logic (native implementation)
-
-	// Get the variable name and expected value from attributes
-	varName, hasName := node.Attributes["name"]
-	localVarName, hasVar := node.Attributes["var"]
-	expectedValue, hasExpectedValue := node.Attributes["value"]
-
-	// Get the actual variable value
-	var actualValue string
-	if hasVar {
-		// <condition var="X"> checks a local variable
-		if tp.ctx != nil && tp.ctx.LocalVars != nil {
-			actualValue = tp.ctx.LocalVars[localVarName]
-		}
-	} else if hasName {
-		actualValue = tp.golem.resolveVariable(varName, tp.ctx)
+	// Process condition tag - conditional logic (native implementation).
+	// A <li> containing <loop/> repeats the condition, up to maxConditionLoops times.
+	if tp.ctx == nil {
+		return ""
 	}
 
-	// Type 1: Simple condition with value attribute
-	if hasExpectedValue {
-		if strings.EqualFold(actualValue, expectedValue) {
-			// Process children
-			var result strings.Builder
-			for _, child := range node.Children {
-				result.WriteString(tp.processNode(child))
-			}
+	var result strings.Builder
+	for i := 0; i < maxConditionLoops; i++ {
+		output, loop := tp.processConditionOnce(node)
+		result.WriteString(output)
+		if !loop {
 			return result.String()
 		}
-		return "" // No match
+	}
+	tp.golem.LogWarn("Condition loop limit reached (%d), stopping", maxConditionLoops)
+	return result.String()
+}
+
+// processConditionOnce evaluates a condition once. It reports whether the
+// chosen <li> contained <loop/>.
+func (tp *TreeProcessor) processConditionOnce(node *ASTNode) (string, bool) {
+	actualValue, hasName := tp.conditionValue(node)
+
+	// Type 1: Simple condition with value attribute
+	if expectedValue, hasExpectedValue := node.Attributes["value"]; hasExpectedValue {
+		if conditionMatches(actualValue, tp.evaluateAttributeValue(expectedValue)) {
+			return tp.processChildren(node), false
+		}
+		return "", false // No match
 	}
 
-	// Type 2: Multiple <li> conditions
+	// Type 2: Multiple <li> conditions. Each <li> tests the condition's
+	// variable, or its own name/var if it has one.
 	var defaultLi *ASTNode
+	hasLi := false
 	for _, child := range node.Children {
-		if child.Type == NodeTypeTag && child.TagName == "li" {
-			liValue, hasValue := child.Attributes["value"]
+		if child.Type != NodeTypeTag || child.TagName != "li" {
+			continue
+		}
+		hasLi = true
+		li := tp.liftAttributeChildren(child)
 
-			// If no value attribute, this is the default/fallback case - save it for later
-			if !hasValue {
-				defaultLi = child
-				continue
+		liValue, hasValue := li.Attributes["value"]
+		// If no value, this is the default case - save it for later.
+		// value="" is not a default: it matches an empty variable
+		if !hasValue {
+			if defaultLi == nil {
+				defaultLi = li
 			}
+			continue
+		}
 
-			// Check if this condition matches
-			if strings.EqualFold(actualValue, liValue) {
-				// Process this li's children
-				var result strings.Builder
-				for _, liChild := range child.Children {
-					result.WriteString(tp.processNode(liChild))
-				}
-				return strings.TrimSpace(result.String())
-			}
+		value := actualValue
+		if liActual, liHasName := tp.conditionValue(li); liHasName {
+			value = liActual
+		}
+		if conditionMatches(value, tp.evaluateAttributeValue(liValue)) {
+			return tp.processConditionItem(li)
 		}
 	}
 
 	// No match found, use default <li> if available
 	if defaultLi != nil {
-		var result strings.Builder
-		for _, liChild := range defaultLi.Children {
-			result.WriteString(tp.processNode(liChild))
-		}
-		return strings.TrimSpace(result.String())
+		return tp.processConditionItem(defaultLi)
 	}
 
 	// Type 3: No <li> elements and no value - just check if variable has a value
-	if hasName && actualValue != "" {
-		var result strings.Builder
-		for _, child := range node.Children {
-			result.WriteString(tp.processNode(child))
-		}
-		return result.String()
+	if !hasLi && hasName && actualValue != "" {
+		return tp.processChildren(node), false
 	}
 
-	return "" // No match
+	return "", false // No match
+}
+
+// processConditionItem processes the chosen <li> of a condition. It reports
+// whether the item contained <loop/>; a <loop/> inside a nested condition
+// belongs to that condition.
+func (tp *TreeProcessor) processConditionItem(li *ASTNode) (string, bool) {
+	outerLoop := tp.loop
+	tp.loop = false
+	output := strings.TrimSpace(tp.processChildren(li))
+	loop := tp.loop
+	tp.loop = outerLoop
+	return output, loop
 }
 
 func (tp *TreeProcessor) processMapTag(node *ASTNode, content string) string {
@@ -1892,109 +2001,51 @@ func (tp *TreeProcessor) processNodePreservingReferences(node *ASTNode) string {
 	return result.String()
 }
 
-// processChildPreservingReferences processes a single child node
-// Returns the string representation for reference tags, processed content for others
+// processChildPreservingReferences renders a node of a <learn> body. Like the
+// AIML spec, only <eval> is evaluated when the category is learned; every
+// other tag is kept so that it runs when the learned category is used. As an
+// extension, wildcard tags (<star/>, ...) are also evaluated when the teaching
+// category has wildcards, so that "TEACH * MEANS *" works without <eval>.
 func (tp *TreeProcessor) processChildPreservingReferences(node *ASTNode) string {
-	// For text nodes, return content as-is
-	if node.Type == NodeTypeText {
+	switch node.Type {
+	case NodeTypeText:
 		if len(node.Children) > 0 {
-			var result strings.Builder
-			for _, child := range node.Children {
-				result.WriteString(tp.processChildPreservingReferences(child))
-			}
-			return result.String()
+			return tp.processNodePreservingReferences(node)
 		}
 		return node.Content
+	case NodeTypeComment, NodeTypeCDATA:
+		return node.String()
+	case NodeTypeSelfClosingTag, NodeTypeTag:
+	default:
+		return tp.processNode(node)
 	}
 
-	// For comments and CDATA, return as-is
-	if node.Type == NodeTypeComment || node.Type == NodeTypeCDATA {
+	if node.TagName == "eval" {
+		// Evaluate now, and escape the result so it stays text when the
+		// learned category is parsed
+		return html.EscapeString(strings.TrimSpace(tp.processChildren(node)))
+	}
+
+	if learnWildcardTags[node.TagName] && tp.ctx != nil && len(tp.ctx.Wildcards) > 0 {
+		// Teaching scenario: capture the wildcard value
+		return html.EscapeString(tp.processNode(node))
+	}
+
+	// Keep the tag for runtime, rendering its children with the same rules
+	// so that an <eval> inside it is still evaluated now
+	if node.Type == NodeTypeSelfClosingTag {
 		return node.String()
 	}
+	return fmt.Sprintf("<%s%s>%s</%s>", node.TagName, formatAttributes(node.Attributes),
+		tp.processNodePreservingReferences(node), node.TagName)
+}
 
-	// For tags, check if they should be preserved as references
-	if node.Type == NodeTypeSelfClosingTag || node.Type == NodeTypeTag {
-		// Wildcard and reference tags - check if wildcards exist in context
-		// If wildcards exist, evaluate them (teaching scenario)
-		// If wildcards don't exist, preserve them for runtime evaluation
-		wildcardTags := map[string]bool{
-			"star":      true, // Wildcard references
-			"thatstar":  true, // That wildcard
-			"topicstar": true, // Topic wildcard
-		}
-
-		// History reference tags - always preserve (can't be evaluated at learn time)
-		historyTags := map[string]bool{
-			"that":     true, // Response history
-			"input":    true, // Request history (alternative form)
-			"request":  true, // Request history
-			"response": true, // Response history
-		}
-
-		if wildcardTags[node.TagName] {
-			// Check if wildcards exist in the context
-			hasWildcards := tp.ctx != nil && tp.ctx.Wildcards != nil && len(tp.ctx.Wildcards) > 0
-
-			if hasWildcards {
-				// Wildcards exist - evaluate the tag (teaching scenario)
-				if node.Type == NodeTypeSelfClosingTag {
-					return tp.processSelfClosingTag(node)
-				} else {
-					var processedChildren strings.Builder
-					for _, child := range node.Children {
-						processedChildren.WriteString(tp.processChildPreservingReferences(child))
-					}
-					return tp.processTagWithContent(node, processedChildren.String())
-				}
-			} else {
-				// No wildcards - preserve the tag as literal text for runtime
-				return node.String()
-			}
-		}
-
-		if historyTags[node.TagName] {
-			// Always preserve history reference tags as literal text
-			return node.String()
-		}
-
-		// For non-preserved tags, process them normally
-		// But we need to recursively preserve references in their children
-		if node.Type == NodeTypeTag {
-			// Process children while preserving references
-			var processedChildren strings.Builder
-			for _, child := range node.Children {
-				processedChildren.WriteString(tp.processChildPreservingReferences(child))
-			}
-
-			childContent := processedChildren.String()
-
-			// Check if the processed content contains preserved wildcard tags
-			// If so, preserve the entire structure instead of processing
-			hasPreservedWildcards := strings.Contains(childContent, "<star") ||
-				strings.Contains(childContent, "<that") ||
-				strings.Contains(childContent, "<input") ||
-				strings.Contains(childContent, "<request") ||
-				strings.Contains(childContent, "<response") ||
-				strings.Contains(childContent, "<topicstar") ||
-				strings.Contains(childContent, "<thatstar")
-
-			if hasPreservedWildcards {
-				// Preserve the entire structure including this tag
-				return node.String()
-			}
-
-			// Now process this tag with the processed children content
-			// We need to temporarily set up the node's processed content
-			// and call the appropriate tag processor
-			return tp.processTagWithContent(node, childContent)
-		} else {
-			// Self-closing tag - process it
-			return tp.processSelfClosingTag(node)
-		}
-	}
-
-	// For other node types, just process normally
-	return tp.processNode(node)
+// learnWildcardTags are the tags that <learn> evaluates when the teaching
+// category has wildcards
+var learnWildcardTags = map[string]bool{
+	"star":      true,
+	"thatstar":  true,
+	"topicstar": true,
 }
 
 // processTagWithContent processes a tag with given content
@@ -2461,7 +2512,8 @@ func (tp *TreeProcessor) processRestTag(_ *ASTNode, content string) string {
 }
 
 func (tp *TreeProcessor) processLoopTag(_ *ASTNode, _ string) string {
-	// Loop tag - just return empty for now
+	// Loop tag - asks the enclosing condition to evaluate again
+	tp.loop = true
 	return ""
 }
 

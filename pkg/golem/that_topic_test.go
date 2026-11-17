@@ -85,7 +85,7 @@ func TestTopicTagMatching(t *testing.T) {
 <aiml version="2.0">
 <category>
 <pattern>LET'S TALK ABOUT MOVIES</pattern>
-<template>Sure! <set name="topic">movies</set> What would you like to know about movies?</template>
+<template>Sure! <think><set name="topic">movies</set></think> What would you like to know about movies?</template>
 </category>
 <category>
 <pattern>WHAT IS YOUR FAVORITE MOVIE</pattern>
@@ -98,7 +98,7 @@ func TestTopicTagMatching(t *testing.T) {
 </category>
 <category>
 <pattern>LET'S TALK ABOUT BOOKS</pattern>
-<template>Great! <set name="topic">books</set> What would you like to know about books?</template>
+<template>Great! <think><set name="topic">books</set></think> What would you like to know about books?</template>
 </category>
 <category>
 <pattern>WHAT IS YOUR FAVORITE BOOK</pattern>
@@ -193,7 +193,7 @@ func TestThatAndTopicCombined(t *testing.T) {
 <aiml version="2.0">
 <category>
 <pattern>LET'S TALK ABOUT MOVIES</pattern>
-<template>Sure! <set name="topic">movies</set> What would you like to know about movies?</template>
+<template>Sure! <think><set name="topic">movies</set></think> What would you like to know about movies?</template>
 </category>
 <category>
 <pattern>YES</pattern>
@@ -414,7 +414,7 @@ func TestTopicTagWithWildcards(t *testing.T) {
 <aiml version="2.0">
 <category>
 <pattern>LET'S TALK ABOUT *</pattern>
-<template>Sure! <set name="topic"><star/></set> What would you like to know about <star/>?</template>
+<template>Sure! <think><set name="topic"><star/></set></think> What would you like to know about <star/>?</template>
 </category>
 <category>
 <pattern>WHAT IS YOUR FAVORITE *</pattern>
@@ -528,7 +528,7 @@ func TestThatTopicRegression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to process input: %v", err)
 	}
-	expected = "Nice to meet you, !"
+	expected = "Nice to meet you, John!"
 	if response != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, response)
 	}

@@ -14,9 +14,11 @@
 - **`<sr>`** - Short for `<srai>` (shorthand for `<srai><star/></srai>`)
 
 #### Pattern Matching
-- **Wildcards**: `*` (zero or more), `_` (exactly one)
+- **Wildcards**: `*` and `_` (one or more words), `^` and `#` (zero or more words), `$WORD` (priority word)
 - **Pattern normalization** - Case conversion, whitespace handling
-- **Priority matching** - Exact matches, fewer wildcards, etc.
+- **Graphmaster matching** - Word by word, in the AIML 2.0 priority order `$WORD`, `#`, `_`, word, `<set>`, `^`, `*`, with `<that>` and `<topic>` matched after the pattern
+- **Pattern-side `<bot name="..."/>`** - Matches the bot property's value
+- **Sentence splitting** - Each sentence of the input is matched and answered in turn
 - **Set matching** - `<set>name</set>` pattern support
 - **Topic filtering** - Topic-based pattern filtering with full context support
 

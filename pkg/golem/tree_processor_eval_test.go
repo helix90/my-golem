@@ -69,7 +69,7 @@ func TestTreeProcessorEvalTagBasic(t *testing.T) {
 			name:     "Eval with set and get",
 			template: "<eval><set name=\"greeting\">Hi</set></eval><get name=\"greeting\"/>",
 			setup:    func() {},
-			expected: "Hi",
+			expected: "HiHi",
 		},
 		{
 			name:     "Empty eval tag",

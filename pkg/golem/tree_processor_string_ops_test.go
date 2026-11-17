@@ -474,7 +474,7 @@ func TestTreeProcessorStringOpsWithVariables(t *testing.T) {
 <aiml version="2.0">
     <category>
         <pattern>STORE *</pattern>
-        <template><set name="text"><star/></set>Stored: <get name="text"/></template>
+        <template><think><set name="text"><star/></set></think>Stored: <get name="text"/></template>
     </category>
     <category>
         <pattern>GET LENGTH</pattern>

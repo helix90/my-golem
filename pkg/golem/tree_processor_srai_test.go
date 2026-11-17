@@ -98,7 +98,7 @@ func TestTreeProcessorSRAITag(t *testing.T) {
     </category>
     <category>
         <pattern>MY NAME IS *</pattern>
-        <template><set name="username"><star/></set>Hello <srai>GET NAME</srai>!</template>
+        <template><think><set name="username"><star/></set></think>Hello <srai>GET NAME</srai>!</template>
     </category>
 </aiml>`,
 			input:    "MY NAME IS BOB",

@@ -489,7 +489,7 @@ func TestTreeProcessorTextTagsWithWildcards(t *testing.T) {
 		{
 			name:     "Sentence with wildcard",
 			input:    "sentence echo hello world. how are you?",
-			expected: "Hello world. How are you?",
+			expected: "Hello world", // Input is split into sentences, and nothing answers the second
 		},
 		{
 			name:     "Word with wildcard",

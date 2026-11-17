@@ -27,8 +27,7 @@ var (
 	aimlVersionRe = regexp.MustCompile(`<aiml[^>]*version=["']([^"']+)["']`)
 	// Patterns are matched case-insensitively, so accept any letters (including
 	// non-ASCII), digits, wildcards, tag syntax, and common punctuation.
-	emptySetTagRe       = regexp.MustCompile(`<set>\s*</set>`)
-	validPatternCharsRe = regexp.MustCompile(`^[\p{L}\p{M}\p{N}\s*_^#$<>/="'.!?,:;-]+$`)
+	emptySetTagRe = regexp.MustCompile(`<set>\s*</set>`)
 )
 
 // AIML represents the root AIML document
@@ -48,8 +47,8 @@ type Category struct {
 
 // SetCollection represents an ordered set (maintains insertion order while ensuring uniqueness)
 type SetCollection struct {
-	Items []string          // Maintains insertion order
-	Index map[string]bool   // For O(1) uniqueness checking
+	Items []string        // Maintains insertion order
+	Index map[string]bool // For O(1) uniqueness checking
 }
 
 // NewSetCollection creates a new empty set collection
@@ -64,16 +63,16 @@ func NewSetCollection() *SetCollection {
 type AIMLKnowledgeBase struct {
 	Categories     []Category
 	Patterns       map[string]*Category
-	Sets           map[string][]string                   // Sets: for pattern matching (e.g., <set name="colors">)
+	Sets           map[string][]string // Sets: for pattern matching (e.g., <set name="colors">)
 	Topics         map[string][]string
-	TopicVars      map[string]map[string]string          // TopicVars: topicName -> varName -> value
+	TopicVars      map[string]map[string]string // TopicVars: topicName -> varName -> value
 	Variables      map[string]string
 	Properties     map[string]string
-	Maps           map[string]map[string]string          // Maps: mapName -> key -> value
-	Lists          map[string][]string                   // Lists: listName -> []values
-	Arrays         map[string][]string                   // Arrays: arrayName -> []values
-	SetCollections map[string]*SetCollection             // SetCollections: setName -> ordered unique values
-	Substitutions  map[string]map[string]string          // Substitutions: substitutionName -> pattern -> replacement
+	Maps           map[string]map[string]string // Maps: mapName -> key -> value
+	Lists          map[string][]string          // Lists: listName -> []values
+	Arrays         map[string][]string          // Arrays: arrayName -> []values
+	SetCollections map[string]*SetCollection    // SetCollections: setName -> ordered unique values
+	Substitutions  map[string]map[string]string // Substitutions: substitutionName -> pattern -> replacement
 
 	// mu guards the data that template tags read and modify at runtime
 	// (Variables, TopicVars, Properties, Maps, Lists, Arrays, SetCollections),
@@ -90,6 +89,14 @@ type AIMLKnowledgeBase struct {
 	// that equally good matches are chosen by load order rather than by map
 	// iteration order. Guarded by patternsMu.
 	patternOrder map[*Category]int
+
+	// graph is the graphmaster tree built from Patterns, which is rebuilt
+	// when Patterns changes. graphPatternsID and graphSize identify the
+	// Patterns it was built from. Guarded by graphMu.
+	graphMu         sync.Mutex
+	graph           *gmNode
+	graphPatternsID uintptr
+	graphSize       int
 }
 
 // removeCategory removes the category at index i. Patterns entries point into
@@ -127,6 +134,7 @@ func (kb *AIMLKnowledgeBase) addOrUpdateCategory(category Category) bool {
 			kb.patternOrder = make(map[*Category]int)
 		}
 		kb.patternOrder[last] = len(kb.Categories) - 1
+		kb.addToGraphmaster(last)
 	}
 	return false
 }
@@ -172,6 +180,8 @@ func (kb *AIMLKnowledgeBase) snapshotCategories() []Category {
 // points at its category in kb.Categories. When categories share a key, the
 // later one wins.
 func (kb *AIMLKnowledgeBase) rebuildPatternIndex() {
+	kb.invalidateGraphmaster()
+	defer kb.graphmaster()
 	kb.Patterns = make(map[string]*Category, len(kb.Categories))
 	kb.patternOrder = make(map[*Category]int, len(kb.Categories))
 	for i := range kb.Categories {
@@ -1414,14 +1424,8 @@ func (g *Golem) validatePattern(pattern string) error {
 		return fmt.Errorf("set name cannot be empty")
 	}
 
-	// Check for valid wildcards and tags
-	// First, normalize the pattern by replacing set and topic tags with placeholders
-	normalizedPattern := patternSetTagRe.ReplaceAllString(pattern, "SETTAG")
-	normalizedPattern = patternTopicTagRe.ReplaceAllString(normalizedPattern, "TOPICTAG")
-
-	if !validPatternCharsRe.MatchString(normalizedPattern) {
-		return fmt.Errorf("pattern contains invalid characters")
-	}
+	// Any characters may appear in a pattern; normalization removes the
+	// punctuation that input loses too
 
 	// Check for balanced wildcards (count all wildcard types)
 	wildcardCounts := CountWildcardsByType(pattern)
@@ -1493,259 +1497,31 @@ func (kb *AIMLKnowledgeBase) MatchPatternWithTopicAndThatIndexOriginalCached(g *
 // matchPattern does the matching for MatchPatternWithTopicAndThatIndexOriginalCached.
 // The caller must hold patternsMu.
 func (kb *AIMLKnowledgeBase) matchPattern(g *Golem, normalizedInput string, originalInput string, topic string, that string, thatIndex int) (*Category, map[string]string, error) {
-	// Use the already normalized input for matching
-	input := normalizedInput
-
-	// Normalize that for matching using enhanced that normalization
 	normalizedThat := ""
 	if that != "" {
 		normalizedThat = NormalizeThatPattern(that)
 	}
-
-	// Try dollar wildcard patterns first (highest priority)
-	// Dollar wildcards match exact patterns but with higher priority
-	var dollarMatch *Category
-	for _, category := range kb.Patterns {
-		// Check if this pattern has a dollar wildcard
-		if strings.HasPrefix(category.Pattern, "$") {
-			// Remove the $ prefix and check if it matches the input exactly
-			exactPattern := strings.TrimSpace(category.Pattern[1:])
-			if exactPattern == input {
-				// Check topic and that context
-				if (topic == "" || category.Topic == "" || strings.EqualFold(category.Topic, topic)) &&
-					(normalizedThat == "" || category.That == "" || category.That == normalizedThat) {
-					// Check that index if specified
-					if category.That != "" && thatIndex != 0 && category.ThatIndex != thatIndex {
-						continue
-					}
-					if dollarMatch == nil || kb.loadOrder(category) < kb.loadOrder(dollarMatch) ||
-						(kb.loadOrder(category) == kb.loadOrder(dollarMatch) && categoryKey(*category) < categoryKey(*dollarMatch)) {
-						dollarMatch = category
-					}
-				}
-			}
-		}
-	}
-	if dollarMatch != nil {
-		return dollarMatch, make(map[string]string), nil
+	inputWords := strings.Fields(normalizedInput)
+	normalize := NormalizePattern
+	if g != nil {
+		normalize = g.CachedNormalizePattern
 	}
 
-	// Try exact match (second highest priority)
-	// Build the exact key to look for
-	exactKey := input
-	if normalizedThat != "" {
-		exactKey += "|THAT:" + normalizedThat
-		if thatIndex != 0 {
-			exactKey += fmt.Sprintf("|THATINDEX:%d", thatIndex)
-		}
-		// For thatIndex = 0, also try without the THATINDEX part
-		if thatIndex == 0 {
-			exactKeyWithoutIndex := input + "|THAT:" + normalizedThat
-			if topic != "" {
-				exactKeyWithoutIndex += "|TOPIC:" + strings.ToUpper(topic)
-			}
-			if category, exists := kb.Patterns[exactKeyWithoutIndex]; exists {
-				if category.ThatIndex == 0 {
-					return category, make(map[string]string), nil
-				}
-			}
-		}
+	m := &gmMatcher{
+		kb:        kb,
+		sections:  [3][]string{inputWords, strings.Fields(normalizedThat), strings.Fields(NormalizePattern(topic))},
+		thatIndex: thatIndex,
+		original:  newOriginalText(originalInput, inputWords, normalize),
 	}
-	if topic != "" {
-		exactKey += "|TOPIC:" + strings.ToUpper(topic)
+	if category := m.match(kb.graphmaster(), gmInput, 0); category != nil {
+		return category, m.wildcards(), nil
 	}
 
-	if category, exists := kb.Patterns[exactKey]; exists {
-		// Check if the exact match also has the correct that index
-		if category.That != "" {
-			// If we're looking for a specific index, only match categories with that exact index
-			if thatIndex != 0 && category.ThatIndex != thatIndex {
-				// Skip this exact match, continue to pattern matching
-			} else if thatIndex == 0 && category.ThatIndex != 0 {
-				// If we're looking for index 0, skip categories with specific indices
-			} else {
-				return category, make(map[string]string), nil
-			}
-		} else {
-			// Category has no that pattern, only return if we're not looking for a specific index
-			if thatIndex == 0 {
-				return category, make(map[string]string), nil
-			}
-		}
-	}
-
-	// Collect all matching patterns with their priorities
-	var matchingPatterns []PatternPriority
-
-	for patternKey, category := range kb.Patterns {
-		if patternKey == "DEFAULT" {
-			continue // Handle default separately
-		}
-
-		// Extract the base pattern from the key (before the first |)
-		basePattern := strings.Split(patternKey, "|")[0]
-
-		// Check topic match - if pattern has a topic, it must match the current topic
-		if category.Topic != "" {
-			// Use wildcard matching for topic if it contains wildcards
-			if strings.Contains(category.Topic, "*") {
-				matched, _ := matchPatternWithWildcardsAndSets(topic, category.Topic, kb)
-				if !matched {
-					continue // Skip patterns that don't match the topic
-				}
-			} else {
-				// Use exact matching for topics without wildcards
-				if !strings.EqualFold(category.Topic, topic) {
-					continue // Skip patterns that have a different topic
-				}
-			}
-		}
-
-		// Check that match - if pattern has a that, it must match the current that
-		thatMatched := true
-		if category.That != "" {
-
-			// Check if the category's that index matches the requested index
-			// If category has a specific index, it must match the requested index
-			// If category has index 0 (default), it matches any index
-			if category.ThatIndex != 0 && thatIndex != 0 && category.ThatIndex != thatIndex {
-				continue // Skip patterns with different that index
-			}
-			// If we're looking for index 0 (most recent), only match categories with index 0
-			if thatIndex == 0 && category.ThatIndex != 0 {
-				continue // Skip patterns with specific indices when looking for most recent
-			}
-			// If we're looking for a specific index, only match categories with that index or index 0
-			if thatIndex != 0 && category.ThatIndex != 0 && category.ThatIndex != thatIndex {
-				continue // Skip patterns with different specific indices
-			}
-
-			// Use enhanced wildcard matching for that context
-			var thatWildcards map[string]string
-			thatMatched, thatWildcards = matchThatPatternWithWildcardsWithGolem(g, normalizedThat, category.That)
-			_ = thatWildcards // Suppress unused variable warning for now
-			if !thatMatched {
-				continue // Skip patterns that don't match the that context
-			}
-		} else if thatIndex != 0 {
-			// If we're looking for a specific index but this category has no that pattern,
-			// skip it (we only want categories with that patterns when index is specified)
-			continue
-		}
-
-		// Try enhanced matching with sets first
-		matched, _ := matchPatternWithWildcardsAndSetsCasePreservingCached(g, input, originalInput, basePattern, kb)
-		if matched && thatMatched {
-			priority := calculatePatternPriority(basePattern)
-
-			// Boost priority for patterns with that context
-			if category.That != "" {
-				// Calculate that pattern priority
-				thatPriority := calculateThatPatternPriority(category.That)
-				priority.Priority += thatPriority
-
-				// Additional boost for exact that matches
-				if normalizedThat != "" && category.That == normalizedThat {
-					priority.Priority += 100 // Extra boost for exact that match
-				}
-				// Additional boost for that patterns with wildcards (more specific)
-				if strings.Contains(category.That, "*") || strings.Contains(category.That, "_") ||
-					strings.Contains(category.That, "^") || strings.Contains(category.That, "#") ||
-					strings.Contains(category.That, "$") {
-					priority.Priority += 50 // Boost for wildcard that patterns
-				}
-				// Additional boost for patterns with specific indices (more specific than index 0)
-				if category.ThatIndex != 0 {
-					priority.Priority += 200 // Extra boost for specific index patterns
-				}
-			}
-
-			// Boost priority for patterns with topic context
-			if category.Topic != "" {
-				priority.Priority += 100 // Medium boost for topic context
-			}
-
-			matchingPatterns = append(matchingPatterns, PatternPriority{
-				key:              patternKey,
-				order:            kb.loadOrder(category),
-				Pattern:          basePattern,
-				Category:         category,
-				Priority:         priority.Priority,
-				WildcardCount:    priority.WildcardCount,
-				HasUnderscore:    priority.HasUnderscore,
-				WildcardPosition: priority.WildcardPosition,
-			})
-		}
-	}
-
-	// Sort by priority (highest first). Equal priorities go to the category
-	// loaded first, then by key, so the choice never depends on map order.
-	sort.Slice(matchingPatterns, func(i, j int) bool {
-		a, b := matchingPatterns[i], matchingPatterns[j]
-		if a.Priority != b.Priority {
-			return comparePatternPriorities(a.Priority, b.Priority)
-		}
-		if a.order != b.order {
-			return a.order < b.order
-		}
-		return a.key < b.key
-	})
-
-	// Return the highest priority match
-	if len(matchingPatterns) > 0 {
-		bestMatch := matchingPatterns[0]
-
-		// Capture wildcard values from input pattern using case-preserving normalization
-		// We need to normalize for matching but preserve case for text processing tags
-		casePreservingInput := NormalizeForMatchingCasePreserving(originalInput)
-		// Also normalize the pattern to lowercase for case-insensitive matching
-		normalizedPattern := strings.ToLower(bestMatch.Pattern)
-		_, inputWildcards := matchPatternWithWildcardsAndSetsCasePreservingCached(g, casePreservingInput, originalInput, normalizedPattern, kb)
-		if inputWildcards == nil {
-			_, inputWildcards = matchPatternWithWildcards(casePreservingInput, normalizedPattern)
-		}
-
-		// Capture wildcard values from that context if it has wildcards
-		thatWildcards := make(map[string]string)
-		if bestMatch.Category.That != "" && (strings.Contains(bestMatch.Category.That, "*") ||
-			strings.Contains(bestMatch.Category.That, "_") || strings.Contains(bestMatch.Category.That, "^") ||
-			strings.Contains(bestMatch.Category.That, "#") || strings.Contains(bestMatch.Category.That, "$") ||
-			strings.Contains(bestMatch.Category.That, "<set>") || strings.Contains(bestMatch.Category.That, "<topic>")) {
-			_, thatWildcards = matchThatPatternWithWildcardsWithGolem(g, normalizedThat, bestMatch.Category.That)
-		}
-
-		// Capture wildcard values from topic context if it has wildcards
-		topicWildcards := make(map[string]string)
-		if bestMatch.Category.Topic != "" && strings.Contains(bestMatch.Category.Topic, "*") {
-			_, topicWildcards = matchPatternWithWildcardsAndSets(topic, bestMatch.Category.Topic, kb)
-			if topicWildcards == nil {
-				_, topicWildcards = matchPatternWithWildcards(topic, bestMatch.Category.Topic)
-			}
-		}
-
-		// Merge wildcard values (input wildcards take precedence)
-		allWildcards := make(map[string]string)
-		for k, v := range thatWildcards {
-			allWildcards[k] = v
-		}
-		for k, v := range topicWildcards {
-			allWildcards[k] = v
-		}
-		for k, v := range inputWildcards {
-			allWildcards[k] = v
-		}
-
-		return bestMatch.Category, allWildcards, nil
-	}
-
-	// Try default pattern (lowest priority)
+	// A DEFAULT category, as in AIML 1.0, answers what nothing else matches
 	if category, exists := kb.Patterns["DEFAULT"]; exists {
-		// Check topic match if topic is specified
-		if topic == "" || category.Topic == "" || category.Topic == topic {
-			// Check that match if that is specified
-			if normalizedThat == "" || category.That == "" || category.That == normalizedThat {
-				return category, make(map[string]string), nil
-			}
+		if (topic == "" || category.Topic == "" || strings.EqualFold(category.Topic, topic)) &&
+			(normalizedThat == "" || category.That == "" || category.That == normalizedThat) {
+			return category, make(map[string]string), nil
 		}
 	}
 
@@ -1765,113 +1541,6 @@ type PatternPriorityInfo struct {
 	WildcardPosition int
 }
 
-// comparePatternPriorities compares two pattern priorities
-func comparePatternPriorities(p1, p2 int) bool {
-	return p1 > p2
-}
-
-// calculatePatternPriority calculates the priority of a pattern for matching
-// Higher priority values mean higher precedence
-// AIML2 Priority order: $ > # > _ > exact > ^ > *
-func calculatePatternPriority(pattern string) PatternPriorityInfo {
-	return calculatePatternPriorityCached(nil, pattern)
-}
-
-// calculatePatternPriorityCached calculates pattern priority with caching support
-func calculatePatternPriorityCached(g *Golem, pattern string) PatternPriorityInfo {
-	// Check cache first
-	if g != nil && g.patternMatchingCache != nil {
-		if priority, found := g.patternMatchingCache.GetPatternPriority(pattern); found {
-			return priority
-		}
-	}
-
-	// Calculate priority
-	priority := calculatePatternPriorityInternal(pattern)
-
-	// Cache the result
-	if g != nil && g.patternMatchingCache != nil {
-		g.patternMatchingCache.SetPatternPriority(pattern, priority)
-	}
-
-	return priority
-}
-
-// calculatePatternPriorityInternal calculates the priority of a pattern for matching (internal implementation)
-func calculatePatternPriorityInternal(pattern string) PatternPriorityInfo {
-	// Count wildcards
-	starCount := strings.Count(pattern, "*")
-	underscoreCount := strings.Count(pattern, "_")
-	caretCount := strings.Count(pattern, "^")
-	hashCount := strings.Count(pattern, "#")
-	dollarCount := strings.Count(pattern, "$")
-	totalWildcards := starCount + underscoreCount + caretCount + hashCount
-
-	// Check for exact match (no wildcards)
-	isExactMatch := totalWildcards == 0
-
-	// Calculate wildcard position score (wildcards at end are higher priority)
-	wildcardPosition := 0
-	if strings.HasSuffix(pattern, "*") || strings.HasSuffix(pattern, "_") ||
-		strings.HasSuffix(pattern, "^") || strings.HasSuffix(pattern, "#") {
-		wildcardPosition = 1 // Wildcard at end
-	} else if strings.HasPrefix(pattern, "*") || strings.HasPrefix(pattern, "_") ||
-		strings.HasPrefix(pattern, "^") || strings.HasPrefix(pattern, "#") {
-		wildcardPosition = 0 // Wildcard at beginning
-	} else if totalWildcards > 0 {
-		wildcardPosition = 2 // Wildcard in middle (highest priority)
-	}
-
-	// Calculate priority score based on AIML2 priority order
-	priority := 0
-
-	// $ (dollar) - highest priority exact match
-	if dollarCount > 0 {
-		priority = 10000 + (1000 - totalWildcards)
-	} else if isExactMatch {
-		// Exact match - high priority
-		priority = 8000
-	} else if hashCount > 0 {
-		// # (hash) - high priority zero+ wildcard
-		priority = 7000 + (1000 - totalWildcards)
-	} else if underscoreCount > 0 {
-		// _ (underscore) - medium-high priority one+ wildcard
-		priority = 6000 + (1000 - totalWildcards)
-	} else if caretCount > 0 {
-		// ^ (caret) - medium priority zero+ wildcard
-		priority = 5000 + (1000 - totalWildcards)
-	} else if starCount > 0 {
-		// * (asterisk) - lowest priority zero+ wildcard
-		priority = 4000 + (1000 - totalWildcards)
-	}
-
-	// Bonus for wildcard position
-	priority += wildcardPosition * 10
-
-	// Bonus for fewer wildcards (more specific patterns)
-	priority += (9 - totalWildcards) * 100
-
-	// Bonus for word count (more specific patterns have more words)
-	// This ensures "TOPIC UPPERCASE *" has higher priority than "TOPIC *"
-	words := strings.Fields(pattern)
-	wordCount := 0
-	for _, word := range words {
-		// Don't count wildcards as words
-		if word != "*" && word != "_" && word != "^" && word != "#" && word != "$" {
-			wordCount++
-		}
-	}
-	// Add word count bonus (each word adds 10 points)
-	priority += wordCount * 10
-
-	return PatternPriorityInfo{
-		Priority:         priority,
-		WildcardCount:    totalWildcards,
-		HasUnderscore:    underscoreCount > 0,
-		WildcardPosition: wildcardPosition,
-	}
-}
-
 // sortPatternsByPriority sorts patterns by priority (highest first)
 func sortPatternsByPriority(patterns []PatternPriority) {
 	// Simple bubble sort for priority (highest first)
@@ -1885,275 +1554,12 @@ func sortPatternsByPriority(patterns []PatternPriority) {
 	}
 }
 
-// matchPatternWithWildcards matches input against a pattern with wildcards
-func matchPatternWithWildcards(input, pattern string) (bool, map[string]string) {
-	wildcards := make(map[string]string)
-
-	// Convert pattern to regex
-	regexPattern := patternToRegex(pattern)
-	re, err := regexp.Compile(regexPattern)
-	if err != nil {
-		return false, nil
-	}
-
-	matches := re.FindStringSubmatch(input)
-	if matches == nil {
-		return false, nil
-	}
-
-	// Extract wildcard values
-	starIndex := 1
-	for _, match := range matches[1:] {
-		// Include empty matches for zero+ wildcards
-		// This allows patterns like "HELLO *" to match "HELLO" with empty wildcard
-		wildcards[fmt.Sprintf("star%d", starIndex)] = match
-		starIndex++
-	}
-
-	return true, wildcards
-}
-
-// matchPatternWithWildcardsAndSets matches input against a pattern with wildcards and sets
-func matchPatternWithWildcardsAndSets(input, pattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
-	return matchPatternWithWildcardsAndSetsCasePreserving(input, input, pattern, kb)
-}
-
-func matchPatternWithWildcardsAndSetsCasePreserving(normalizedInput, originalInput, pattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
-	return matchPatternWithWildcardsAndSetsCasePreservingCached(nil, normalizedInput, originalInput, pattern, kb)
-}
-
-// matchPatternWithWildcardsAndSetsCasePreservingCached matches input against a pattern with wildcards and sets with caching support
-func matchPatternWithWildcardsAndSetsCasePreservingCached(g *Golem, normalizedInput, originalInput, pattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
-	regexPattern := patternToRegexWithSetsCached(g, pattern, kb)
-
-	// A pattern with sets matches differently when set members change, so it
-	// is cached under its regex, which lists the current members
-	cacheKey := pattern
-	if strings.Contains(pattern, "<set>") {
-		cacheKey = regexPattern
-	}
-
-	// Check cache first
-	if g != nil && g.patternMatchingCache != nil {
-		if result, found := g.patternMatchingCache.GetWildcardMatch(normalizedInput, cacheKey); found {
-			return result.Matched, result.Wildcards
-		}
-	}
-
-	// Perform the matching
-	matched, wildcards := matchPatternWithWildcardsAndSetsCasePreservingInternal(g, normalizedInput, originalInput, pattern, regexPattern, kb)
-
-	// Cache the result
-	if g != nil && g.patternMatchingCache != nil {
-		result := WildcardMatchResult{
-			Matched:   matched,
-			Wildcards: wildcards,
-			Pattern:   pattern,
-			Input:     normalizedInput,
-		}
-		g.patternMatchingCache.SetWildcardMatch(normalizedInput, cacheKey, result)
-	}
-
-	return matched, wildcards
-}
-
-// matchPatternWithWildcardsAndSetsCasePreservingInternal matches input against a pattern with wildcards and sets (internal implementation)
-func matchPatternWithWildcardsAndSetsCasePreservingInternal(g *Golem, normalizedInput, originalInput, pattern, regexPattern string, kb *AIMLKnowledgeBase) (bool, map[string]string) {
-	wildcards := make(map[string]string)
-
-	// If the pattern is lowercase, make the regex case-insensitive.
-	if pattern != strings.ToUpper(pattern) {
-		regexPattern = "(?i)" + regexPattern
-	}
-
-	re := getCompiledRegex(g, regexPattern)
-	if re == nil {
-		return false, nil
-	}
-
-	matches := re.FindStringSubmatch(normalizedInput)
-	if matches == nil {
-		return false, nil
-	}
-
-	// Extract wildcards from normalized input (fallback/default behaviour).
-	starIndex := 1
-	for _, match := range matches[1:] {
-		wildcards[fmt.Sprintf("star%d", starIndex)] = match
-		starIndex++
-	}
-
-	// If original input is different from normalized input, try case-preserving extraction.
-	if originalInput != normalizedInput {
-		// First try: extract from case-preserved (punctuation-normalised) input.
-		originalNormalized := NormalizeForMatchingCasePreserving(originalInput)
-		lowercasePattern := strings.ToLower(pattern)
-		lowercaseRegexPattern := patternToRegexWithSetsCached(g, lowercasePattern, kb)
-		if lowercaseRe := getCompiledRegex(g, lowercaseRegexPattern); lowercaseRe != nil {
-			if casePreservedMatches := lowercaseRe.FindStringSubmatch(originalNormalized); len(casePreservedMatches) > 1 {
-				starIndex := 1
-				for _, match := range casePreservedMatches[1:] {
-					wildcards[fmt.Sprintf("star%d", starIndex)] = match
-					starIndex++
-				}
-			}
-		}
-
-		// Second try: extract from completely unnormalised input to preserve punctuation.
-		lenientPattern := strings.ToLower(pattern)
-		lenientPattern = strings.ReplaceAll(lenientPattern, "*", "(.+?)")
-		lenientPattern = strings.ReplaceAll(lenientPattern, "_", "([\\w]+)")
-		lenientPattern = whitespaceNormRe.ReplaceAllString(lenientPattern, `\s+`)
-		lenientRegexStr := "(?i)^\\s*" + lenientPattern + "\\s*$"
-		if lenientRe := getCompiledRegex(g, lenientRegexStr); lenientRe != nil {
-			if unnormalizedMatches := lenientRe.FindStringSubmatch(originalInput); len(unnormalizedMatches) > 1 {
-				starIndex := 1
-				for _, match := range unnormalizedMatches[1:] {
-					wildcards[fmt.Sprintf("star%d", starIndex)] = strings.TrimSpace(match)
-					starIndex++
-				}
-			}
-		}
-	}
-	return true, wildcards
-}
-
-// getCompiledRegex returns a cached *regexp.Regexp for the given regex string, compiling it if necessary.
-// When g is nil (no Golem context), it compiles without caching.
-func getCompiledRegex(g *Golem, regexStr string) *regexp.Regexp {
-	if g != nil && g.patternRegexCache != nil {
-		re, err := g.patternRegexCache.GetCompiledRegex(regexStr)
-		if err != nil {
-			return nil
-		}
-		return re
-	}
-	re, err := regexp.Compile(regexStr)
-	if err != nil {
-		return nil
-	}
-	return re
-}
-
-// patternToRegex converts AIML pattern to regex. Without a knowledge base,
-// a <set> matches any single word.
-func patternToRegex(pattern string) string {
-	return buildPatternRegex(nil, pattern, nil)
-}
-
-// patternToRegexWithSetsCached converts AIML pattern to regex, matching each
-// <set> against the knowledge base's members
-func patternToRegexWithSetsCached(g *Golem, pattern string, kb *AIMLKnowledgeBase) string {
-	return buildPatternRegex(g, pattern, kb)
-}
-
 // noMatchRe is a regex group that never matches, for sets that do not exist
 const noMatchRe = `(\b\B)`
 
 // patternPlaceholderBase is the first of the private-use runes that stand in
 // for <set> and <topic> groups while the pattern is converted
 const patternPlaceholderBase = 0xE000
-
-// isZeroPlusWildcard reports whether r is a wildcard that matches zero or more words
-func isZeroPlusWildcard(r rune) bool {
-	return r == '*' || r == '^' || r == '#'
-}
-
-// buildPatternRegex converts an AIML pattern to an anchored regex.
-//
-// A wildcard that stands alone as a word matches whole words only: "HELLO *"
-// matches "HELLO" and "HELLO THERE" but not "HELLOTHERE". *, ^ and # match
-// zero or more words; _ matches one word. Each <set> becomes an alternation of
-// its members (or a group that never matches if kb is given and the set does
-// not exist), and each <topic> matches one word.
-func buildPatternRegex(g *Golem, pattern string, kb *AIMLKnowledgeBase) string {
-	// Replace set and topic tags with placeholder runes first, so that the
-	// regex they become is not converted again as pattern text
-	var groups []string
-	placeholder := func(group string) string {
-		groups = append(groups, group)
-		return string(rune(patternPlaceholderBase + len(groups) - 1))
-	}
-	pattern = patternSetTagRe.ReplaceAllStringFunc(pattern, func(match string) string {
-		if kb == nil {
-			return placeholder(`(\S+)`)
-		}
-		setName := strings.ToUpper(strings.TrimSpace(patternSetTagRe.FindStringSubmatch(match)[1]))
-		return placeholder(setRegex(g, setName, kb))
-	})
-	pattern = patternTopicTagRe.ReplaceAllStringFunc(pattern, func(string) string {
-		return placeholder(`(\S*)`)
-	})
-
-	// standaloneWildcard reports whether the byte at i is a zero+ wildcard
-	// that is a whole word. Spaces and wildcards are ASCII, so byte indices
-	// can be used.
-	standaloneWildcard := func(i int) bool {
-		return i < len(pattern) && isZeroPlusWildcard(rune(pattern[i])) &&
-			(i == 0 || pattern[i-1] == ' ') && (i == len(pattern)-1 || pattern[i+1] == ' ')
-	}
-
-	var result strings.Builder
-	inAlternationGroup := false
-	for i, char := range pattern {
-		if idx := int(char) - patternPlaceholderBase; idx >= 0 && idx < len(groups) {
-			result.WriteString(groups[idx])
-			continue
-		}
-		switch char {
-		case '*', '^', '#':
-			if standaloneWildcard(i) {
-				// Zero or more whole words, together with the space after
-				// them, so that matching no words needs no space
-				result.WriteString(`(?:(.+?)(?: |$))?`)
-			} else {
-				result.WriteString("(.*?)")
-			}
-		case '_':
-			// Single wildcard: matches exactly one word
-			result.WriteString(`(\S+)`)
-		case '$':
-			// Dollar wildcard: highest priority exact match (AIML2)
-			// For regex purposes, treat as exact match (no wildcard capture)
-			continue
-		case ' ':
-			switch {
-			case standaloneWildcard(i - 1):
-				// Already matched by the preceding wildcard
-			case standaloneWildcard(i + 1):
-				// The next word is a wildcard that may match nothing, so this
-				// word may also be the last one
-				result.WriteString("(?: |$)")
-			default:
-				result.WriteRune(' ')
-			}
-		case '(':
-			// An alternation group (containing |) is kept; other parentheses
-			// are literal
-			groupEnd := findMatchingParen(pattern, i)
-			if groupEnd > i && strings.Contains(pattern[i:groupEnd+1], "|") {
-				inAlternationGroup = true
-				result.WriteRune('(')
-			} else {
-				result.WriteString("\\(")
-			}
-		case ')':
-			if inAlternationGroup {
-				inAlternationGroup = false
-				result.WriteRune(')')
-			} else {
-				result.WriteString("\\)")
-			}
-		case '|':
-			// Don't escape pipe character as it's needed for alternation
-			result.WriteRune(char)
-		default:
-			result.WriteString(regexp.QuoteMeta(string(char)))
-		}
-	}
-
-	return "^" + result.String() + "$"
-}
 
 // setRegex returns the regex group matching any member of the set, or a
 // group that never matches if the set does not exist or is empty
@@ -2178,27 +1584,6 @@ func setRegex(g *Golem, setName string, kb *AIMLKnowledgeBase) string {
 		g.patternMatchingCache.SetSetRegex(setName, members, regex)
 	}
 	return regex
-}
-
-// findMatchingParen finds the matching closing parenthesis for an opening parenthesis
-func findMatchingParen(pattern string, openPos int) int {
-	if openPos >= len(pattern) || pattern[openPos] != '(' {
-		return -1
-	}
-
-	depth := 1
-	for i := openPos + 1; i < len(pattern); i++ {
-		switch pattern[i] {
-		case '(':
-			depth++
-		case ')':
-			depth--
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
 }
 
 // ProcessTemplate processes an AIML template and returns the response
@@ -2849,7 +2234,7 @@ func (g *Golem) processUppercaseTagsWithContext(template string, ctx *VariableCo
 
 			// For non-whitespace content, trim edges then normalize internal whitespace
 			content := strings.TrimSpace(raw)
-			content = regexp.MustCompile(`\s+`).ReplaceAllString(content, " ")
+			content = whitespaceNormRe.ReplaceAllString(content, " ")
 
 			// Check cache first
 			var processedContent string
@@ -2892,7 +2277,7 @@ func (g *Golem) processLowercaseTagsWithContext(template string, _ *VariableCont
 			}
 
 			// Normalize whitespace before lowercasing
-			content = regexp.MustCompile(`\s+`).ReplaceAllString(content, " ")
+			content = whitespaceNormRe.ReplaceAllString(content, " ")
 			processedContent := strings.ToLower(content)
 
 			g.LogDebug("Lowercase tag: '%s' -> '%s'", match[1], processedContent)
@@ -2926,7 +2311,7 @@ func (g *Golem) processFormalTagsWithContext(template string, ctx *VariableConte
 
 			// For non-whitespace content, trim edges then normalize internal whitespace
 			content := strings.TrimSpace(raw)
-			content = regexp.MustCompile(`\s+`).ReplaceAllString(content, " ")
+			content = whitespaceNormRe.ReplaceAllString(content, " ")
 
 			// Check cache first
 			var processedContent string
@@ -4470,7 +3855,7 @@ func (g *Golem) normalizeTextForOutput(input string) string {
 	text = strings.ToUpper(text)
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Replace special characters with spaces first
 	text = strings.ReplaceAll(text, "@", " ")
@@ -4500,7 +3885,7 @@ func (g *Golem) normalizeTextForOutput(input string) string {
 	text = strings.ReplaceAll(text, "'", "")
 
 	// Clean up whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	return text
@@ -4514,7 +3899,7 @@ func (g *Golem) denormalizeText(input string) string {
 	text = strings.ToLower(text)
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Capitalize first letter of each sentence
 	text = g.capitalizeSentences(text)
@@ -7882,103 +7267,105 @@ type NormalizedContent struct {
 }
 
 // expandContractions expands common English contractions for better pattern matching
-func expandContractions(text string) string {
-	// Create a map of contractions to their expanded forms
-	contractions := map[string]string{
-		// Common contractions
-		"I'M": "I AM", "I'm": "I am", "i'm": "i am",
-		"YOU'RE": "YOU ARE", "You're": "You are", "you're": "you are",
-		"HE'S": "HE IS", "He's": "He is", "he's": "he is",
-		"SHE'S": "SHE IS", "She's": "She is", "she's": "she is",
-		"IT'S": "IT IS", "It's": "It is", "it's": "it is",
-		"WE'RE": "WE ARE", "We're": "We are", "we're": "we are",
-		"THEY'RE": "THEY ARE", "They're": "They are", "they're": "they are",
+// contractions maps contractions to their expanded forms
+var contractions = map[string]string{
+	// Common contractions
+	"I'M": "I AM", "I'm": "I am", "i'm": "i am",
+	"YOU'RE": "YOU ARE", "You're": "You are", "you're": "you are",
+	"HE'S": "HE IS", "He's": "He is", "he's": "he is",
+	"SHE'S": "SHE IS", "She's": "She is", "she's": "she is",
+	"IT'S": "IT IS", "It's": "It is", "it's": "it is",
+	"WE'RE": "WE ARE", "We're": "We are", "we're": "we are",
+	"THEY'RE": "THEY ARE", "They're": "They are", "they're": "they are",
 
-		// Negative contractions
-		"DON'T": "DO NOT", "Don't": "Do not", "don't": "do not",
-		"WON'T": "WILL NOT", "Won't": "Will not", "won't": "will not",
-		"CAN'T": "CANNOT", "Can't": "Cannot", "can't": "cannot",
-		"ISN'T": "IS NOT", "Isn't": "Is not", "isn't": "is not",
-		"AREN'T": "ARE NOT", "Aren't": "Are not", "aren't": "are not",
-		"WASN'T": "WAS NOT", "Wasn't": "Was not", "wasn't": "was not",
-		"WEREN'T": "WERE NOT", "Weren't": "Were not", "weren't": "were not",
-		"HASN'T": "HAS NOT", "Hasn't": "Has not", "hasn't": "has not",
-		"HAVEN'T": "HAVE NOT", "Haven't": "Have not", "haven't": "have not",
-		"HADN'T": "HAD NOT", "Hadn't": "Had not", "hadn't": "had not",
-		"WOULDN'T": "WOULD NOT", "Wouldn't": "Would not", "wouldn't": "would not",
-		"SHOULDN'T": "SHOULD NOT", "Shouldn't": "Should not", "shouldn't": "should not",
-		"COULDN'T": "COULD NOT", "Couldn't": "Could not", "couldn't": "could not",
-		"MUSTN'T": "MUST NOT", "Mustn't": "Must not", "mustn't": "must not",
-		"SHAN'T": "SHALL NOT", "Shan't": "Shall not", "shan't": "shall not",
+	// Negative contractions
+	"DON'T": "DO NOT", "Don't": "Do not", "don't": "do not",
+	"WON'T": "WILL NOT", "Won't": "Will not", "won't": "will not",
+	"CAN'T": "CANNOT", "Can't": "Cannot", "can't": "cannot",
+	"ISN'T": "IS NOT", "Isn't": "Is not", "isn't": "is not",
+	"AREN'T": "ARE NOT", "Aren't": "Are not", "aren't": "are not",
+	"WASN'T": "WAS NOT", "Wasn't": "Was not", "wasn't": "was not",
+	"WEREN'T": "WERE NOT", "Weren't": "Were not", "weren't": "were not",
+	"HASN'T": "HAS NOT", "Hasn't": "Has not", "hasn't": "has not",
+	"HAVEN'T": "HAVE NOT", "Haven't": "Have not", "haven't": "have not",
+	"HADN'T": "HAD NOT", "Hadn't": "Had not", "hadn't": "had not",
+	"WOULDN'T": "WOULD NOT", "Wouldn't": "Would not", "wouldn't": "would not",
+	"SHOULDN'T": "SHOULD NOT", "Shouldn't": "Should not", "shouldn't": "should not",
+	"COULDN'T": "COULD NOT", "Couldn't": "Could not", "couldn't": "could not",
+	"MUSTN'T": "MUST NOT", "Mustn't": "Must not", "mustn't": "must not",
+	"SHAN'T": "SHALL NOT", "Shan't": "Shall not", "shan't": "shall not",
 
-		// Future tense contractions
-		"I'LL": "I WILL", "I'll": "I will", "i'll": "i will",
-		"YOU'LL": "YOU WILL", "You'll": "You will", "you'll": "you will",
-		"HE'LL": "HE WILL", "He'll": "He will", "he'll": "he will",
-		"SHE'LL": "SHE WILL", "She'll": "She will", "she'll": "she will",
-		"IT'LL": "IT WILL", "It'll": "It will", "it'll": "it will",
-		"WE'LL": "WE WILL", "We'll": "We will", "we'll": "we will",
-		"THEY'LL": "THEY WILL", "They'll": "They will", "they'll": "they will",
+	// Future tense contractions
+	"I'LL": "I WILL", "I'll": "I will", "i'll": "i will",
+	"YOU'LL": "YOU WILL", "You'll": "You will", "you'll": "you will",
+	"HE'LL": "HE WILL", "He'll": "He will", "he'll": "he will",
+	"SHE'LL": "SHE WILL", "She'll": "She will", "she'll": "she will",
+	"IT'LL": "IT WILL", "It'll": "It will", "it'll": "it will",
+	"WE'LL": "WE WILL", "We'll": "We will", "we'll": "we will",
+	"THEY'LL": "THEY WILL", "They'll": "They will", "they'll": "they will",
 
-		// Perfect tense contractions
-		"I'VE": "I HAVE", "I've": "I have", "i've": "i have",
-		"YOU'VE": "YOU HAVE", "You've": "You have", "you've": "you have",
-		"WE'VE": "WE HAVE", "We've": "We have", "we've": "we have",
-		"THEY'VE": "THEY HAVE", "They've": "They have", "they've": "they have",
+	// Perfect tense contractions
+	"I'VE": "I HAVE", "I've": "I have", "i've": "i have",
+	"YOU'VE": "YOU HAVE", "You've": "You have", "you've": "you have",
+	"WE'VE": "WE HAVE", "We've": "We have", "we've": "we have",
+	"THEY'VE": "THEY HAVE", "They've": "They have", "they've": "they have",
 
-		// Past tense contractions (I'D can be either HAD or WOULD, context dependent)
-		"I'D": "I WOULD", "I'd": "I would", "i'd": "i would",
-		"YOU'D": "YOU HAD", "You'd": "You had", "you'd": "you had",
-		"HE'D": "HE HAD", "He'd": "He had", "he'd": "he had",
-		"SHE'D": "SHE HAD", "She'd": "She had", "she'd": "she had",
-		"IT'D": "IT HAD", "It'd": "It had", "it'd": "it had",
-		"WE'D": "WE HAD", "We'd": "We had", "we'd": "we had",
-		"THEY'D": "THEY HAD", "They'd": "They had", "they'd": "they had",
+	// Past tense contractions (I'D can be either HAD or WOULD, context dependent)
+	"I'D": "I WOULD", "I'd": "I would", "i'd": "i would",
+	"YOU'D": "YOU HAD", "You'd": "You had", "you'd": "you had",
+	"HE'D": "HE HAD", "He'd": "He had", "he'd": "he had",
+	"SHE'D": "SHE HAD", "She'd": "She had", "she'd": "she had",
+	"IT'D": "IT HAD", "It'd": "It had", "it'd": "it had",
+	"WE'D": "WE HAD", "We'd": "We had", "we'd": "we had",
+	"THEY'D": "THEY HAD", "They'd": "They had", "they'd": "they had",
 
-		// Other common contractions
-		"LET'S": "LET US", "Let's": "Let us", "let's": "let us",
-		"THAT'S": "THAT IS", "That's": "That is", "that's": "that is",
-		"THERE'S": "THERE IS", "There's": "There is", "there's": "there is",
-		"HERE'S": "HERE IS", "Here's": "Here is", "here's": "here is",
-		"WHAT'S": "WHAT IS", "What's": "What is", "what's": "what is",
-		"WHO'S": "WHO IS", "Who's": "Who is", "who's": "who is",
-		"WHERE'S": "WHERE IS", "Where's": "Where is", "where's": "where is",
-		"WHEN'S": "WHEN IS", "When's": "When is", "when's": "when is",
-		"WHY'S": "WHY IS", "Why's": "Why is", "why's": "why is",
-		"HOW'S": "HOW IS", "How's": "How is", "how's": "how is",
+	// Other common contractions
+	"LET'S": "LET US", "Let's": "Let us", "let's": "let us",
+	"THAT'S": "THAT IS", "That's": "That is", "that's": "that is",
+	"THERE'S": "THERE IS", "There's": "There is", "there's": "there is",
+	"HERE'S": "HERE IS", "Here's": "Here is", "here's": "here is",
+	"WHAT'S": "WHAT IS", "What's": "What is", "what's": "what is",
+	"WHO'S": "WHO IS", "Who's": "Who is", "who's": "who is",
+	"WHERE'S": "WHERE IS", "Where's": "Where is", "where's": "where is",
+	"WHEN'S": "WHEN IS", "When's": "When is", "when's": "when is",
+	"WHY'S": "WHY IS", "Why's": "Why is", "why's": "why is",
+	"HOW'S": "HOW IS", "How's": "How is", "how's": "how is",
 
-		// Possessive contractions (less common but useful)
-		"Y'ALL": "YOU ALL", "Y'all": "You all", "y'all": "you all",
-		"MA'AM": "MADAM", "Ma'am": "Madam", "ma'am": "madam",
-		"O'CLOCK": "OF THE CLOCK", "o'clock": "of the clock",
+	// Possessive contractions (less common but useful)
+	"Y'ALL": "YOU ALL", "Y'all": "You all", "y'all": "you all",
+	"MA'AM": "MADAM", "Ma'am": "Madam", "ma'am": "madam",
+	"O'CLOCK": "OF THE CLOCK", "o'clock": "of the clock",
 
-		// Complex contractions (must be processed before simple ones)
-		"I'D'VE": "I WOULD HAVE", "I'd've": "I would have", "i'd've": "i would have",
-		"WOULDN'T'VE": "WOULD NOT HAVE", "Wouldn't've": "Would not have", "wouldn't've": "would not have",
-		"SHOULDN'T'VE": "SHOULD NOT HAVE", "Shouldn't've": "Should not have", "shouldn't've": "should not have",
-		"COULDN'T'VE": "COULD NOT HAVE", "Couldn't've": "Could not have", "couldn't've": "could not have",
-		"MUSTN'T'VE": "MUST NOT HAVE", "Mustn't've": "Must not have", "mustn't've": "must not have",
-	}
+	// Complex contractions (must be processed before simple ones)
+	"I'D'VE": "I WOULD HAVE", "I'd've": "I would have", "i'd've": "i would have",
+	"WOULDN'T'VE": "WOULD NOT HAVE", "Wouldn't've": "Would not have", "wouldn't've": "would not have",
+	"SHOULDN'T'VE": "SHOULD NOT HAVE", "Shouldn't've": "Should not have", "shouldn't've": "should not have",
+	"COULDN'T'VE": "COULD NOT HAVE", "Couldn't've": "Could not have", "couldn't've": "could not have",
+	"MUSTN'T'VE": "MUST NOT HAVE", "Mustn't've": "Must not have", "mustn't've": "must not have",
+}
 
-	// Apply contractions in order of length (longest first) to avoid partial replacements
-	// Sort keys by length in descending order
-	var keys []string
+// contractionKeys lists the contractions longest first, so that longer ones
+// are expanded before the shorter ones they contain
+var contractionKeys = func() []string {
+	keys := make([]string, 0, len(contractions))
 	for k := range contractions {
 		keys = append(keys, k)
 	}
-
-	// Sort by length (longest first)
-	for i := 0; i < len(keys)-1; i++ {
-		for j := i + 1; j < len(keys); j++ {
-			if len(keys[i]) < len(keys[j]) {
-				keys[i], keys[j] = keys[j], keys[i]
-			}
+	sort.Slice(keys, func(i, j int) bool {
+		if len(keys[i]) != len(keys[j]) {
+			return len(keys[i]) > len(keys[j])
 		}
-	}
+		return keys[i] < keys[j]
+	})
+	return keys
+}()
 
-	// Apply contractions
-	for _, contraction := range keys {
-		text = strings.ReplaceAll(text, contraction, contractions[contraction])
+func expandContractions(text string) string {
+	// Every contraction contains an apostrophe
+	if strings.Contains(text, "'") {
+		for _, contraction := range contractionKeys {
+			text = strings.ReplaceAll(text, contraction, contractions[contraction])
+		}
 	}
 
 	// Post-process to handle context-dependent contractions
@@ -7991,132 +7378,6 @@ func expandContractions(text string) string {
 	text = strings.ReplaceAll(text, "I WOULD HAD", "I HAD HAD")
 
 	return text
-}
-
-// normalizeText normalizes text for pattern matching while preserving special content
-func normalizeText(input string) NormalizedContent {
-	preservedSections := make(map[string]string)
-	normalizedText := input
-
-	// Step 1: Preserve mathematical expressions (numbers, operators, parentheses)
-	// This includes expressions like "2 + 3", "x = 5", "sqrt(16)", etc.
-	// But avoid matching simple variable assignments like "name=user"
-	mathPattern := regexp.MustCompile(`\b\d+(?:\.\d+)?(?:\s*[+\-*/=<>!&|^~]\s*\d+(?:\.\d+)?)+\b|\b\w+\s*[+\-*/=<>!&|^~]\s*\d+(?:\.\d+)?\b|\b\w+\s*\([^)]*\)\s*[+\-*/=<>!&|^~]\s*\d+(?:\.\d+)?\b`)
-	mathMatches := mathPattern.FindAllString(normalizedText, -1)
-	for i, match := range mathMatches {
-		placeholder := fmt.Sprintf("__MATH_%d__", i)
-		preservedSections[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Step 2: Preserve quoted strings (single and double quotes)
-	quotePattern := regexp.MustCompile(`"[^"]*"|'[^']*'`)
-	quoteMatches := quotePattern.FindAllString(normalizedText, -1)
-	for i, match := range quoteMatches {
-		placeholder := fmt.Sprintf("__QUOTE_%d__", i)
-		preservedSections[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Step 3: Preserve URLs and email addresses
-	urlPattern := regexp.MustCompile(`https?://[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-	urlMatches := urlPattern.FindAllString(normalizedText, -1)
-	for i, match := range urlMatches {
-		placeholder := fmt.Sprintf("__URL_%d__", i)
-		preservedSections[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Step 4: Preserve AIML tags (but not set/topic tags which need special handling)
-	// First, temporarily replace set/topic tags to avoid matching them
-	tempSetTags := make(map[string]string)
-	tempTopicTags := make(map[string]string)
-
-	// Replace set tags temporarily
-	setPattern := regexp.MustCompile(`<set>[^<]+</set>`)
-	setMatches := setPattern.FindAllString(normalizedText, -1)
-	for i, match := range setMatches {
-		placeholder := fmt.Sprintf("__TEMP_SET_%d__", i)
-		tempSetTags[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Replace topic tags temporarily
-	topicPattern := regexp.MustCompile(`<topic>[^<]+</topic>`)
-	topicMatches := topicPattern.FindAllString(normalizedText, -1)
-	for i, match := range topicMatches {
-		placeholder := fmt.Sprintf("__TEMP_TOPIC_%d__", i)
-		tempTopicTags[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Now match other AIML tags (more specific pattern to avoid conflicts)
-	aimlTagPattern := regexp.MustCompile(`<[a-zA-Z][^>]*/>|<[a-zA-Z][^>]*>.*?</[a-zA-Z][^>]*>`)
-	aimlTagMatches := aimlTagPattern.FindAllString(normalizedText, -1)
-	for i, match := range aimlTagMatches {
-		placeholder := fmt.Sprintf("__AIML_TAG_%d__", i)
-		preservedSections[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Restore set and topic tags
-	for placeholder, original := range tempSetTags {
-		normalizedText = strings.ReplaceAll(normalizedText, placeholder, original)
-	}
-	for placeholder, original := range tempTopicTags {
-		normalizedText = strings.ReplaceAll(normalizedText, placeholder, original)
-	}
-
-	// Step 5: Preserve special punctuation that might be meaningful
-	specialPunctPattern := regexp.MustCompile(`[!?;:]+`)
-	specialPunctMatches := specialPunctPattern.FindAllString(normalizedText, -1)
-	for i, match := range specialPunctMatches {
-		placeholder := fmt.Sprintf("__PUNCT_%d__", i)
-		preservedSections[placeholder] = match
-		normalizedText = strings.Replace(normalizedText, match, placeholder, 1)
-	}
-
-	// Step 6: Now normalize the remaining text
-	// Convert to uppercase
-	normalizedText = strings.ToUpper(normalizedText)
-
-	// Normalize whitespace
-	normalizedText = regexp.MustCompile(`\s+`).ReplaceAllString(normalizedText, " ")
-	normalizedText = strings.TrimSpace(normalizedText)
-
-	// Normalize punctuation (but preserve our placeholders)
-	// First, protect placeholders from being modified
-	placeholderProtection := make(map[string]string)
-	placeholderPattern := regexp.MustCompile(`__[A-Z_]+_\d+__`)
-	placeholderMatches := placeholderPattern.FindAllString(normalizedText, -1)
-	for i, match := range placeholderMatches {
-		protectionKey := fmt.Sprintf("__PROTECT_%d__", i)
-		placeholderProtection[protectionKey] = match
-		normalizedText = strings.Replace(normalizedText, match, protectionKey, 1)
-	}
-
-	// Now normalize punctuation (but don't touch underscores in placeholders)
-	normalizedText = strings.ReplaceAll(normalizedText, ".", "")
-	normalizedText = strings.ReplaceAll(normalizedText, ",", "")
-	normalizedText = strings.ReplaceAll(normalizedText, "-", " ")
-	// Don't remove underscores as they're part of our placeholders
-
-	// Restore placeholders
-	for protectionKey, original := range placeholderProtection {
-		normalizedText = strings.ReplaceAll(normalizedText, protectionKey, original)
-	}
-
-	// Clean up any double spaces that might have been created
-	normalizedText = regexp.MustCompile(`\s+`).ReplaceAllString(normalizedText, " ")
-	normalizedText = strings.TrimSpace(normalizedText)
-
-	// Step 6: Expand contractions for better pattern matching
-	normalizedText = expandContractions(normalizedText)
-
-	return NormalizedContent{
-		NormalizedText:    normalizedText,
-		PreservedSections: preservedSections,
-	}
 }
 
 // denormalizeText restores the original content from normalized text
@@ -8153,7 +7414,7 @@ func NormalizeForMatchingCasePreserving(input string) string {
 	tempTopicTags := make(map[string]string)
 
 	// Replace set tags temporarily
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
+	setPattern := patternSetTagRe
 	setMatches := setPattern.FindAllString(input, -1)
 	for i, match := range setMatches {
 		placeholder := fmt.Sprintf("__TEMP_SET_%d__", i)
@@ -8162,7 +7423,7 @@ func NormalizeForMatchingCasePreserving(input string) string {
 	}
 
 	// Replace topic tags temporarily
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
+	topicPattern := patternTopicTagRe
 	topicMatches := topicPattern.FindAllString(input, -1)
 	for i, match := range topicMatches {
 		placeholder := fmt.Sprintf("__TEMP_TOPIC_%d__", i)
@@ -8181,7 +7442,7 @@ func NormalizeForMatchingCasePreserving(input string) string {
 	}
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Remove most punctuation for matching (but keep wildcards)
 	text = strings.ReplaceAll(text, ".", "")
@@ -8200,7 +7461,7 @@ func NormalizeForMatchingCasePreserving(input string) string {
 	text = strings.ReplaceAll(text, "'", "")
 
 	// Clean up whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	return text
@@ -8216,7 +7477,7 @@ func normalizeForMatching(input string) string {
 	tempTopicTags := make(map[string]string)
 
 	// Replace set tags temporarily
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
+	setPattern := patternSetTagRe
 	setMatches := setPattern.FindAllString(input, -1)
 	for i, match := range setMatches {
 		placeholder := fmt.Sprintf("__TEMP_SET_%d__", i)
@@ -8225,7 +7486,7 @@ func normalizeForMatching(input string) string {
 	}
 
 	// Replace topic tags temporarily
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
+	topicPattern := patternTopicTagRe
 	topicMatches := topicPattern.FindAllString(input, -1)
 	for i, match := range topicMatches {
 		placeholder := fmt.Sprintf("__TEMP_TOPIC_%d__", i)
@@ -8244,7 +7505,7 @@ func normalizeForMatching(input string) string {
 	}
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Remove most punctuation for matching (but keep wildcards)
 	text = strings.ReplaceAll(text, ".", "")
@@ -8263,7 +7524,7 @@ func normalizeForMatching(input string) string {
 	text = strings.ReplaceAll(text, "'", "")
 
 	// Clean up whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	return text
@@ -8281,7 +7542,7 @@ func (g *Golem) normalizeForMatchingWithSubstitutions(input string) string {
 	tempTopicTags := make(map[string]string)
 
 	// Replace set tags temporarily
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
+	setPattern := patternSetTagRe
 	setMatches := setPattern.FindAllString(input, -1)
 	for i, match := range setMatches {
 		placeholder := fmt.Sprintf("__TEMP_SET_%d__", i)
@@ -8290,7 +7551,7 @@ func (g *Golem) normalizeForMatchingWithSubstitutions(input string) string {
 	}
 
 	// Replace topic tags temporarily
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
+	topicPattern := patternTopicTagRe
 	topicMatches := topicPattern.FindAllString(input, -1)
 	for i, match := range topicMatches {
 		placeholder := fmt.Sprintf("__TEMP_TOPIC_%d__", i)
@@ -8316,7 +7577,7 @@ func (g *Golem) normalizeForMatchingWithSubstitutions(input string) string {
 	g.LogDebug("normalizeForMatchingWithSubstitutions: after substitutions = '%s'", text)
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Remove most punctuation for matching (but keep wildcards)
 	text = strings.ReplaceAll(text, ".", "")
@@ -8338,7 +7599,7 @@ func (g *Golem) normalizeForMatchingWithSubstitutions(input string) string {
 	text = strings.ReplaceAll(text, "'", "")
 
 	// Clean up whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	g.LogDebug("normalizeForMatchingWithSubstitutions: final result = '%s'", text)
@@ -8437,7 +7698,7 @@ func NormalizePattern(pattern string) string {
 	tempTopicTags := make(map[string]string)
 
 	// Replace set tags temporarily
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
+	setPattern := patternSetTagRe
 	setMatches := setPattern.FindAllString(pattern, -1)
 	for i, match := range setMatches {
 		placeholder := fmt.Sprintf("__TEMP_SET_%d__", i)
@@ -8446,7 +7707,7 @@ func NormalizePattern(pattern string) string {
 	}
 
 	// Replace topic tags temporarily
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
+	topicPattern := patternTopicTagRe
 	topicMatches := topicPattern.FindAllString(pattern, -1)
 	for i, match := range topicMatches {
 		placeholder := fmt.Sprintf("__TEMP_TOPIC_%d__", i)
@@ -8465,7 +7726,7 @@ func NormalizePattern(pattern string) string {
 	}
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Remove punctuation that might interfere with matching
 	text = strings.ReplaceAll(text, ".", "")
@@ -8483,7 +7744,7 @@ func NormalizePattern(pattern string) string {
 	text = strings.ReplaceAll(text, "'", "")
 
 	// Clean up whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	return text
@@ -8527,7 +7788,7 @@ func (ss *SentenceSplitter) SplitSentences(text string) []string {
 	}
 
 	// Normalize whitespace first
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	var sentences []string
@@ -8691,7 +7952,7 @@ func (g *Golem) capitalizeSentences(text string) string {
 	}
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	// Use regex to find sentence boundaries and capitalize
@@ -8725,7 +7986,7 @@ func (g *Golem) capitalizeWords(text string) string {
 	}
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	// Use a simpler approach: split by spaces and capitalize each word
@@ -8818,7 +8079,7 @@ func NormalizeThatPattern(pattern string) string {
 	tempTopicTags := make(map[string]string)
 
 	// Replace set tags temporarily
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
+	setPattern := patternSetTagRe
 	setMatches := setPattern.FindAllString(pattern, -1)
 	for i, match := range setMatches {
 		placeholder := fmt.Sprintf("__TEMP_SET_%d__", i)
@@ -8827,7 +8088,7 @@ func NormalizeThatPattern(pattern string) string {
 	}
 
 	// Replace topic tags temporarily
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
+	topicPattern := patternTopicTagRe
 	topicMatches := topicPattern.FindAllString(pattern, -1)
 	for i, match := range topicMatches {
 		placeholder := fmt.Sprintf("__TEMP_TOPIC_%d__", i)
@@ -8846,7 +8107,7 @@ func NormalizeThatPattern(pattern string) string {
 	}
 
 	// Normalize whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 
 	// Handle sentence boundaries - remove trailing punctuation for better matching
 	text = regexp.MustCompile(`[.!?]+$`).ReplaceAllString(text, "")
@@ -8867,7 +8128,7 @@ func NormalizeThatPattern(pattern string) string {
 	text = strings.ReplaceAll(text, "'", "")
 
 	// Clean up whitespace
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = whitespaceNormRe.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
 	return text
@@ -8891,12 +8152,6 @@ func validateThatPattern(pattern string) error {
 		return fmt.Errorf("that pattern contains too many wildcards (max 9), got %d", totalWildcards)
 	}
 
-	// Check for valid characters (enhanced validation) - allow all AIML2 wildcards and punctuation
-	validChars := regexp.MustCompile(`^[A-Z0-9\s\*_^#$<>/'.!?,-]+$`)
-	if !validChars.MatchString(pattern) {
-		return fmt.Errorf("that pattern contains invalid characters")
-	}
-
 	// Check for balanced set tags
 	setOpenCount := strings.Count(pattern, "<set>")
 	setCloseCount := strings.Count(pattern, "</set>")
@@ -8909,13 +8164,6 @@ func validateThatPattern(pattern string) error {
 	topicCloseCount := strings.Count(pattern, "</topic>")
 	if topicOpenCount != topicCloseCount {
 		return fmt.Errorf("unbalanced topic tags in that pattern")
-	}
-
-	// Check for balanced alternation groups
-	parenOpenCount := strings.Count(pattern, "(")
-	parenCloseCount := strings.Count(pattern, ")")
-	if parenOpenCount != parenCloseCount {
-		return fmt.Errorf("unbalanced parentheses in that pattern")
 	}
 
 	// Check for valid wildcard combinations
@@ -8963,288 +8211,9 @@ func validateThatWildcardCombinations(pattern string) error {
 		}
 	}
 
-	// Check for wildcard at start without proper context
-	if strings.HasPrefix(pattern, "*") || strings.HasPrefix(pattern, "_") ||
-		strings.HasPrefix(pattern, "^") || strings.HasPrefix(pattern, "#") ||
-		strings.HasPrefix(pattern, "$") {
-		return fmt.Errorf("that pattern cannot start with wildcard")
-	}
-
-	// Note: Patterns can end with wildcards in AIML2, so we don't check for that
+	// Note: Patterns can start and end with wildcards in AIML2, so we don't check for that
 
 	return nil
-}
-
-// matchThatPatternWithWildcards matches that context against a that pattern with enhanced wildcard support and caching
-func matchThatPatternWithWildcards(thatContext, thatPattern string) (bool, map[string]string) {
-	return matchThatPatternWithWildcardsCached(nil, thatContext, thatPattern)
-}
-
-// matchThatPatternWithWildcardsWithGolem matches that context against a that pattern with enhanced wildcard support and caching using Golem instance
-func matchThatPatternWithWildcardsWithGolem(g *Golem, thatContext, thatPattern string) (bool, map[string]string) {
-	return matchThatPatternWithWildcardsCached(g, thatContext, thatPattern)
-}
-
-// matchThatPatternWithWildcardsCached matches that context against a that pattern with caching support
-func matchThatPatternWithWildcardsCached(g *Golem, thatContext, thatPattern string) (bool, map[string]string) {
-	wildcards := make(map[string]string)
-
-	// Check for cached match result first
-	if g != nil && g.thatPatternCache != nil {
-		if result, found := g.thatPatternCache.GetMatchResult(thatPattern, thatContext); found {
-			if !result {
-				return false, nil
-			}
-			// If we have a cached positive result, we still need to extract wildcards
-			// For now, we'll proceed with the full matching process
-		}
-	}
-
-	// Convert that pattern to regex with enhanced wildcard support
-	var regexPattern string
-	if g != nil && g.aimlKB != nil {
-		// Use enhanced set/topic matching if knowledge base is available
-		regexPattern = thatPatternToRegexWithSetsAndTopics(g, thatPattern, g.aimlKB)
-	} else {
-		// Fallback to basic word-based matching
-		regexPattern = thatPatternToRegexWordBased(thatPattern)
-	}
-	// Make regex case insensitive
-	regexPattern = "(?i)" + regexPattern
-
-	// Try to get compiled regex from cache first
-	var re *regexp.Regexp
-	var err error
-
-	if g != nil && g.thatPatternCache != nil {
-		if compiled, found := g.thatPatternCache.GetCompiledPattern(regexPattern); found {
-			re = compiled
-		} else {
-			re, err = regexp.Compile(regexPattern)
-			if err == nil {
-				g.thatPatternCache.SetCompiledPattern(regexPattern, re)
-			}
-		}
-	} else {
-		re, err = regexp.Compile(regexPattern)
-	}
-
-	if err != nil {
-		return false, nil
-	}
-
-	matches := re.FindStringSubmatch(thatContext)
-	if matches == nil {
-		// Cache negative result
-		if g != nil && g.thatPatternCache != nil {
-			g.thatPatternCache.SetMatchResult(thatPattern, thatContext, false)
-		}
-		return false, nil
-	}
-
-	// Extract wildcard values with proper naming
-	wildcardIndex := 1
-	for _, match := range matches[1:] {
-		// Determine wildcard type based on position in pattern
-		wildcardType := determineThatWildcardType(thatPattern, wildcardIndex-1)
-		wildcardKey := fmt.Sprintf("that_%s%d", wildcardType, wildcardIndex)
-		wildcards[wildcardKey] = match
-		wildcardIndex++
-	}
-
-	// Cache positive result
-	if g != nil && g.thatPatternCache != nil {
-		g.thatPatternCache.SetMatchResult(thatPattern, thatContext, true)
-	}
-
-	return true, wildcards
-}
-
-// matchThatPatternWithEnhancedContext performs enhanced context resolution with fuzzy and semantic matching
-func matchThatPatternWithEnhancedContext(g *Golem, thatContext, thatPattern string) (bool, map[string]string) {
-	// Initialize fuzzy and semantic matchers if not already done
-	if g.fuzzyMatcher == nil {
-		g.fuzzyMatcher = NewFuzzyContextMatcher()
-	}
-	if g.semanticMatcher == nil {
-		g.semanticMatcher = NewSemanticContextMatcher()
-		g.semanticMatcher.InitializeSynonyms()
-		g.semanticMatcher.InitializeDomainMappings()
-	}
-
-	// First try exact pattern matching with sets and topics
-	exactMatch, wildcards := matchThatPatternWithWildcardsWithGolem(g, thatContext, thatPattern)
-	if exactMatch {
-		return true, wildcards
-	}
-
-	// Try fuzzy matching with set/topic expansion
-	fuzzyMatch, fuzzyScore := matchThatPatternWithFuzzyAndSets(g, thatContext, thatPattern)
-	if fuzzyMatch && fuzzyScore >= 0.5 {
-		// For fuzzy matches, we'll use the original pattern as wildcard
-		wildcards := make(map[string]string)
-		wildcards["that_fuzzy"] = thatContext
-		return true, wildcards
-	}
-
-	// Try semantic similarity matching with set/topic expansion
-	semanticMatch, semanticScore := matchThatPatternWithSemanticAndSets(g, thatContext, thatPattern)
-	if semanticMatch && semanticScore >= 0.4 {
-		// For semantic matches, we'll use the original pattern as wildcard
-		wildcards := make(map[string]string)
-		wildcards["that_semantic"] = thatContext
-		return true, wildcards
-	}
-
-	// Try partial matching with wildcards
-	partialMatch, partialWildcards := matchThatPatternWithPartialMatching(thatContext, thatPattern)
-	if partialMatch {
-		return true, partialWildcards
-	}
-
-	return false, nil
-}
-
-// matchThatPatternWithPartialMatching performs partial matching with wildcards
-func matchThatPatternWithPartialMatching(thatContext, thatPattern string) (bool, map[string]string) {
-	// Split both context and pattern into words
-	contextWords := strings.Fields(strings.ToLower(thatContext))
-	patternWords := strings.Fields(strings.ToLower(thatPattern))
-
-	if len(contextWords) == 0 || len(patternWords) == 0 {
-		return false, nil
-	}
-
-	wildcards := make(map[string]string)
-	contextIndex := 0
-	patternIndex := 0
-	wildcardCount := 0
-
-	// Try to match pattern words against context words
-	for patternIndex < len(patternWords) && contextIndex < len(contextWords) {
-		patternWord := patternWords[patternIndex]
-		contextWord := contextWords[contextIndex]
-
-		// Check for wildcard patterns
-		if patternWord == "*" || patternWord == "_" || patternWord == "^" || patternWord == "#" || patternWord == "$" {
-			// Handle different wildcard types
-			if patternWord == "*" || patternWord == "^" || patternWord == "#" {
-				// Zero or more words - collect until next pattern word matches
-				wildcardWords := []string{}
-				nextPatternIndex := patternIndex + 1
-
-				// Find the next non-wildcard pattern word
-				for nextPatternIndex < len(patternWords) {
-					nextPatternWord := patternWords[nextPatternIndex]
-					if nextPatternWord != "*" && nextPatternWord != "_" && nextPatternWord != "^" && nextPatternWord != "#" && nextPatternWord != "$" {
-						break
-					}
-					nextPatternIndex++
-				}
-
-				if nextPatternIndex < len(patternWords) {
-					// Look for the next pattern word in context
-					found := false
-					for contextIndex < len(contextWords) {
-						if contextWords[contextIndex] == patternWords[nextPatternIndex] {
-							found = true
-							break
-						}
-						wildcardWords = append(wildcardWords, contextWords[contextIndex])
-						contextIndex++
-					}
-					if !found {
-						return false, nil
-					}
-				} else {
-					// No more pattern words, collect remaining context words
-					for contextIndex < len(contextWords) {
-						wildcardWords = append(wildcardWords, contextWords[contextIndex])
-						contextIndex++
-					}
-				}
-
-				if len(wildcardWords) > 0 {
-					wildcardCount++
-					wildcardKey := fmt.Sprintf("that_wildcard%d", wildcardCount)
-					wildcards[wildcardKey] = strings.Join(wildcardWords, " ")
-				}
-				patternIndex = nextPatternIndex
-			} else if patternWord == "_" || patternWord == "$" {
-				// Exactly one word
-				wildcardCount++
-				wildcardKey := fmt.Sprintf("that_wildcard%d", wildcardCount)
-				wildcards[wildcardKey] = contextWord
-				contextIndex++
-				patternIndex++
-			}
-		} else {
-			// Regular word matching
-			if contextWord == patternWord {
-				contextIndex++
-				patternIndex++
-			} else {
-				// Try fuzzy matching for this word
-				fuzzyMatcher := NewFuzzyContextMatcher()
-				if match, score := fuzzyMatcher.MatchWithFuzzy(contextWord, patternWord); match && score >= 0.7 {
-					contextIndex++
-					patternIndex++
-				} else {
-					return false, nil
-				}
-			}
-		}
-	}
-
-	// Check if we've matched all pattern words
-	if patternIndex < len(patternWords) {
-		return false, nil
-	}
-
-	return true, wildcards
-}
-
-// matchThatPatternWithFuzzyAndSets performs fuzzy matching with set/topic expansion
-func matchThatPatternWithFuzzyAndSets(g *Golem, thatContext, thatPattern string) (bool, float64) {
-	if g == nil || g.fuzzyMatcher == nil || g.aimlKB == nil {
-		// Fallback to basic fuzzy matching
-		return g.fuzzyMatcher.MatchWithFuzzy(thatContext, thatPattern)
-	}
-
-	// Check if pattern contains set or topic tags
-	if !strings.Contains(thatPattern, "<set>") && !strings.Contains(thatPattern, "<topic>") {
-		// No set/topic tags, use basic fuzzy matching
-		return g.fuzzyMatcher.MatchWithFuzzy(thatContext, thatPattern)
-	}
-
-	// Expand set and topic patterns for fuzzy matching
-	expandedPatterns := expandSetAndTopicPatterns(thatPattern, g.aimlKB)
-
-	// Try fuzzy matching against each expanded pattern
-	bestScore := 0.0
-	bestMatch := false
-
-	for _, expandedPattern := range expandedPatterns {
-		match, score := g.fuzzyMatcher.MatchWithFuzzy(thatContext, expandedPattern)
-
-		// For set/topic matching, we need to be more strict
-		// Only allow fuzzy matching if the words are in the same domain
-		if match && score > bestScore {
-			// Check if this is a legitimate domain match
-			if g.isLegitimateDomainMatch(thatContext, expandedPattern) {
-				bestScore = score
-				bestMatch = true
-			}
-		}
-	}
-
-	// Only consider it a match if the score is high enough for set/topic matching
-	// For set/topic matching, we need to be strict but allow legitimate fuzzy matches
-	if bestMatch && bestScore < 0.75 {
-		bestMatch = false
-	}
-
-	return bestMatch, bestScore
 }
 
 // isLegitimateDomainMatch checks if a fuzzy match is legitimate for domain matching
@@ -9338,397 +8307,6 @@ func (g *Golem) isCloseTypoInDomain(word1, word2 string) bool {
 	}
 
 	return false
-}
-
-// matchThatPatternWithSemanticAndSets performs semantic matching with set/topic expansion
-func matchThatPatternWithSemanticAndSets(g *Golem, thatContext, thatPattern string) (bool, float64) {
-	if g == nil || g.semanticMatcher == nil || g.aimlKB == nil {
-		// Fallback to basic semantic matching
-		return g.semanticMatcher.MatchWithSemanticSimilarity(thatContext, thatPattern)
-	}
-
-	// Check if pattern contains set or topic tags
-	if !strings.Contains(thatPattern, "<set>") && !strings.Contains(thatPattern, "<topic>") {
-		// No set/topic tags, use basic semantic matching
-		return g.semanticMatcher.MatchWithSemanticSimilarity(thatContext, thatPattern)
-	}
-
-	// Expand set and topic patterns for semantic matching
-	expandedPatterns := expandSetAndTopicPatterns(thatPattern, g.aimlKB)
-
-	// Try semantic matching against each expanded pattern
-	bestScore := 0.0
-	bestMatch := false
-
-	for _, expandedPattern := range expandedPatterns {
-		match, score := g.semanticMatcher.MatchWithSemanticSimilarity(thatContext, expandedPattern)
-
-		// For set/topic matching, we need to be more strict
-		// Only allow semantic matching if the words are in the same domain
-		if match && score > bestScore {
-			// Check if this is a legitimate domain match
-			if g.isLegitimateDomainMatch(thatContext, expandedPattern) {
-				bestScore = score
-				bestMatch = true
-			}
-		}
-	}
-
-	// Only consider it a match if the score is high enough for set/topic matching
-	// For set/topic matching, we need to be strict but allow legitimate semantic matches
-	if bestMatch && bestScore < 0.7 {
-		bestMatch = false
-	}
-
-	return bestMatch, bestScore
-}
-
-// expandSetAndTopicPatterns expands set and topic patterns into multiple concrete patterns
-func expandSetAndTopicPatterns(pattern string, kb *AIMLKnowledgeBase) []string {
-	if kb == nil {
-		return []string{pattern}
-	}
-
-	// Handle set patterns
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	if setPattern.MatchString(pattern) {
-		return expandPatternWithSets(pattern, kb)
-	}
-
-	// Handle topic patterns
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	if topicPattern.MatchString(pattern) {
-		return expandPatternWithTopics(pattern, kb)
-	}
-
-	// No set/topic patterns found
-	return []string{pattern}
-}
-
-// expandPatternWithSets expands patterns containing set tags
-func expandPatternWithSets(pattern string, kb *AIMLKnowledgeBase) []string {
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	matches := setPattern.FindAllStringSubmatch(pattern, -1)
-
-	if len(matches) == 0 {
-		return []string{pattern}
-	}
-
-	// Get the first set match
-	setName := strings.ToUpper(strings.TrimSpace(matches[0][1]))
-	setMembers, exists := kb.Sets[setName]
-
-	if !exists || len(setMembers) == 0 {
-		// Fallback to wildcard
-		expandedPattern := setPattern.ReplaceAllString(pattern, "*")
-		return []string{expandedPattern}
-	}
-
-	// Generate all combinations with set members
-	var expandedPatterns []string
-	for _, member := range setMembers {
-		expandedPattern := setPattern.ReplaceAllString(pattern, member)
-		expandedPatterns = append(expandedPatterns, expandedPattern)
-	}
-
-	return expandedPatterns
-}
-
-// expandPatternWithTopics expands patterns containing topic tags
-func expandPatternWithTopics(pattern string, kb *AIMLKnowledgeBase) []string {
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	matches := topicPattern.FindAllStringSubmatch(pattern, -1)
-
-	if len(matches) == 0 {
-		return []string{pattern}
-	}
-
-	// Get the first topic match
-	topicName := strings.ToUpper(strings.TrimSpace(matches[0][1]))
-	topicMembers, exists := kb.Topics[topicName]
-
-	if !exists || len(topicMembers) == 0 {
-		// Fallback to wildcard
-		expandedPattern := topicPattern.ReplaceAllString(pattern, "*")
-		return []string{expandedPattern}
-	}
-
-	// Generate all combinations with topic members
-	var expandedPatterns []string
-	for _, member := range topicMembers {
-		expandedPattern := topicPattern.ReplaceAllString(pattern, member)
-		expandedPatterns = append(expandedPatterns, expandedPattern)
-	}
-
-	return expandedPatterns
-}
-
-// thatPatternToRegexWordBased converts a that pattern to regex using word-based processing
-func thatPatternToRegexWordBased(pattern string) string {
-	// Handle set matching first (before escaping)
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	pattern = setPattern.ReplaceAllString(pattern, "([^\\s]*)")
-
-	// Handle topic matching (before escaping)
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	pattern = topicPattern.ReplaceAllString(pattern, "([^\\s]*)")
-
-	// For multiple wildcards, we need a more sophisticated approach
-	// Split the pattern into words and process each word
-	words := strings.Fields(pattern)
-	var result strings.Builder
-
-	for i, word := range words {
-		if i > 0 {
-			result.WriteString("\\s*") // Match zero or more spaces between words
-		}
-
-		// Check if this word is a wildcard
-		if word == "*" || word == "^" || word == "#" {
-			// Zero+ wildcard: matches zero or more words
-			// For multiple wildcards, we need to be more specific
-			if i < len(words)-1 {
-				// Not the last word, match until the next non-wildcard word
-				nextWord := words[i+1]
-				if nextWord != "*" && nextWord != "_" && nextWord != "^" && nextWord != "#" && nextWord != "$" {
-					// Next word is not a wildcard, match until we see it
-					result.WriteString("(.*?)")
-				} else {
-					// Next word is also a wildcard, match one word
-					result.WriteString("([^\\s]+)")
-				}
-			} else {
-				// Last word, match everything
-				result.WriteString("(.*?)")
-			}
-		} else if word == "_" {
-			// Single wildcard: matches exactly one word
-			result.WriteString("([^\\s]+)")
-		} else if word == "$" {
-			// Dollar wildcard: highest priority exact match (AIML2)
-			// For regex purposes, treat as a wildcard that matches one word
-			result.WriteString("([^\\s]+)")
-		} else {
-			// Regular word - escape special characters
-			escaped := regexp.QuoteMeta(word)
-			result.WriteString(escaped)
-		}
-	}
-
-	// Add word boundary at the end to ensure exact matching
-	result.WriteString("$")
-
-	return result.String()
-}
-
-// thatPatternToRegexWithSetsAndTopics converts a that pattern to regex with enhanced set and topic matching
-func thatPatternToRegexWithSetsAndTopics(g *Golem, pattern string, kb *AIMLKnowledgeBase) string {
-	// Handle set matching with proper set content
-	setPattern := regexp.MustCompile(`<set>([^<]+)</set>`)
-	pattern = setPattern.ReplaceAllStringFunc(pattern, func(match string) string {
-		// Extract set name using regex groups
-		matches := setPattern.FindStringSubmatch(match)
-		if len(matches) < 2 {
-			return "([^\\s]*)"
-		}
-		setName := strings.ToUpper(strings.TrimSpace(matches[1]))
-
-		// Check cache first
-		if g != nil && g.patternMatchingCache != nil {
-			if regex, found := g.patternMatchingCache.GetSetRegex(setName, kb.Sets[setName]); found {
-				return regex
-			}
-		}
-
-		if len(kb.Sets[setName]) > 0 {
-			// Create regex alternation for set members
-			var alternatives []string
-			for _, member := range kb.Sets[setName] {
-				// Escape only specific regex characters, not the pipe
-				upperMember := strings.ToUpper(member)
-				// Escape characters that have special meaning in regex, but not |
-				escaped := strings.ReplaceAll(upperMember, "(", "\\(")
-				escaped = strings.ReplaceAll(escaped, ")", "\\)")
-				escaped = strings.ReplaceAll(escaped, "[", "\\[")
-				escaped = strings.ReplaceAll(escaped, "]", "\\]")
-				escaped = strings.ReplaceAll(escaped, "{", "\\{")
-				escaped = strings.ReplaceAll(escaped, "}", "\\}")
-				escaped = strings.ReplaceAll(escaped, "^", "\\^")
-				escaped = strings.ReplaceAll(escaped, "$", "\\$")
-				escaped = strings.ReplaceAll(escaped, ".", "\\.")
-				escaped = strings.ReplaceAll(escaped, "+", "\\+")
-				escaped = strings.ReplaceAll(escaped, "?", "\\?")
-				escaped = strings.ReplaceAll(escaped, "*", "\\*")
-				escaped = strings.ReplaceAll(escaped, "-", "\\-")
-				escaped = strings.ReplaceAll(escaped, "@", "\\@")
-				// Don't escape | as it's needed for alternation
-				alternatives = append(alternatives, escaped)
-			}
-			regex := "(" + strings.Join(alternatives, "|") + ")"
-
-			// Cache the result
-			if g != nil && g.patternMatchingCache != nil {
-				g.patternMatchingCache.SetSetRegex(setName, kb.Sets[setName], regex)
-			}
-
-			return regex
-		}
-		// Fallback to wildcard if set not found
-		return "([^\\s]*)"
-	})
-
-	// Handle topic matching with proper topic content
-	topicPattern := regexp.MustCompile(`<topic>([^<]+)</topic>`)
-	pattern = topicPattern.ReplaceAllStringFunc(pattern, func(match string) string {
-		// Extract topic name using regex groups
-		matches := topicPattern.FindStringSubmatch(match)
-		if len(matches) < 2 {
-			return "([^\\s]*)"
-		}
-		topicName := strings.ToUpper(strings.TrimSpace(matches[1]))
-
-		// Check if topic exists in knowledge base
-		if len(kb.Topics[topicName]) > 0 {
-			// Create regex alternation for topic members
-			var alternatives []string
-			for _, member := range kb.Topics[topicName] {
-				// Escape only specific regex characters, not the pipe
-				upperMember := strings.ToUpper(member)
-				// Escape characters that have special meaning in regex, but not |
-				escaped := strings.ReplaceAll(upperMember, "(", "\\(")
-				escaped = strings.ReplaceAll(escaped, ")", "\\)")
-				escaped = strings.ReplaceAll(escaped, "[", "\\[")
-				escaped = strings.ReplaceAll(escaped, "]", "\\]")
-				escaped = strings.ReplaceAll(escaped, "{", "\\{")
-				escaped = strings.ReplaceAll(escaped, "}", "\\}")
-				escaped = strings.ReplaceAll(escaped, "^", "\\^")
-				escaped = strings.ReplaceAll(escaped, "$", "\\$")
-				escaped = strings.ReplaceAll(escaped, ".", "\\.")
-				escaped = strings.ReplaceAll(escaped, "+", "\\+")
-				escaped = strings.ReplaceAll(escaped, "?", "\\?")
-				escaped = strings.ReplaceAll(escaped, "*", "\\*")
-				escaped = strings.ReplaceAll(escaped, "-", "\\-")
-				escaped = strings.ReplaceAll(escaped, "@", "\\@")
-				// Don't escape | as it's needed for alternation
-				alternatives = append(alternatives, escaped)
-			}
-			return "(" + strings.Join(alternatives, "|") + ")"
-		}
-		// Fallback to wildcard if topic not found
-		return "([^\\s]*)"
-	})
-
-	// For multiple wildcards, we need a more sophisticated approach
-	// Split the pattern into words and process each word
-	words := strings.Fields(pattern)
-	var result strings.Builder
-
-	for i, word := range words {
-		if i > 0 {
-			result.WriteString("\\s*") // Match zero or more spaces between words
-		}
-
-		// Check if this word is a wildcard
-		if word == "*" || word == "^" || word == "#" {
-			// Zero+ wildcard: matches zero or more words
-			// For multiple wildcards, we need to be more specific
-			if i < len(words)-1 {
-				// Not the last word, match until the next non-wildcard word
-				nextWord := words[i+1]
-				if nextWord != "*" && nextWord != "_" && nextWord != "^" && nextWord != "#" && nextWord != "$" {
-					// Next word is not a wildcard, match until we see it
-					result.WriteString("(.*?)")
-				} else {
-					// Next word is also a wildcard, match one word
-					result.WriteString("([^\\s]+)")
-				}
-			} else {
-				// Last word, match everything
-				result.WriteString("(.*?)")
-			}
-		} else if word == "_" {
-			// Single wildcard: matches exactly one word
-			result.WriteString("([^\\s]+)")
-		} else if word == "$" {
-			// Dollar wildcard: highest priority exact match (AIML2)
-			// For regex purposes, treat as a wildcard that matches one word
-			result.WriteString("([^\\s]+)")
-		} else {
-			// Check if this word is already a regex pattern (contains parentheses)
-			if strings.Contains(word, "(") && strings.Contains(word, ")") {
-				// This is already a regex pattern (from set/topic replacement), don't escape it
-				result.WriteString(word)
-			} else {
-				// Regular word - escape special characters
-				escaped := regexp.QuoteMeta(word)
-				result.WriteString(escaped)
-			}
-		}
-	}
-
-	// Add word boundary at the end to ensure exact matching
-	result.WriteString("$")
-
-	return result.String()
-}
-
-// determineThatWildcardType determines the wildcard type based on position in pattern
-func determineThatWildcardType(pattern string, position int) string {
-	wildcardCount := 0
-	for _, char := range pattern {
-		if char == '*' || char == '_' || char == '^' || char == '#' || char == '$' {
-			if wildcardCount == position {
-				switch char {
-				case '*':
-					return "star"
-				case '_':
-					return "underscore"
-				case '^':
-					return "caret"
-				case '#':
-					return "hash"
-				case '$':
-					return "dollar"
-				}
-			}
-			wildcardCount++
-		}
-	}
-	return "star" // Default fallback
-}
-
-// calculateThatPatternPriority calculates priority for that pattern matching
-func calculateThatPatternPriority(thatPattern string) int {
-	priority := 1000 // Base priority
-
-	// Count different wildcard types
-	starCount := strings.Count(thatPattern, "*")
-	underscoreCount := strings.Count(thatPattern, "_")
-	caretCount := strings.Count(thatPattern, "^")
-	hashCount := strings.Count(thatPattern, "#")
-	dollarCount := strings.Count(thatPattern, "$")
-	totalWildcards := starCount + underscoreCount + hashCount + dollarCount
-
-	// Higher priority for fewer wildcards
-	priority += (9 - totalWildcards) * 100
-
-	// Higher priority for specific wildcard types (dollar > hash > caret > star > underscore)
-	priority += dollarCount * 50
-	priority += hashCount * 40
-	priority += caretCount * 30
-	priority += starCount * 20
-	priority += underscoreCount * 10
-
-	// Higher priority for exact matches (no wildcards)
-	if totalWildcards == 0 {
-		priority += 500
-	}
-
-	// Higher priority for patterns with more specific content
-	wordCount := len(strings.Fields(thatPattern))
-	priority += wordCount * 5
-
-	return priority
 }
 
 // parseLearnContent parses AIML content within learn/learnf tags
@@ -10035,16 +8613,6 @@ func (g *Golem) validatePatternStructure(pattern string) error {
 		return fmt.Errorf("consecutive wildcards not allowed")
 	}
 
-	// Check for balanced parentheses in alternation groups
-	if err := g.validateAlternationGroups(pattern); err != nil {
-		return fmt.Errorf("alternation group validation failed: %v", err)
-	}
-
-	// Check for valid characters
-	if err := g.validatePatternCharacters(pattern); err != nil {
-		return fmt.Errorf("invalid characters in pattern: %v", err)
-	}
-
 	return nil
 }
 
@@ -10135,65 +8703,6 @@ func (g *Golem) validateContent(category Category) error {
 	patternWords := len(strings.Fields(category.Pattern))
 	if patternWords > 50 {
 		return fmt.Errorf("pattern too complex (max 50 words)")
-	}
-
-	return nil
-}
-
-// validateAlternationGroups validates alternation groups in patterns
-func (g *Golem) validateAlternationGroups(pattern string) error {
-	// Check for balanced parentheses
-	openCount := strings.Count(pattern, "(")
-	closeCount := strings.Count(pattern, ")")
-	if openCount != closeCount {
-		return fmt.Errorf("unbalanced parentheses in alternation groups")
-	}
-
-	// Check for valid alternation syntax
-	// Look for patterns like (word1|word2|word3)
-	altRegex := regexp.MustCompile(`\([^)]*\|[^)]*\)`)
-	matches := altRegex.FindAllString(pattern, -1)
-
-	for _, match := range matches {
-		// Check that alternation group has at least 2 options
-		options := strings.Split(match[1:len(match)-1], "|")
-		if len(options) < 2 {
-			return fmt.Errorf("alternation group must have at least 2 options: %s", match)
-		}
-
-		// Check that options are not empty
-		for i, option := range options {
-			if strings.TrimSpace(option) == "" {
-				return fmt.Errorf("empty option in alternation group at position %d: %s", i+1, match)
-			}
-		}
-	}
-
-	// Check for single option groups like (word) - these should be flagged
-	singleOptionRegex := regexp.MustCompile(`\([^|)]+\)`)
-	singleMatches := singleOptionRegex.FindAllString(pattern, -1)
-	for _, match := range singleMatches {
-		// This is a single option group, which is invalid
-		return fmt.Errorf("alternation group must have at least 2 options: %s", match)
-	}
-
-	// Check for empty alternation groups like () - these should be flagged
-	emptyGroupRegex := regexp.MustCompile(`\(\)`)
-	emptyMatches := emptyGroupRegex.FindAllString(pattern, -1)
-	for _, match := range emptyMatches {
-		// This is an empty alternation group, which is invalid
-		return fmt.Errorf("alternation group must have at least 2 options: %s", match)
-	}
-
-	return nil
-}
-
-// validatePatternCharacters validates characters in patterns
-func (g *Golem) validatePatternCharacters(pattern string) error {
-	// Allow alphanumeric, spaces, wildcards, and alternation characters
-	validPatternRegex := regexp.MustCompile(`^[a-zA-Z0-9\s*_^#$()|]+$`)
-	if !validPatternRegex.MatchString(pattern) {
-		return fmt.Errorf("pattern contains invalid characters (only alphanumeric, spaces, wildcards, and alternation groups allowed)")
 	}
 
 	return nil

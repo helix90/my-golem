@@ -110,7 +110,7 @@ func TestTreeProcessorEvalTagWithVariables(t *testing.T) {
 <aiml version="2.0">
 	<category>
 		<pattern>SET * TO *</pattern>
-		<template><eval><set name="<star/>"><star index="2"/></set></eval>Variable set</template>
+		<template><think><eval><set name="<star/>"><star index="2"/></set></eval></think>Variable set</template>
 	</category>
 	
 	<category>

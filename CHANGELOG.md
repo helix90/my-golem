@@ -1,0 +1,85 @@
+# Changelog
+
+All notable changes to Golem are recorded here.
+
+## v1.6.0 - 2026-11-16
+
+This release replaces Golem's pattern matcher with an AIML 2.0 graphmaster. It also fixes many template, loader, concurrency and SRAIX bugs. Some changes alter how existing bots answer, so read **Upgrading** before you update.
+
+### Upgrading: behaviour changes
+
+- **`*` and `_` now need at least one word.** `HELLO *` no longer matches a bare `hello`. If you relied on that, add a `HELLO` category or use `^` or `#`, which match zero or more words.
+- **`_` can match more than one word.** Before, it matched exactly one.
+- **Wildcards only match whole words.** `HELLO *` no longer matches `helloworld`, and `* LOVE` no longer matches `glove`.
+- **Input is split into sentences.** Each sentence is matched and answered in turn, and the replies are joined. `hi. how are you?` now gets two answers.
+- **`<that>` matches the last sentence of the bot's previous response.** Before, it matched the raw template text, and the match was not anchored. Now `<that>LIKE CATS</that>` no longer matches "Do you like cats?". `<that>` also works after templates that use `<srai>`, `<random>` or `<get>`.
+- **`<set>` outputs the value it sets**, as the spec requires. Wrap the `<set>` in `<think>` where you want it silent.
+- **`<learn>` evaluates only `<eval>`, plus wildcards when the teaching category has them.** Other tags, such as `<get>` and `<set>`, are stored and run when the learned category is used.
+- **Responses are plain text, not XML-escaped.** `&amp;` in a template is output as `&`. Escape responses yourself if you insert them into HTML.
+- **Alternation groups such as `(A|B)` are no longer matched.** They were not part of AIML 2.0.
+- **SRAIX no longer returns hard-coded English replies when it fails.** It uses the configured fallback, then the `default` attribute, then the tag's content.
+
+### Pattern matching (AIML 2.0 graphmaster)
+
+- Categories form a graphmaster tree (pattern, then `<that>`, then `<topic>`) and are matched word by word. At each word Golem tries, in order: `$WORD`, `#`, `_`, `WORD` (or `<bot name="..."/>`), `<set>`, `^`, `*`. The earlier word decides.
+- Fixed: a catch-all `*` or `TEACH *` could outrank `TEACH * MEANS *`.
+- Fixed: `HELLO _` beat `_ WORLD`.
+- Fixed: `<that>` could outweigh the input pattern.
+- Fixed: a lone `$` was treated as a wildcard.
+- `<bot name="..."/>` now matches inside patterns.
+- `<that>` patterns may start with a wildcard, and `^` works in `<that>`.
+- `<topicstar/>` returns the words matched by wildcards in `<topic>`.
+- Patterns may be lowercase and may contain accents, apostrophes, `&`, `@` and other punctuation.
+- Matching is deterministic. Equally good matches go to the category loaded first.
+- Wildcard values keep the user's original case and punctuation.
+- Learned categories are added to the tree in place, so `<learn>` does not rebuild it.
+
+### Templates
+
+- `<random>` runs only the chosen `<li>`. Before, every item's `<set>`, `<srai>` and `<learn>` ran. An empty `<li>` is now a valid choice.
+- `<condition>`:
+  - supports `name` or `var` on each `<li>`;
+  - supports `value="*"`, which is true when the variable has a value;
+  - supports `<loop/>`, bounded by a maximum number of iterations.
+- Attributes can be written as child elements, for example `<get><name>x</name></get>`.
+- Local variables set with `<set var>` stay in their own category, including across `<srai>`.
+- `<srai>` and `<sr/>` match against the current topic and `<that>`.
+- `<sr/>` is exactly `<srai><star/></srai>`. It no longer overwrites predicates whose names start with `star`, such as `starsign`.
+- Inside a template reached by `<srai>`, `<star/>` no longer shows the caller's wildcards.
+- XML entities in template text and attribute values are decoded.
+- Unknown tags, such as HTML links, keep their attributes.
+
+### Loading
+
+- Categories with the same pattern but a different `<that>` or topic no longer overwrite each other.
+- `<topic name="...">` blocks are honoured.
+- A `<category>` inside `<learn>` no longer leaks its `<that>` or `<topic>` into the category that contains it.
+- XML comments that span several lines are removed.
+- An invalid category is dropped with a warning instead of rejecting its whole file.
+- Fixed a parser panic on an unterminated attribute value.
+- Fuzz targets were added for the loader and the AST parser.
+
+### Concurrency and learning
+
+- Fixed data races between concurrent sessions, which could crash with "concurrent map writes" or write one session's variables into another. The full test suite passes under `-race`.
+- `<learn>` and `<unlearn>` are safe while other sessions are matching.
+- After `<unlearn>`, other patterns no longer answer with a neighbouring category's template.
+
+### SRAIX
+
+- User input is URL-escaped and placeholders are substituted in a single pass. User input can no longer add query parameters or expose the API key.
+- `{STAR1}`, `{STAR2}`, ... and `{location}` placeholders now have values.
+- An empty or unparseable response goes through the fallback chain.
+- Configured timeouts longer than 30s are honoured.
+- Responses are capped at 1 MB.
+- Lower-case methods such as `get` are accepted.
+- Verbose logs mask secrets.
+
+### Performance and housekeeping
+
+- The LRU caches are now O(1), which makes each lookup 6–11x faster.
+- Regexes are compiled once instead of on every call.
+- Removed the regex pattern matcher, unused code and obsolete documentation.
+- The version is read from the `VERSION` file.
+
+**Full changelog:** https://github.com/helix90/golem/compare/v1.5.0...v1.6.0

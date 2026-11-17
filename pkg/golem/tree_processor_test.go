@@ -126,7 +126,7 @@ func TestTreeProcessor(t *testing.T) {
 		{
 			name:     "Set and get tags",
 			template: "<set name=\"test\">hello</set><get name=\"test\">",
-			expected: "hello",
+			expected: "hellohello",
 		},
 		{
 			name:     "Random tag with list items",
@@ -136,7 +136,7 @@ func TestTreeProcessor(t *testing.T) {
 		{
 			name:     "Complex nested processing",
 			template: "<uppercase><set name=\"test\">hello</set></uppercase><get name=\"test\">",
-			expected: "hello",
+			expected: "HELLOhello",
 		},
 	}
 
@@ -202,7 +202,7 @@ func TestTreeProcessorNestedTags(t *testing.T) {
 		{
 			name:     "Mixed tag types",
 			template: "<set name=\"test\"><uppercase>hello</uppercase></set><get name=\"test\">",
-			expected: "HELLO",
+			expected: "HELLOHELLO",
 		},
 		{
 			name:     "Self-closing tags in content",
@@ -267,9 +267,10 @@ func TestTreeProcessorPerformance(t *testing.T) {
 			t.Fatalf("ProcessTemplate error: %v", err)
 		}
 
-		// Result should be one of the random options
-		if result != "hello" && result != "world" {
-			t.Errorf("Expected 'hello' or 'world', got %q", result)
+		// Result should be one of the random options: the uppercased <set>
+		// output followed by the <get>
+		if result != "HELLOhello" && result != "WORLDworld" {
+			t.Errorf("Expected 'HELLOhello' or 'WORLDworld', got %q", result)
 		}
 	}
 }

@@ -209,37 +209,6 @@ func TestMatchPattern(t *testing.T) {
 	}
 }
 
-func TestPatternToRegex(t *testing.T) {
-	testCases := []struct {
-		pattern  string
-		expected string
-	}{
-		{
-			pattern:  "HELLO",
-			expected: "^HELLO$",
-		},
-		{
-			pattern:  "MY NAME IS *",
-			expected: "^MY NAME IS(?: |$)(?:(.+?)(?: |$))?$",
-		},
-		{
-			pattern:  "I AM * YEARS OLD",
-			expected: "^I AM(?: |$)(?:(.+?)(?: |$))?YEARS OLD$",
-		},
-		{
-			pattern:  "I LIKE * AND *",
-			expected: "^I LIKE(?: |$)(?:(.+?)(?: |$))?AND(?: |$)(?:(.+?)(?: |$))?$",
-		},
-	}
-
-	for _, tc := range testCases {
-		result := patternToRegex(tc.pattern)
-		if result != tc.expected {
-			t.Errorf("Pattern '%s': expected '%s', got '%s'", tc.pattern, tc.expected, result)
-		}
-	}
-}
-
 func TestProcessTemplate(t *testing.T) {
 	// Test template with wildcards
 	template := "Nice to meet you, <star/>!"
@@ -3675,225 +3644,6 @@ func TestSetMatchingInPatterns(t *testing.T) {
 	}
 }
 
-// TestNormalization tests the normalization and denormalization system
-func TestNormalization(t *testing.T) {
-	// Test basic text normalization
-	t.Run("BasicTextNormalization", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected string
-			desc     string
-		}{
-			{"Hello, World!", "HELLO WORLD", "Basic punctuation removal"},
-			{"What's up?", "WHAT IS UP", "Contraction expansion"},
-			{"I am 25 years old.", "I AM 25 YEARS OLD", "Numbers preserved"},
-			{"Hello... world!", "HELLO WORLD", "Multiple punctuation"},
-			{"  Multiple   spaces  ", "MULTIPLE SPACES", "Whitespace normalization"},
-			{"UPPER-case", "UPPER CASE", "Case normalization"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeForMatching(tc.input)
-				if normalized != tc.expected {
-					t.Errorf("Expected '%s', got '%s'", tc.expected, normalized)
-				}
-			})
-		}
-	})
-
-	// Test mathematical expression preservation
-	t.Run("MathematicalExpressionPreservation", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Calculate 2 + 3", "Basic math expression"},
-			{"What is 5 * 7?", "Math with question"},
-			{"x = 10 + 5", "Variable assignment"},
-			{"sqrt(16) = 4", "Function call"},
-			{"2.5 + 3.7 = 6.2", "Decimal math"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeText(tc.input)
-				// Check that math expressions are preserved (look for any placeholder)
-				hasPlaceholder := strings.Contains(normalized.NormalizedText, "__") && len(normalized.PreservedSections) > 0
-				if !hasPlaceholder {
-					t.Errorf("Expected content preservation, got '%s' with %d preserved sections", normalized.NormalizedText, len(normalized.PreservedSections))
-				}
-				// Verify we can denormalize back
-				denormalized := denormalizeText(normalized)
-				if !strings.Contains(denormalized, "+") && !strings.Contains(denormalized, "*") && !strings.Contains(denormalized, "=") {
-					t.Errorf("Math expressions not preserved in denormalization: '%s'", denormalized)
-				}
-			})
-		}
-	})
-
-	// Test quoted string preservation
-	t.Run("QuotedStringPreservation", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Say \"Hello World\"", "Double quotes"},
-			{"Say 'Hello World'", "Single quotes"},
-			{"\"Quote 1\" and 'Quote 2'", "Multiple quotes"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeText(tc.input)
-				// Check that quotes are preserved
-				hasQuotePlaceholder := strings.Contains(normalized.NormalizedText, "__QUOTE_")
-				if !hasQuotePlaceholder {
-					t.Errorf("Expected quote preservation, got '%s'", normalized.NormalizedText)
-				}
-				// Verify we can denormalize back
-				denormalized := denormalizeText(normalized)
-				if !strings.Contains(denormalized, "\"") && !strings.Contains(denormalized, "'") {
-					t.Errorf("Quotes not preserved in denormalization: '%s'", denormalized)
-				}
-			})
-		}
-	})
-
-	// Test URL and email preservation
-	t.Run("URLAndEmailPreservation", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Visit https://example.com", "HTTPS URL"},
-			{"Check www.example.com", "WWW URL"},
-			{"Email me at user@example.com", "Email address"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeText(tc.input)
-				// Check that URLs/emails are preserved
-				hasURLPlaceholder := strings.Contains(normalized.NormalizedText, "__URL_")
-				if !hasURLPlaceholder {
-					t.Errorf("Expected URL/email preservation, got '%s'", normalized.NormalizedText)
-				}
-				// Verify we can denormalize back
-				denormalized := denormalizeText(normalized)
-				if !strings.Contains(denormalized, "http") && !strings.Contains(denormalized, "www") && !strings.Contains(denormalized, "@") {
-					t.Errorf("URLs/emails not preserved in denormalization: '%s'", denormalized)
-				}
-			})
-		}
-	})
-
-	// Test AIML tag preservation
-	t.Run("AIMLTagPreservation", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Use <get name=user/>", "Get tag"},
-			{"<think>Set variable</think>", "Think tag"},
-			{"<random><li>Option 1</li><li>Option 2</li></random>", "Random tag"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeText(tc.input)
-				// Check that AIML tags are preserved
-				hasAIMLPlaceholder := strings.Contains(normalized.NormalizedText, "__AIML_TAG_")
-				if !hasAIMLPlaceholder {
-					t.Errorf("Expected AIML tag preservation, got '%s'", normalized.NormalizedText)
-				}
-				// Verify we can denormalize back
-				denormalized := denormalizeText(normalized)
-				if !strings.Contains(denormalized, "<") && !strings.Contains(denormalized, ">") {
-					t.Errorf("AIML tags not preserved in denormalization: '%s'", denormalized)
-				}
-			})
-		}
-	})
-
-	// Test set and topic tag handling
-	t.Run("SetAndTopicTagHandling", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected string
-			desc     string
-		}{
-			{"I have a <set>animals</set>", "I HAVE A <set>animals</set>", "Set tag preservation"},
-			{"<topic>greeting</topic> hello", "<topic>greeting</topic> HELLO", "Topic tag preservation"},
-			{"<set>colors</set> is my favorite", "<set>colors</set> IS MY FAVORITE", "Set tag in middle"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeForMatching(tc.input)
-				if normalized != tc.expected {
-					t.Errorf("Expected '%s', got '%s'", tc.expected, normalized)
-				}
-			})
-		}
-	})
-
-	// Test pattern normalization
-	t.Run("PatternNormalization", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected string
-			desc     string
-		}{
-			{"Hello, World!", "HELLO WORLD", "Basic pattern"},
-			{"What's up?", "WHAT IS UP", "Pattern with contraction expansion"},
-			{"I am * years old.", "I AM * YEARS OLD", "Pattern with wildcard"},
-			{"<set>animals</set> are cute", "<set>animals</set> ARE CUTE", "Pattern with set tag"},
-			{"<topic>greeting</topic> hello", "<topic>greeting</topic> HELLO", "Pattern with topic tag"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := NormalizePattern(tc.input)
-				if normalized != tc.expected {
-					t.Errorf("Expected '%s', got '%s'", tc.expected, normalized)
-				}
-			})
-		}
-	})
-
-	// Test denormalization round-trip
-	t.Run("DenormalizationRoundTrip", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Hello, World! How are you?", "Complex text with punctuation"},
-			{"Calculate 2 + 3 * 4", "Math expression"},
-			{"Say \"Hello\" and 'Goodbye'", "Multiple quotes"},
-			{"Visit https://example.com for more info", "URL with text"},
-			{"<think>Set x = 5</think> and <get name=\"user\"/>", "AIML tags with content"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeText(tc.input)
-				denormalized := denormalizeText(normalized)
-
-				// The denormalized text should contain the key elements from the original
-				// (exact match might not be possible due to normalization changes)
-				originalLower := strings.ToLower(tc.input)
-				denormalizedLower := strings.ToLower(denormalized)
-
-				// Check that key elements are preserved
-				if strings.Contains(originalLower, "hello") && !strings.Contains(denormalizedLower, "hello") {
-					t.Errorf("Key content not preserved: original='%s', denormalized='%s'", tc.input, denormalized)
-				}
-			})
-		}
-	})
-}
-
 // TestNormalizationIntegration tests normalization in the full AIML system
 func TestNormalizationIntegration(t *testing.T) {
 	g := NewForTesting(t, false)
@@ -3956,94 +3706,6 @@ func TestNormalizationIntegration(t *testing.T) {
 					}
 				} else {
 					t.Errorf("No pattern found for normalized input '%s'", normalizedInput)
-				}
-			})
-		}
-	})
-}
-
-// TestNormalizationEdgeCases tests edge cases and special scenarios
-func TestNormalizationEdgeCases(t *testing.T) {
-	// Test empty and whitespace-only inputs
-	t.Run("EmptyAndWhitespaceInputs", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected string
-			desc     string
-		}{
-			{"", "", "Empty string"},
-			{"   ", "", "Whitespace only"},
-			{"\t\n\r", "", "Various whitespace"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeForMatching(tc.input)
-				if normalized != tc.expected {
-					t.Errorf("Expected '%s', got '%s'", tc.expected, normalized)
-				}
-			})
-		}
-	})
-
-	// Test special characters and unicode
-	t.Run("SpecialCharactersAndUnicode", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Café", "Unicode characters"},
-			{"Hello 世界", "Mixed unicode"},
-			{"Price: $100.50", "Currency symbols"},
-			{"Email: user@domain.com", "Email with symbols"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeForMatching(tc.input)
-				// Should not crash and should produce some output
-				if normalized == "" && tc.input != "" {
-					t.Errorf("Normalization failed for '%s'", tc.input)
-				}
-			})
-		}
-	})
-
-	// Test very long inputs
-	t.Run("LongInputs", func(t *testing.T) {
-		longInput := strings.Repeat("Hello, World! ", 1000)
-		normalized := normalizeForMatching(longInput)
-
-		// Should not crash and should be normalized
-		if len(normalized) == 0 {
-			t.Error("Normalization failed for long input")
-		}
-
-		// Should contain the repeated content
-		if !strings.Contains(normalized, "HELLO WORLD") {
-			t.Error("Long input normalization lost content")
-		}
-	})
-
-	// Test nested quotes and complex expressions
-	t.Run("NestedQuotesAndComplexExpressions", func(t *testing.T) {
-		testCases := []struct {
-			input string
-			desc  string
-		}{
-			{"Say \"Hello 'World'\"", "Nested quotes"},
-			{"Calculate (2 + 3) * (4 - 1)", "Complex math with parentheses"},
-			{"Visit https://example.com?q=\"test\"", "URL with quotes"},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				normalized := normalizeText(tc.input)
-				denormalized := denormalizeText(normalized)
-
-				// Should not crash and should preserve key elements
-				if len(denormalized) == 0 {
-					t.Errorf("Denormalization failed for '%s'", tc.input)
 				}
 			})
 		}
@@ -5406,7 +5068,7 @@ func TestAIML2Wildcards(t *testing.T) {
 		{
 			name:     "Hash wildcard with words after only",
 			input:    "HELLO THERE",
-			expected: "Hello with hash: THERE!", // HELLO # pattern has higher priority than # HELLO #
+			expected: "Hash wildcard:  HELLO THERE!", // # at the start outranks the word HELLO
 		},
 		// Test underscore wildcard (one or more words)
 		{
@@ -5450,7 +5112,7 @@ func TestAIML2Wildcards(t *testing.T) {
 		{
 			name:     "Caret at end with words",
 			input:    "HELLO THERE",
-			expected: "Hello with hash: THERE!", // Hash wildcard has higher priority
+			expected: "Hash wildcard:  HELLO THERE!", // # at the start outranks the word HELLO
 		},
 		{
 			name:     "Hash at end with no words",
@@ -5460,12 +5122,12 @@ func TestAIML2Wildcards(t *testing.T) {
 		{
 			name:     "Hash at end with words",
 			input:    "HELLO THERE",
-			expected: "Hello with hash: THERE!",
+			expected: "Hash wildcard:  HELLO THERE!", // # at the start outranks the word HELLO
 		},
 		{
 			name:     "Underscore at end with words",
 			input:    "HELLO THERE",
-			expected: "Hello with hash: THERE!", // Hash wildcard has higher priority
+			expected: "Hash wildcard:  HELLO THERE!", // # at the start outranks the word HELLO
 		},
 		{
 			name:     "Asterisk at end with no words",
@@ -5475,7 +5137,7 @@ func TestAIML2Wildcards(t *testing.T) {
 		{
 			name:     "Asterisk at end with words",
 			input:    "HELLO THERE",
-			expected: "Hello with hash: THERE!", // Hash wildcard has higher priority
+			expected: "Hash wildcard:  HELLO THERE!", // # at the start outranks the word HELLO
 		},
 	}
 
@@ -5716,52 +5378,52 @@ func TestWildcardEdgeCases(t *testing.T) {
 		{
 			name:     "Multiple words with caret",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!", // Middle hash pattern is more specific
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Multiple words with hash",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!", // Middle hash pattern is more specific
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Multiple words with asterisk",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!", // Middle hash pattern is more specific
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle caret with no middle words",
 			input:    "HELLO WORLD",
-			expected: "Middle hash: !", // Hash has higher priority than caret
+			expected: "Just hash: HELLO WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle caret with middle words",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!", // Hash has higher priority than caret
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle hash with no middle words",
 			input:    "HELLO WORLD",
-			expected: "Middle hash: !",
+			expected: "Just hash: HELLO WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle hash with middle words",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!",
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle underscore with middle words",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!", // Hash has higher priority than underscore
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle asterisk with no middle words",
 			input:    "HELLO WORLD",
-			expected: "Middle hash: !", // Hash has higher priority than asterisk
+			expected: "Just hash: HELLO WORLD!", // # alone outranks every word
 		},
 		{
 			name:     "Middle asterisk with middle words",
 			input:    "HELLO THERE WORLD",
-			expected: "Middle hash: THERE!", // Hash has higher priority than asterisk
+			expected: "Just hash: HELLO THERE WORLD!", // # alone outranks every word
 		},
 	}
 

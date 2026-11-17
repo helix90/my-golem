@@ -40,8 +40,8 @@
         <!-- Learn name for this specific user -->
         <learnf>
           <category>
-            <pattern>GET NAME FOR <get var="telegram_user"/></pattern>
-            <template><get name="user_name"/></template>
+            <pattern>GET NAME FOR <eval><get var="telegram_user"/></eval></pattern>
+            <template><eval><get name="user_name"/></eval></template>
           </category>
         </learnf>
       </li>

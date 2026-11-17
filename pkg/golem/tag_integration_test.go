@@ -426,13 +426,13 @@ func TestVariableWildcardIntegration(t *testing.T) {
 		{
 			name:     "Set variable with uppercase",
 			template: `<set name="test"><uppercase>hello</uppercase></set>`,
-			expected: "",
+			expected: "HELLO",
 			setup:    func() {},
 		},
 		{
 			name:     "Set variable with formal",
 			template: `<set name="test"><formal>hello world</formal></set>`,
-			expected: "",
+			expected: "Hello World",
 			setup:    func() {},
 		},
 		{

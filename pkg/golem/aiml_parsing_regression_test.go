@@ -144,7 +144,7 @@ func TestDirectoryLoadValidation(t *testing.T) {
 <category><pattern>hello there</pattern><template>lowercase</template></category>
 <category><pattern>LET'S TALK ABOUT *</pattern><template>apostrophe</template></category>
 <category><pattern>CAFÉ</pattern><template>accented</template></category>
-<category><pattern>MAIL ME @ HOME</pattern><template>invalid</template></category>
+<category><pattern>MAIL ME <set></set></pattern><template>invalid</template></category>
 </aiml>`
 	if err := os.WriteFile(filepath.Join(dir, "mixed.aiml"), []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
@@ -189,7 +189,7 @@ func TestLoadAIMLFromStringValidates(t *testing.T) {
 	}
 
 	err = g.LoadAIMLFromString(`<aiml version="2.0">
-<category><pattern>MAIL ME @ HOME</pattern><template>invalid</template></category>
+<category><pattern>MAIL ME <set></set></pattern><template>invalid</template></category>
 <category><pattern>HELLO</pattern><template>valid</template></category>
 </aiml>`)
 	if err != nil {

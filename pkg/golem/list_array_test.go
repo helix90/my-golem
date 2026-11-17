@@ -434,7 +434,7 @@ func TestListAndArrayWithVariables(t *testing.T) {
     <category>
         <pattern>MY NAME IS *</pattern>
         <template>
-            <set name="username"><star/></set>
+            <think><set name="username"><star/></set></think>
             <list name="users" operation="add"><get name="username"/></list>
             Hello <get name="username"/>, I've added you to the user list.
         </template>
@@ -446,7 +446,7 @@ func TestListAndArrayWithVariables(t *testing.T) {
     <category>
         <pattern>SET MY SCORE *</pattern>
         <template>
-            <set name="score"><star/></set>
+            <think><set name="score"><star/></set></think>
             <array name="scores" index="0" operation="set"><get name="score"/></array>
             Your score <get name="score"/> has been recorded.
         </template>

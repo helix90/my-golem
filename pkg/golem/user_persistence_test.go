@@ -57,22 +57,22 @@ func TestUserLocationPersistence(t *testing.T) {
 
     <learnf>
       <category>
-        <pattern>GET LOCATION FOR <get var="telegram_user"/></pattern>
-        <template><get var="location"/></template>
+        <pattern>GET LOCATION FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="location"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LATITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lat"/></template>
+        <pattern>GET LATITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lat"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LONGITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lon"/></template>
+        <pattern>GET LONGITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lon"/></eval></template>
       </category>
     </learnf>
   </think>
@@ -231,22 +231,22 @@ func TestUserLocationPersistenceMultipleUsers(t *testing.T) {
 
     <learnf>
       <category>
-        <pattern>GET LOCATION FOR <get var="telegram_user"/></pattern>
-        <template><get var="location"/></template>
+        <pattern>GET LOCATION FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="location"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LATITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lat"/></template>
+        <pattern>GET LATITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lat"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LONGITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lon"/></template>
+        <pattern>GET LONGITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lon"/></eval></template>
       </category>
     </learnf>
   </think>
@@ -367,22 +367,22 @@ func TestAutoLoadLocationForWeather(t *testing.T) {
 
     <learnf>
       <category>
-        <pattern>GET LOCATION FOR <get var="telegram_user"/></pattern>
-        <template><get var="location"/></template>
+        <pattern>GET LOCATION FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="location"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LATITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lat"/></template>
+        <pattern>GET LATITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lat"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LONGITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lon"/></template>
+        <pattern>GET LONGITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lon"/></eval></template>
       </category>
     </learnf>
   </think>
@@ -506,22 +506,22 @@ func TestUserLocationPersistenceWithFileSystem(t *testing.T) {
 
     <learnf>
       <category>
-        <pattern>GET LOCATION FOR <get var="telegram_user"/></pattern>
-        <template><get var="location"/></template>
+        <pattern>GET LOCATION FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="location"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LATITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lat"/></template>
+        <pattern>GET LATITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lat"/></eval></template>
       </category>
     </learnf>
 
     <learnf>
       <category>
-        <pattern>GET LONGITUDE FOR <get var="telegram_user"/></pattern>
-        <template><get var="lon"/></template>
+        <pattern>GET LONGITUDE FOR <eval><get var="telegram_user"/></eval></pattern>
+        <template><eval><get var="lon"/></eval></template>
       </category>
     </learnf>
   </think>

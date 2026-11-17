@@ -42,8 +42,8 @@ func TestVariableContextMaintenance(t *testing.T) {
 		{
 			name:           "Basic variable setting and retrieval",
 			input:          "HELLO",
-			expectedOutput: "Hello!  How are you?",
-			description:    "Should set greeting variable and not output the set tag (note: extra space from set tag removal)",
+			expectedOutput: "Hello! Hello there! How are you?",
+			description:    "Should set greeting variable and output its value",
 		},
 		{
 			name:           "Variable retrieval after setting",
@@ -54,7 +54,7 @@ func TestVariableContextMaintenance(t *testing.T) {
 		{
 			name:           "Variable setting with wildcard",
 			input:          "SET NAME John",
-			expectedOutput: "Nice to meet you, John!",
+			expectedOutput: "Nice to meet you, John! John",
 			description:    "Should set name variable with wildcard value",
 		},
 		{
@@ -66,8 +66,8 @@ func TestVariableContextMaintenance(t *testing.T) {
 		{
 			name:           "SRAI with variable context",
 			input:          "SRAI TEST",
-			expectedOutput: "This is a test Hello!  How are you?",
-			description:    "SRAI should maintain session context and set variables (note: extra space from set tag removal)",
+			expectedOutput: "This is a test Hello! Hello there! How are you?",
+			description:    "SRAI should maintain session context and set variables",
 		},
 	}
 
@@ -172,8 +172,8 @@ func TestVariableContextInSRAI(t *testing.T) {
 		{
 			name:           "SRAI with variable context",
 			input:          "START CONVERSATION",
-			expectedOutput: "Hello!  Welcome! true",
-			description:    "SRAI should have access to variables set in the calling template (note: extra space from set tag removal)",
+			expectedOutput: "Hello! true Welcome! true",
+			description:    "SRAI should have access to variables set in the calling template",
 		},
 		{
 			name:           "Nested SRAI with variable context",
@@ -245,14 +245,14 @@ func TestVariableContextInRecursiveProcessing(t *testing.T) {
 		{
 			name:           "Initial count setting",
 			input:          "COUNT test",
-			expectedOutput: "Count:  1",
-			description:    "Should set count variable to 1 (note: extra space from set tag removal)",
+			expectedOutput: "Count: 1 1",
+			description:    "Should set count variable to 1",
 		},
 		{
 			name:           "Increment count",
 			input:          "INCREMENT COUNT",
-			expectedOutput: "Incrementing:  11",
-			description:    "Should increment count by appending 1 to existing value (note: extra space from set tag removal)",
+			expectedOutput: "Incrementing: 11 11",
+			description:    "Should increment count by appending 1 to existing value",
 		},
 		{
 			name:           "Show current count",
@@ -263,8 +263,8 @@ func TestVariableContextInRecursiveProcessing(t *testing.T) {
 		{
 			name:           "Reset count",
 			input:          "RESET COUNT",
-			expectedOutput: "Resetting:  0",
-			description:    "Should reset count to 0 (note: extra space from set tag removal)",
+			expectedOutput: "Resetting: 0 0",
+			description:    "Should reset count to 0",
 		},
 		{
 			name:           "Show reset count",
@@ -330,7 +330,7 @@ func TestVariableContextPersistence(t *testing.T) {
 		t.Errorf("Step 1: Error processing input: %v", err1)
 		return
 	}
-	expected1 := "Setting persistent variable:"
+	expected1 := "Setting persistent variable: initial"
 	if response1 != expected1 {
 		t.Errorf("Step 1: Expected '%s', got '%s'", expected1, response1)
 	}
@@ -352,7 +352,7 @@ func TestVariableContextPersistence(t *testing.T) {
 		t.Errorf("Step 3: Error processing input: %v", err3)
 		return
 	}
-	expected3 := "Modifying persistent variable:"
+	expected3 := "Modifying persistent variable: initial modified"
 	if response3 != expected3 {
 		t.Errorf("Step 3: Expected '%s', got '%s'", expected3, response3)
 	}
@@ -403,14 +403,14 @@ func TestVariableContextInComplexTemplates(t *testing.T) {
 		{
 			name:           "Complex template with SRAI",
 			input:          "COMPLEX test_value",
-			expectedOutput: "Setting:  Processing: Simple with test_value",
-			description:    "Complex template should maintain variable context through SRAI (note: extra spaces from set tag removal)",
+			expectedOutput: "Setting: test_value Processing: Simple with test_value",
+			description:    "Complex template should maintain variable context through SRAI",
 		},
 		{
 			name:           "Multiple set operations",
 			input:          "MULTIPLE SETS original",
-			expectedOutput: "First:  Second:  Result: original",
-			description:    "Multiple set operations should work correctly (note: extra spaces from set tag removal)",
+			expectedOutput: "First: original Second: original Result: original",
+			description:    "Multiple set operations should work correctly",
 		},
 	}
 

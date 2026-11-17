@@ -49,7 +49,7 @@ func TestTreeProcessorThinkTag(t *testing.T) {
 		{
 			name:         "Think with get and set",
 			template:     "<set name=\"base\">test</set><think><set name=\"result\"><get name=\"base\"/></set></think><get name=\"result\"/>",
-			expectedOut:  "test",
+			expectedOut:  "testtest",
 			expectedVars: map[string]string{"base": "test", "result": "test"},
 		},
 	}

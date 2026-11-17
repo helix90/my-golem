@@ -128,11 +128,12 @@ See `ARCHITECTURE.md` for detailed explanation of state persistence patterns.
 - `aiml_native.go` - Native AIML processing with full pipeline
 - Standardized processing order documented in `TAG_PROCESSING_STANDARDIZATION.md`
 
-**Pattern Matching (`pattern_matching.go`)**:
-- Priority-based pattern selection (exact > wildcards)
-- Wildcard support: `*` (match 0+ words), `_` (match 1+ words)
-- Pattern normalization and caching
-- That pattern matching with context history
+**Pattern Matching (`graphmaster.go`)**:
+- AIML 2.0 graphmaster: each category is a path of words (pattern, then `<that>`, then `<topic>`), matched word by word
+- Priority at each word: `$WORD` > `#` > `_` > `WORD` (or `<bot name="..."/>`) > `<set>` > `^` > `*`; the earlier word decides
+- Wildcard widths: `*` and `_` match 1+ words, `^` and `#` match 0+ words
+- Input is split into sentences, each matched in turn; `<that>` is the last sentence of the bot's previous response
+- Captures: `star1...`, `that_star1...` (`<thatstar/>`), `topic_star1...` (`<topicstar/>`)
 
 **Session Management (`session_management.go`)**:
 - `ChatSession` struct with isolated state per user

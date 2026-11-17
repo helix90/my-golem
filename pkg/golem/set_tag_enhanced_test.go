@@ -35,7 +35,7 @@ func TestSetTagEnhancedBasicOperations(t *testing.T) {
 
 	// Test 1: Set username
 	response, _ := g.ProcessInput("SET USERNAME", session)
-	expected := "Hello , welcome!" // Set returns empty for regex processor compatibility
+	expected := "Hello John, welcome!" // Set outputs the value it sets
 	if response != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, response)
 	}
@@ -49,7 +49,7 @@ func TestSetTagEnhancedBasicOperations(t *testing.T) {
 
 	// Test 2: Set age with explicit assign operation
 	response, _ = g.ProcessInput("SET AGE", session)
-	expected = "Setting age:" // Set returns empty for regex processor compatibility
+	expected = "Setting age: 25" // Set outputs the value it sets
 	if response != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, response)
 	}
@@ -564,7 +564,7 @@ func TestSetTagEnhancedWithWildcards(t *testing.T) {
 
 	// Test 2: Variable assignment with wildcard
 	response, _ = g.ProcessInput("SET ITEM banana", session)
-	expected = "Setting:"
+	expected = "Setting: banana"
 	if response != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, response)
 	}
@@ -746,7 +746,7 @@ func TestSetTagEnhancedIntegration(t *testing.T) {
 	response, _ := g.ProcessInput("INTEGRATION TEST", session)
 
 	// Check that set operations were processed correctly
-	if !strings.Contains(response, "Hello !") {
+	if !strings.Contains(response, "Hello John!") {
 		t.Errorf("Expected name variable to be set, got: %s", response)
 	}
 	if !strings.Contains(response, "in your basket.") {
