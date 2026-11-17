@@ -156,7 +156,6 @@ See `ARCHITECTURE.md` for detailed explanation of state persistence patterns.
 ### Package Organization
 
 - **`/pkg/golem/`** - Main library (104 files: core engine, AST parser, tree processor, feature implementations, 73+ test files)
-- **`/pkg/golem/processors/`** - Modular processors (12 files with separate go.mod)
 - **`/cmd/golem/`** - CLI with flag parsing and interactive mode
 - **`/examples/`** - Basic library usage, Telegram bot integration
 - **`/examples-module/`** - Comprehensive demos with documentation
