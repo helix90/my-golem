@@ -128,3 +128,36 @@ func TestConcurrentLoadWhileLearning(t *testing.T) {
 		}
 	}
 }
+
+// WithLock lets other code read and reset a session while requests are being
+// processed on it
+func TestConcurrentWithLockAndProcessInput(t *testing.T) {
+	g := newConcurrencyTestGolem(t)
+	session := g.CreateSession("locked")
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for n := 0; n < 50; n++ {
+			for _, input := range concurrencyTestInputs(n) {
+				if _, err := g.ProcessInput(input, session); err != nil {
+					t.Errorf("ProcessInput(%q) failed: %v", input, err)
+				}
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for n := 0; n < 50; n++ {
+			session.WithLock(func() {
+				_ = len(session.History) + len(session.Variables)
+				session.History = []string{}
+				session.ThatHistory = []string{}
+				session.Variables = make(map[string]string)
+				session.Topic = ""
+			})
+		}
+	}()
+	wg.Wait()
+}

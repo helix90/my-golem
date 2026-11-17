@@ -202,7 +202,9 @@ The bot maintains conversation context, so you can have ongoing discussions. Eac
 
 	case "status":
 		session := tb.getOrCreateSession(chatID)
-		statusMsg := fmt.Sprintf(`📊 Bot Status
+		var statusMsg string
+		session.WithLock(func() {
+			statusMsg = fmt.Sprintf(`📊 Bot Status
 
 🤖 AIML Engine: Golem
 📁 Knowledge Base: %s
@@ -212,11 +214,12 @@ The bot maintains conversation context, so you can have ongoing discussions. Eac
 🕒 Last Activity: %s
 
 The bot is running and ready to chat!`,
-			tb.aimlPath,
-			tb.sessionCount(),
-			len(session.History),
-			session.CreatedAt,
-			session.LastActivity)
+				tb.aimlPath,
+				tb.sessionCount(),
+				len(session.History),
+				session.CreatedAt,
+				session.LastActivity)
+		})
 
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatID,
@@ -261,7 +264,9 @@ The bot is running and ready to chat!`,
 
 	case "session":
 		session := tb.getOrCreateSession(chatID)
-		sessionMsg := fmt.Sprintf(`📋 Session Information
+		var sessionMsg string
+		session.WithLock(func() {
+			sessionMsg = fmt.Sprintf(`📋 Session Information
 
 🆔 Session ID: %s
 💬 Message Count: %d
@@ -272,13 +277,14 @@ The bot is running and ready to chat!`,
 
 Session variables:
 %s`,
-			session.ID,
-			len(session.History),
-			session.Topic,
-			tb.getLastResponse(session),
-			session.CreatedAt,
-			session.LastActivity,
-			tb.formatSessionVariables(session))
+				session.ID,
+				len(session.History),
+				session.Topic,
+				tb.getLastResponse(session),
+				session.CreatedAt,
+				session.LastActivity,
+				tb.formatSessionVariables(session))
+		})
 
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatID,
@@ -290,10 +296,12 @@ Session variables:
 
 	case "clear":
 		session := tb.getOrCreateSession(chatID)
-		session.History = []string{}
-		session.ThatHistory = []string{}
-		session.Variables = make(map[string]string)
-		session.Topic = ""
+		session.WithLock(func() {
+			session.History = []string{}
+			session.ThatHistory = []string{}
+			session.Variables = make(map[string]string)
+			session.Topic = ""
+		})
 
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatID,

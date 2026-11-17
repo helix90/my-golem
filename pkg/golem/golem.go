@@ -233,6 +233,15 @@ type ChatSession struct {
 	LearningStats     *SessionLearningStats // Learning statistics for this session
 }
 
+// WithLock runs fn while no ProcessInput call is using the session, so fn can
+// read or change its fields safely while other goroutines chat on it. fn must
+// not call ProcessInput (or WithLock) on the same session, which would deadlock.
+func (session *ChatSession) WithLock(fn func()) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	fn()
+}
+
 // SessionLearningStats represents learning statistics for a session
 type SessionLearningStats struct {
 	TotalLearned     int            `json:"total_learned"`
