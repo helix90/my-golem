@@ -2,7 +2,7 @@
 
 All notable changes to Golem are recorded here.
 
-## Unreleased
+## v1.6.11 - 2026-11-17
 
 ### Upgrading: behaviour changes
 

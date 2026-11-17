@@ -100,7 +100,7 @@ func showHelp() {
 }
 
 func showVersion() {
-	fmt.Println("Golem v1.6.10")
+	fmt.Println("Golem v1.6.11")
 	fmt.Println("A dual-purpose Go library and CLI tool")
 }
 
