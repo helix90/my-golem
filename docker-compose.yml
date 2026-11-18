@@ -5,11 +5,21 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN in .env}
       - AIML_PATH=/app/testdata
       - VERBOSE=${VERBOSE:-false}
+      - TZ=${TZ:-UTC}
+      # SRAIX services used by the bundled AIML; leave unset to disable them
+      - PIRATE_WEATHER_API_KEY=${PIRATE_WEATHER_API_KEY:-}
+      - LIST_HANDLER_URL=${LIST_HANDLER_URL:-}
+      - RADICALE_URL=${RADICALE_URL:-}
+      - RADICALE_USER=${RADICALE_USER:-}
+      - RADICALE_PASSWORD=${RADICALE_PASSWORD:-}
+      - RADICALE_CALENDAR=${RADICALE_CALENDAR:-}
     volumes:
       - golem-learned:/app/learned_categories
+      # To use your own AIML instead of the bundled testdata, mount it here:
+      # - ./aiml:/app/testdata:ro
 
 volumes:
   golem-learned:
