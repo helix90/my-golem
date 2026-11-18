@@ -103,6 +103,15 @@ func (tb *TelegramBot) handleMessage(ctx context.Context, b *bot.Bot, update *mo
 	// Get or create session for this chat
 	session := tb.getOrCreateSession(chatID)
 
+	// Identify the sender, so the persistence AIML (user-name-persistence.aiml
+	// and others) can remember them. In a group the session is shared, so this
+	// is whoever sent the current message.
+	if from := update.Message.From; from != nil {
+		session.WithLock(func() {
+			session.Variables["telegram_user"] = fmt.Sprintf("%d", from.ID)
+		})
+	}
+
 	// Log the interaction
 	if tb.verbose {
 		log.Printf("Chat %d: User said: %s", chatID, userInput)
