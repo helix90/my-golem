@@ -156,7 +156,8 @@ See `ARCHITECTURE.md` for detailed explanation of state persistence patterns.
 - **`/pkg/golem/`** - Main library (19 source files: core engine, AST parser, tree processor, graphmaster, feature implementations; 95 test files)
 - **`/cmd/golem/`** - CLI with flag parsing and interactive mode
 - **`/examples-module/`** - Library usage, Telegram bot, and tag demos with documentation
-- **`/testdata/`** - Primary test data (sample.aiml, bot.properties, loader tests)
+- **`/testdata/`** - The bot's AIML, maps and properties, which the Docker image ships (sample.aiml, bot.properties, weather, CalDAV, lists, persistence)
+- **`/pkg/golem/testdata/`** - Test fixtures for the loader tests; keep them out of `/testdata/`, since loading a directory merges every file in it (`loader_test/test.properties` would rename the bot)
 
 ### Configuration File Formats
 

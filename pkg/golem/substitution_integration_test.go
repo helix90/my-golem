@@ -10,7 +10,7 @@ func TestSubstitutionIntegration(t *testing.T) {
 	g := NewForTesting(t, true)
 
 	// Load a test substitution file
-	substitutionPath, err := filepath.Abs("../../testdata/loader_test/normal.substitution")
+	substitutionPath, err := filepath.Abs("testdata/loader_test/normal.substitution")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}

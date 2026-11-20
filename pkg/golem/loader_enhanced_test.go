@@ -11,7 +11,7 @@ func TestEnhancedDirectoryLoading(t *testing.T) {
 	g := NewForTesting(t, true)
 
 	// Get the absolute path to test data directory
-	testDataPath, err := filepath.Abs("../../testdata/loader_test")
+	testDataPath, err := filepath.Abs("testdata/loader_test")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestLoadSubstitutionFile(t *testing.T) {
 	g := NewForTesting(t, true)
 
 	// Get the absolute path to the substitution file
-	substitutionPath, err := filepath.Abs("../../testdata/loader_test/normal.substitution")
+	substitutionPath, err := filepath.Abs("testdata/loader_test/normal.substitution")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestLoadPropertiesFile(t *testing.T) {
 	g := NewForTesting(t, true)
 
 	// Get the absolute path to the properties file
-	propertiesPath, err := filepath.Abs("../../testdata/loader_test/test.properties")
+	propertiesPath, err := filepath.Abs("testdata/loader_test/test.properties")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestLoadPDefaultsFile(t *testing.T) {
 	g := NewForTesting(t, true)
 
 	// Get the absolute path to the pdefaults file
-	pdefaultsPath, err := filepath.Abs("../../testdata/loader_test/test.pdefaults")
+	pdefaultsPath, err := filepath.Abs("testdata/loader_test/test.pdefaults")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestLoadAllRelatedFiles(t *testing.T) {
 	g := NewForTesting(t, true)
 
 	// Get the absolute path to the AIML file
-	aimlPath, err := filepath.Abs("../../testdata/loader_test/test.aiml")
+	aimlPath, err := filepath.Abs("testdata/loader_test/test.aiml")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
