@@ -80,3 +80,10 @@ go.work.sum
 # Local development files
 local/
 dev/
+
+# Loader test fixtures: not part of the bot, and loader_test renames it
+testdata/aiml_examples/
+testdata/data_examples/
+testdata/loader_test/
+testdata/map_examples/
+testdata/subdir/
