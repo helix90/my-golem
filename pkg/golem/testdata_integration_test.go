@@ -177,7 +177,7 @@ func TestTestDataBasicFunctionality(t *testing.T) {
 		{
 			name:     "HelloPattern",
 			input:    "hello",
-			contains: []string{"hello", "hi", "greetings"},
+			contains: []string{"good morning", "good afternoon", "good evening", "hello!"},
 			notEmpty: true,
 		},
 		{

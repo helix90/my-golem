@@ -2,10 +2,112 @@
 <aiml version="2.0">
     <!-- Sample AIML file following AIML2 specification -->
     
-    <!-- Basic pattern matching -->
+    <!-- Greeting: uses the time of day (timeofday.map, in the bot's TZ) and
+         the name saved by user-name-persistence.aiml -->
     <category>
         <pattern>HELLO</pattern>
-        <template>Hello! How can I help you today?</template>
+        <template>
+            <think>
+                <srai>AUTOLOAD NAME</srai>
+                <set var="period"><map name="timeofday"><time format="hour"/></map></set>
+            </think>
+            <condition var="period"><li value="night">Hello<condition name="user_name">, <get name="user_name"/></condition>! You're up late.</li><li>Good <get var="period"/><condition name="user_name">, <get name="user_name"/></condition>!</li></condition> <condition name="user_name"><li value="">I don't think we've met. What should I call you?</li><li>How can I help you today?</li></condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>HI</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>HEY</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>HELLO THERE</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>HI THERE</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>HELLO <bot name="name"/></pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>HI <bot name="name"/></pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>GOOD MORNING</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>GOOD AFTERNOON</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>GOOD EVENING</pattern>
+        <template><srai>HELLO</srai></template>
+    </category>
+
+    <category>
+        <pattern>GOODBYE</pattern>
+        <template>
+            <think>
+                <srai>AUTOLOAD NAME</srai>
+                <set var="period"><map name="timeofday"><time format="hour"/></map></set>
+            </think>
+            Goodbye<condition name="user_name">, <get name="user_name"/></condition>! <condition var="period"><li value="night">Get some sleep.</li><li>Have a good <get var="period"/>.</li></condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>BYE</pattern>
+        <template><srai>GOODBYE</srai></template>
+    </category>
+
+    <category>
+        <pattern>SEE YOU</pattern>
+        <template><srai>GOODBYE</srai></template>
+    </category>
+
+    <category>
+        <pattern>SEE YOU LATER</pattern>
+        <template><srai>GOODBYE</srai></template>
+    </category>
+
+    <category>
+        <pattern>GOOD NIGHT</pattern>
+        <template><srai>GOODBYE</srai></template>
+    </category>
+
+    <!-- The answer to "What should I call you?" is the user's name -->
+    <category>
+        <pattern>*</pattern>
+        <that>WHAT SHOULD I CALL YOU</that>
+        <template><srai>MY NAME IS <star/></srai></template>
+    </category>
+
+    <category>
+        <pattern>NO</pattern>
+        <that>WHAT SHOULD I CALL YOU</that>
+        <template>That's fine. You can tell me your name any time by saying "My name is ...".</template>
+    </category>
+
+    <category>
+        <pattern>NEVER MIND</pattern>
+        <that>WHAT SHOULD I CALL YOU</that>
+        <template><srai>NO</srai></template>
     </category>
     
     <category>
