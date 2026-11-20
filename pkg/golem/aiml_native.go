@@ -577,17 +577,12 @@ func (g *Golem) LoadAIMLFromDirectory(dirPath string) (*AIMLKnowledgeBase, error
 	}
 
 	// Load properties files from the same directory
-	properties, err := g.LoadPropertiesFromDirectory(dirPath)
+	properties, err := g.loadPropertiesFiles(dirPath)
 	if err != nil {
 		// Log the error but don't fail the entire operation
 		g.LogInfo("Warning: failed to load properties from directory: %v", err)
 	} else {
-		// Merge properties into the knowledge base
-		for _, propData := range properties {
-			for key, value := range propData {
-				mergedKB.Properties[key] = value
-			}
-		}
+		mergePropertiesFiles(mergedKB.Properties, properties)
 	}
 
 	// Load pdefaults files from the same directory
@@ -923,12 +918,42 @@ func (g *Golem) LoadPropertiesFromFile(filename string) (map[string]string, erro
 	return result, nil
 }
 
-// LoadPropertiesFromDirectory loads all .properties files from a directory
+// LoadPropertiesFromDirectory loads all .properties files from a directory,
+// keyed by file name without its extension
 func (g *Golem) LoadPropertiesFromDirectory(dirPath string) (map[string]map[string]string, error) {
+	files, err := g.loadPropertiesFiles(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	allProperties := make(map[string]map[string]string)
+	for _, file := range files {
+		allProperties[file.name] = file.properties
+	}
+	return allProperties, nil
+}
+
+// loadedProperties is one loaded .properties file
+type loadedProperties struct {
+	name       string // file name without its extension
+	properties map[string]string
+}
+
+// mergePropertiesFiles copies the properties of files into dst in order, so a
+// key set in several files takes its value from the last, as a category does
+func mergePropertiesFiles(dst map[string]string, files []loadedProperties) {
+	for _, file := range files {
+		for key, value := range file.properties {
+			dst[key] = value
+		}
+	}
+}
+
+// loadPropertiesFiles loads all .properties files from a directory in walk
+// (lexical path) order
+func (g *Golem) loadPropertiesFiles(dirPath string) ([]loadedProperties, error) {
 	g.LogInfo("Loading properties files from directory: %s", dirPath)
 
-	// Create a map to store all properties
-	allProperties := make(map[string]map[string]string)
+	var files []loadedProperties
 
 	// Walk through the directory to find all .properties files
 	var propertiesFiles []string
@@ -951,7 +976,7 @@ func (g *Golem) LoadPropertiesFromDirectory(dirPath string) (map[string]map[stri
 
 	if len(propertiesFiles) == 0 {
 		g.LogInfo("No properties files found in directory: %s", dirPath)
-		return allProperties, nil
+		return nil, nil
 	}
 
 	g.LogInfo("Found %d properties files in directory", len(propertiesFiles))
@@ -970,12 +995,12 @@ func (g *Golem) LoadPropertiesFromDirectory(dirPath string) (map[string]map[stri
 
 		// Use the filename (without extension) as the properties name
 		propertiesName := strings.TrimSuffix(filepath.Base(propertiesFile), filepath.Ext(propertiesFile))
-		allProperties[propertiesName] = propertiesData
+		files = append(files, loadedProperties{name: propertiesName, properties: propertiesData})
 	}
 
-	g.LogInfo("Loaded %d properties files", len(allProperties))
+	g.LogInfo("Loaded %d properties files", len(files))
 
-	return allProperties, nil
+	return files, nil
 }
 
 // LoadPDefaultsFromFile loads a .pdefaults file containing JSON array of [key, value] pairs

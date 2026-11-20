@@ -2,6 +2,12 @@
 
 All notable changes to Golem are recorded here.
 
+## Unreleased
+
+### Fixed
+
+- Loading a directory merges its `.properties` files in load (lexical path) order, so a property set in several files takes its value from the file loaded last, as categories do. Before, the order was random, and the bot's name or other properties could change between runs.
+
 ## v1.6.11 - 2026-11-17
 
 ### Upgrading: behaviour changes

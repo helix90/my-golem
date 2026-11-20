@@ -1208,7 +1208,7 @@ func (g *Golem) loadAllRelatedFiles(filePath string) error {
 	}
 
 	// Load properties from directory
-	properties, err := g.LoadPropertiesFromDirectory(dir)
+	properties, err := g.loadPropertiesFiles(dir)
 	if err != nil {
 		// Log the error but don't fail the entire operation
 		g.LogInfo("Warning: failed to load properties from directory: %v", err)
@@ -1237,11 +1237,7 @@ func (g *Golem) loadAllRelatedFiles(filePath string) error {
 	}
 
 	// Merge properties into knowledge base
-	for _, propData := range properties {
-		for key, value := range propData {
-			aimlKB.Properties[key] = value
-		}
-	}
+	mergePropertiesFiles(aimlKB.Properties, properties)
 
 	// Merge pdefaults into knowledge base (as default user properties)
 	for pdefaultName, pdefaultData := range pdefaults {

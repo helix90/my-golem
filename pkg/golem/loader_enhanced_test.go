@@ -253,3 +253,48 @@ func TestLoadAllRelatedFiles(t *testing.T) {
 	t.Logf("Substitutions: %d", len(g.aimlKB.Substitutions))
 	t.Logf("Properties: %d", len(g.aimlKB.Properties))
 }
+
+// TestDirectoryPropertiesMergeInLoadOrder checks that a property set in several
+// files takes its value from the file loaded last, every time
+func TestDirectoryPropertiesMergeInLoadOrder(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"bot.aiml":               `<?xml version="1.0" encoding="UTF-8"?><aiml version="2.0"><category><pattern>WHAT IS YOUR NAME</pattern><template><bot name="name"/></template></category></aiml>`,
+		"a.properties":           `[["name", "First"], ["job", "first job"]]`,
+		"b.properties":           `[["name", "Second"]]`,
+		"sub/c-early.properties": `[["name", "Third"], ["species", "robot"]]`,
+	}
+	for name, content := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	want := map[string]string{"name": "Third", "job": "first job", "species": "robot"}
+	for i := 0; i < 20; i++ {
+		g := NewForTesting(t, false)
+		kb, err := g.LoadAIMLFromDirectory(dir)
+		if err != nil {
+			t.Fatalf("LoadAIMLFromDirectory: %v", err)
+		}
+		for key, value := range want {
+			if kb.Properties[key] != value {
+				t.Fatalf("LoadAIMLFromDirectory: %s = %q, want %q", key, kb.Properties[key], value)
+			}
+		}
+
+		g = NewForTesting(t, false)
+		if err := g.Execute("load", []string{dir}); err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		for key, value := range want {
+			if got := g.GetKnowledgeBase().Properties[key]; got != value {
+				t.Fatalf("load: %s = %q, want %q", key, got, value)
+			}
+		}
+	}
+}
