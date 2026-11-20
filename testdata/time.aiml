@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+    <!-- Time and date. These use the bot's local time zone: set TZ. -->
+    <category>
+        <pattern>WHAT TIME IS IT</pattern>
+        <template>It's <time/>.</template>
+    </category>
+
+    <category>
+        <pattern>WHAT IS THE TIME</pattern>
+        <template><srai>WHAT TIME IS IT</srai></template>
+    </category>
+
+    <category>
+        <pattern>DO YOU HAVE THE TIME</pattern>
+        <template><srai>WHAT TIME IS IT</srai></template>
+    </category>
+
+    <category>
+        <pattern>WHAT IS THE DATE</pattern>
+        <template>Today is <date/>.</template>
+    </category>
+
+    <category>
+        <pattern>WHAT IS TODAY'S DATE</pattern>
+        <template><srai>WHAT IS THE DATE</srai></template>
+    </category>
+
+    <category>
+        <pattern>WHAT DAY IS IT</pattern>
+        <template><srai>WHAT IS THE DATE</srai></template>
+    </category>
+</aiml>
