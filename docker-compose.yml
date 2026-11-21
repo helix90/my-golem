@@ -18,7 +18,11 @@ services:
       - RADICALE_CALENDAR=${RADICALE_CALENDAR:-}
     volumes:
       - golem-learned:/app/learned_categories
-      # To use your own AIML instead of the bundled testdata, mount it here:
+      # To add your own AIML to the bundled testdata, mount it inside it. Files
+      # load in path order and the last definition of a pattern wins, so
+      # zz-local can override bundled categories. Edit, then restart.
+      # - ./my-aiml:/app/testdata/zz-local:ro
+      # Or, to use only your own AIML instead of the bundled testdata:
       # - ./aiml:/app/testdata:ro
 
 volumes:
