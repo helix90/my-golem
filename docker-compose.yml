@@ -1,9 +1,26 @@
 services:
+  # Fetches the AIML repository in AIML_REPO, if set, before the bot starts
+  # (see docker/sync-aiml.sh). To pick up new commits while the bot runs:
+  #   docker compose run --rm aiml-sync && docker compose restart golem-telegram
+  aiml-sync:
+    image: alpine/git:v2.47.2
+    environment:
+      - AIML_REPO=${AIML_REPO:-}
+      - AIML_REF=${AIML_REF:-}
+      - AIML_TOKEN=${AIML_TOKEN:-}
+    entrypoint: ["sh", "/sync-aiml.sh"]
+    volumes:
+      - ./docker/sync-aiml.sh:/sync-aiml.sh:ro
+      - my-aiml:/aiml
+
   golem-telegram:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    depends_on:
+      aiml-sync:
+        condition: service_completed_successfully
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN in .env}
       - AIML_PATH=/app/testdata
@@ -18,12 +35,14 @@ services:
       - RADICALE_CALENDAR=${RADICALE_CALENDAR:-}
     volumes:
       - golem-learned:/app/learned_categories
-      # To add your own AIML to the bundled testdata, mount it inside it. Files
-      # load in path order and the last definition of a pattern wins, so
-      # zz-local can override bundled categories. Edit, then restart.
-      # - ./my-aiml:/app/testdata/zz-local:ro
+      # Extra AIML, loaded with the bundled testdata. Files load in path order
+      # and the last definition of a pattern wins, so zz-local can override
+      # bundled categories. To use a folder on this machine instead of
+      # AIML_REPO, change my-aiml to ./my-aiml (then edit and restart).
+      - my-aiml:/app/testdata/zz-local:ro
       # Or, to use only your own AIML instead of the bundled testdata:
       # - ./aiml:/app/testdata:ro
 
 volumes:
   golem-learned:
+  my-aiml:

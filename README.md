@@ -361,18 +361,30 @@ See [AIML2_COMPARISON.md](AIML2_COMPARISON.md) for detailed compliance informati
 
 ## 🐳 Docker Support
 
-Golem includes comprehensive Docker support:
+The Docker image runs the Telegram bot (`examples-module/telegram_bot.go`) with the AIML in `testdata/`:
 
 ```bash
-# Build Docker image
-docker build -t golem .
-
-# Run interactive mode
-docker run -it golem interactive
-
-# Run with custom AIML files
-docker run -v /path/to/aiml:/aiml -it golem load /aiml/sample.aiml
+cp env.example .env      # set TELEGRAM_BOT_TOKEN, TZ and any service keys
+docker compose up -d --build
+docker compose logs -f golem-telegram
 ```
+
+What the bot learns is kept in the `golem-learned` volume.
+
+To add AIML from a Git repository, set it in `.env`:
+
+```
+AIML_REPO=https://github.com/you/your-aiml.git
+AIML_TOKEN=github_pat_...   # private repositories only: read-only Contents access
+```
+
+The `aiml-sync` service fetches the repository before each start and the bot loads it alongside `testdata/`, at `testdata/zz-local/`. Its files load last, so a pattern defined there overrides the bundled one. If the repository can't be reached, the last copy is kept. To pick up new commits while the bot runs:
+
+```bash
+docker compose run --rm aiml-sync && docker compose restart golem-telegram
+```
+
+See `docker-compose.yml` for using a local folder instead.
 
 ## 🤝 Contributing
 
