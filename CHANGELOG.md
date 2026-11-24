@@ -30,6 +30,7 @@ All notable changes to Golem are recorded here.
 ### Fixed
 
 - With no location saved, weather replies used the catch-all reply as the place name ("The weather in I'm not sure I understand..."), and a weather service failure was pasted into the sentence. Both now give a clear message.
+- "Show my lists" with no lists, or the items of an empty list, replied `[]`. They now say "You have no lists yet." and "No items in this list.", and `<jsonformat>` shows any other empty array as "There's nothing here yet."
 - Adding, creating, renaming or changing list items and lists failed when the text contained `"` or `\` (e.g. `12" pizza`): the JSON body was built in AIML. The list services now build their bodies with `body` templates from the predicates the AIML sets.
 - List login failed for passwords containing `&`, `+`, `=` or `%`: the form body was built in AIML without URL-encoding. `list_login` now uses a `body` template.
 - With verbose logging, passwords and list access tokens were written to the log (the raw input, predicate lookups and sets). They are now masked.

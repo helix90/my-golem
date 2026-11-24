@@ -2706,6 +2706,11 @@ func (tp *TreeProcessor) formatItemJSON(data interface{}) string {
 }
 
 func (tp *TreeProcessor) formatGenericJSON(data interface{}) string {
+	// An empty array has no entries to tell what it lists; say so in words
+	// rather than showing []. A type attribute gives a better message.
+	if items, ok := data.([]interface{}); ok && len(items) == 0 {
+		return "There's nothing here yet."
+	}
 	// For generic JSON, just pretty-print it
 	bytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {

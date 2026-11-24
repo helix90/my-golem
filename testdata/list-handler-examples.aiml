@@ -131,7 +131,7 @@
                     </think>
                     <condition name="lists_response">
                         <li value="Unable to retrieve lists"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to retrieve your lists.</li></condition></li>
-                        <li><jsonformat><get name="lists_response"/></jsonformat></li>
+                        <li><jsonformat type="lists"><get name="lists_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>
@@ -273,7 +273,7 @@
                     </think>
                     <condition name="items_response">
                         <li value="Unable to retrieve items"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to retrieve items for list <get name="target_list_id"/>.</li></condition></li>
-                        <li><jsonformat><get name="items_response"/></jsonformat></li>
+                        <li><jsonformat type="items"><get name="items_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>
