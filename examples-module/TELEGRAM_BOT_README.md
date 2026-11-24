@@ -42,6 +42,10 @@ Set the following environment variables:
 # Required: Your Telegram bot token
 export TELEGRAM_BOT_TOKEN="your_bot_token_here"
 
+# Required: who may use the bot (Telegram user IDs, comma-separated).
+# Unset, the bot answers no one and tells each person their ID.
+export TELEGRAM_ALLOWED_USERS="123456789"
+
 # Required: Path to AIML files directory
 export AIML_PATH="/path/to/your/aiml/files"
 

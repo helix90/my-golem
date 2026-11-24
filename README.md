@@ -195,8 +195,9 @@ The `examples-module/` directory contains comprehensive examples:
 cd examples-module
 go run learn_demo.go
 
-# Telegram bot (requires TELEGRAM_BOT_TOKEN)
+# Telegram bot (requires TELEGRAM_BOT_TOKEN; answers only TELEGRAM_ALLOWED_USERS)
 export TELEGRAM_BOT_TOKEN="your_token_here"
+export TELEGRAM_ALLOWED_USERS="123456789"   # your Telegram user ID
 go run telegram_bot.go
 
 # List operations demo
@@ -364,7 +365,7 @@ See [AIML2_COMPARISON.md](AIML2_COMPARISON.md) for detailed compliance informati
 The Docker image runs the Telegram bot (`examples-module/telegram_bot.go`) with the AIML in `testdata/`:
 
 ```bash
-cp env.example .env      # set TELEGRAM_BOT_TOKEN, TZ and any service keys
+cp env.example .env      # set TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS, USER_STORE_KEY, TZ and any service keys
 docker compose up -d --build
 docker compose logs -f golem-telegram
 ```

@@ -23,6 +23,10 @@ services:
         condition: service_completed_successfully
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN in .env}
+      # Who may use the bot (Telegram user IDs); see env.example
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - TELEGRAM_ADMINS=${TELEGRAM_ADMINS:-}
+      - TELEGRAM_ALLOW_ALL=${TELEGRAM_ALLOW_ALL:-false}
       - AIML_PATH=/app/testdata
       - VERBOSE=${VERBOSE:-false}
       - TZ=${TZ:-UTC}

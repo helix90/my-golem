@@ -11,6 +11,7 @@ All notable changes to Golem are recorded here.
 
 ### Upgrading: behaviour changes
 
+- **The Telegram bot only answers the users in `TELEGRAM_ALLOWED_USERS`** (comma-separated Telegram user IDs). With it unset, it answers no one, and tells each person who writes their user ID so they can be added. Set `TELEGRAM_ALLOW_ALL=true` to keep it open. `/reload` is for `TELEGRAM_ADMINS` (default: every allowed user).
 - **The location predicates are renamed** `user_location`, `user_latitude` and `user_longitude` (were `location`, `latitude`, `longitude`), and the list credentials `user_list_username` and `user_list_password` (were `list_username`, `list_password`). Every `user_*` predicate is now saved per user when the bot has a user store and the session's `UserID` is set.
 - **"Delete event" asks first.** It replies with Yes/No buttons; `CONFIRM DELETE EVENT <title>` (or answering "yes") deletes.
 - The Telegram bot keeps its data in `/app/data` (Docker volume `golem-data`); set `USER_STORE_KEY`.
@@ -21,6 +22,7 @@ All notable changes to Golem are recorded here.
 - **Reminders, timers and a daily briefing**: the `reminders` SRAIX handler, `ReminderStore`, `testdata/reminders.aiml`. The Telegram bot delivers them when due.
 - **Buttons**: AIML 2.1 rich media (`<button>`, `<reply>`, `<location/>`) become Telegram inline buttons and suggested replies; `ParseRichResponse`. `<jsonformat button="...">` adds a tick button per list item. Weather offers to share a location, which the bot saves.
 - The Telegram bot stops cleanly on SIGTERM.
+- An allowlist for the Telegram bot: `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_ADMINS`, `TELEGRAM_ALLOW_ALL`.
 
 ### Fixed
 

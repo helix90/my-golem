@@ -1,7 +1,28 @@
 # Assistant features
 
-What the Telegram bot remembers about each user, reminders and the daily
-briefing, and buttons.
+Who can use the Telegram bot, what it remembers about each user, reminders
+and the daily briefing, and buttons.
+
+## Who can use the bot
+
+The bot answers only the Telegram users in `TELEGRAM_ALLOWED_USERS`, a
+comma-separated list of user IDs. It can read and change your calendar and
+lists, so it is private by default: with the list empty, it answers no one.
+
+Anyone else, in a private chat or a group, gets "Sorry, this is a private
+assistant. Your Telegram user ID is 123456789; ask the bot's owner to add it
+to TELEGRAM_ALLOWED_USERS." (at most once every 10 minutes), and the bot logs
+the ID. That is also the easiest way to find your own ID: start the bot,
+message it, and copy the number into `TELEGRAM_ALLOWED_USERS`.
+
+- `TELEGRAM_ADMINS` (IDs, each also allowed) may run `/reload`; by default
+  every allowed user may.
+- `TELEGRAM_ALLOW_ALL=true` lets everyone in. Use it only for a bot with
+  nothing private behind it; `/reload` then needs `TELEGRAM_ADMINS`.
+- Messages, commands, button taps and shared locations are all checked, and
+  reminders of users who were removed from the list are not sent.
+- A user removed from the list keeps their stored data until it is deleted;
+  they can no longer reach `/forgetme`.
 
 ## What the bot remembers about users
 

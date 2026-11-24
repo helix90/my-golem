@@ -28,6 +28,7 @@ import (
 type TelegramBot struct {
 	golem     *golem.Golem
 	bot       *bot.Bot
+	access    *Access
 	users     *golem.UserStore
 	reminders *golem.ReminderStore
 	sessions  map[int64]*golem.ChatSession // Chat ID -> Session mapping
@@ -59,6 +60,88 @@ type Config struct {
 	UserStoreKey  string
 	RemindersPath string
 	APIServerURL  string // for tests; empty uses Telegram's
+	Access        *Access
+}
+
+// Access decides who may use the bot: the Telegram users in
+// TELEGRAM_ALLOWED_USERS, or everyone with TELEGRAM_ALLOW_ALL=true. Admins
+// (TELEGRAM_ADMINS, or else every allowed user) may also /reload.
+type Access struct {
+	allowAll bool
+	users    map[int64]bool
+	admins   map[int64]bool
+
+	mu      sync.Mutex
+	refused map[int64]time.Time // when each refused user was last told so
+}
+
+// refusalInterval is how often a refused user is told why
+const refusalInterval = 10 * time.Minute
+
+// NewAccess reads comma- or space-separated Telegram user IDs
+func NewAccess(allowedUsers, admins string, allowAll bool) (*Access, error) {
+	users, err := parseUserIDs("TELEGRAM_ALLOWED_USERS", allowedUsers)
+	if err != nil {
+		return nil, err
+	}
+	adminIDs, err := parseUserIDs("TELEGRAM_ADMINS", admins)
+	if err != nil {
+		return nil, err
+	}
+	if len(adminIDs) == 0 && !allowAll {
+		adminIDs = users
+	}
+	for id := range adminIDs {
+		if !allowAll && !users[id] {
+			return nil, fmt.Errorf("TELEGRAM_ADMINS: %d is not in TELEGRAM_ALLOWED_USERS", id)
+		}
+	}
+	return &Access{allowAll: allowAll, users: users, admins: adminIDs, refused: make(map[int64]time.Time)}, nil
+}
+
+func parseUserIDs(name, value string) (map[int64]bool, error) {
+	ids := make(map[int64]bool)
+	for _, field := range strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == ' ' || r == ';' || r == '\n' }) {
+		id, err := strconv.ParseInt(strings.TrimSpace(field), 10, 64)
+		if err != nil || id <= 0 {
+			return nil, fmt.Errorf("%s: %q is not a Telegram user ID (a number; message the bot to see yours)", name, field)
+		}
+		ids[id] = true
+	}
+	return ids, nil
+}
+
+// Allowed reports whether a Telegram user may use the bot
+func (a *Access) Allowed(id int64) bool {
+	return a.allowAll || a.users[id]
+}
+
+// Admin reports whether a Telegram user may run admin commands
+func (a *Access) Admin(id int64) bool {
+	return a.admins[id]
+}
+
+// tellRefused reports whether a refused user should be told so now, so
+// that someone writing again and again gets one reply each interval
+func (a *Access) tellRefused(id int64, now time.Time) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if last, ok := a.refused[id]; ok && now.Sub(last) < refusalInterval {
+		return false
+	}
+	a.refused[id] = now
+	return true
+}
+
+// describe says who may use the bot, for the startup log
+func (a *Access) describe() string {
+	switch {
+	case a.allowAll:
+		return fmt.Sprintf("⚠️  TELEGRAM_ALLOW_ALL is set: anyone on Telegram can use this bot (%d admin(s))", len(a.admins))
+	case len(a.users) == 0:
+		return "🔒 No one may use the bot yet: set TELEGRAM_ALLOWED_USERS. Message the bot to see your user ID."
+	}
+	return fmt.Sprintf("🔒 %d allowed user(s), %d admin(s)", len(a.users), len(a.admins))
 }
 
 // NewTelegramBot creates a new Telegram bot instance
@@ -82,6 +165,7 @@ func NewTelegramBot(cfg Config) (*TelegramBot, error) {
 
 	tb := &TelegramBot{
 		golem:     g,
+		access:    cfg.Access,
 		users:     users,
 		reminders: reminders,
 		sessions:  make(map[int64]*golem.ChatSession),
@@ -97,6 +181,7 @@ func NewTelegramBot(cfg Config) (*TelegramBot, error) {
 	}
 
 	opts := []bot.Option{
+		bot.WithMiddlewares(tb.checkAccess),
 		bot.WithDefaultHandler(tb.handleOther),
 		bot.WithCallbackQueryDataHandler("", bot.MatchTypePrefix, tb.handleCallback),
 	}
@@ -125,6 +210,52 @@ func (tb *TelegramBot) loadAIML() error {
 		log.Printf("🔒 Moved %d saved user values from learned categories to the user store", moved)
 	}
 	return nil
+}
+
+// updateSender returns who sent an update, or nil for updates with no
+// sender, such as channel posts
+func updateSender(update *models.Update) (from *models.User, chatID int64) {
+	switch {
+	case update.Message != nil:
+		return update.Message.From, update.Message.Chat.ID
+	case update.CallbackQuery != nil:
+		chatID := int64(0)
+		if m := update.CallbackQuery.Message.Message; m != nil {
+			chatID = m.Chat.ID
+		} else if m := update.CallbackQuery.Message.InaccessibleMessage; m != nil {
+			chatID = m.Chat.ID
+		}
+		return &update.CallbackQuery.From, chatID
+	}
+	return nil, 0
+}
+
+// checkAccess runs before every handler: updates from users who may not use
+// the bot go no further. A refused user is told their ID, so the owner can
+// add it, at most once every refusalInterval.
+func (tb *TelegramBot) checkAccess(next bot.HandlerFunc) bot.HandlerFunc {
+	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		from, chatID := updateSender(update)
+		if from == nil || from.IsBot {
+			return
+		}
+		if tb.access.Allowed(from.ID) {
+			next(ctx, b, update)
+			return
+		}
+
+		log.Printf("🚫 Refused Telegram user %d in chat %d", from.ID, chatID)
+		refusal := fmt.Sprintf("Sorry, this is a private assistant. Your Telegram user ID is %d; ask the bot's owner to add it to TELEGRAM_ALLOWED_USERS.", from.ID)
+		if update.CallbackQuery != nil {
+			b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{CallbackQueryID: update.CallbackQuery.ID, Text: refusal, ShowAlert: true})
+			return
+		}
+		if chatID != 0 && tb.access.tellRefused(from.ID, time.Now()) {
+			if _, err := b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: refusal}); err != nil {
+				log.Printf("Failed to tell user %d they may not use the bot: %v", from.ID, err)
+			}
+		}
+	}
 }
 
 // getOrCreateSession gets an existing session or creates a new one for the chat
@@ -418,8 +549,12 @@ func (tb *TelegramBot) deliverReminder(r golem.Reminder) {
 		log.Printf("Reminder %s has an invalid chat %q", r.ID, r.Chat)
 		return
 	}
+	userID, _ := strconv.ParseInt(r.User, 10, 64)
+	if !tb.access.Allowed(userID) {
+		log.Printf("Skipped reminder %s: user %s may no longer use the bot", r.ID, r.User)
+		return
+	}
 	if r.Input != "" {
-		userID, _ := strconv.ParseInt(r.User, 10, 64)
 		tb.respond(ctx, chatID, userID, r.Input)
 		return
 	}
@@ -465,7 +600,7 @@ Commands:
 /start - Show this welcome message
 /help - Show help information
 /status - Show bot status
-/reload - Reload AIML knowledge base
+/reload - Reload AIML knowledge base (admins)
 /session - Show session information
 /clear - Clear conversation history
 /forgetme - Delete everything I remember about you
@@ -481,7 +616,7 @@ Available commands:
 /start - Welcome message
 /help - This help message
 /status - Bot status and statistics
-/reload - Reload the AIML knowledge base
+/reload - Reload the AIML knowledge base (admins)
 /session - Show current session information
 /clear - Clear your conversation history
 /forgetme - Delete everything I remember about you, and your reminders
@@ -512,6 +647,10 @@ The bot is running and ready to chat!`,
 		reply(statusMsg)
 
 	case "reload":
+		if update.Message.From == nil || !tb.access.Admin(update.Message.From.ID) {
+			reply("❌ Only the bot's admins can reload the AIML.")
+			return
+		}
 		if tb.aimlPath == "" {
 			reply("❌ No AIML path configured for reloading.")
 			return
@@ -631,6 +770,7 @@ func (tb *TelegramBot) Start(ctx context.Context) error {
 	log.Printf("🤖 Starting Golem Telegram Bot...")
 	log.Printf("📁 AIML Path: %s", tb.aimlPath)
 	log.Printf("🔧 Verbose: %v", tb.verbose)
+	log.Print(tb.access.describe())
 
 	// Start the bot
 	tb.bot.Start(ctx)
@@ -672,7 +812,13 @@ func main() {
 		log.Fatalf("❌ Failed to get absolute path: %v", err)
 	}
 
+	access, err := NewAccess(os.Getenv("TELEGRAM_ALLOWED_USERS"), os.Getenv("TELEGRAM_ADMINS"), os.Getenv("TELEGRAM_ALLOW_ALL") == "true")
+	if err != nil {
+		log.Fatalf("❌ %v", err)
+	}
+
 	cfg := Config{
+		Access:        access,
 		Token:         token,
 		AIMLPath:      absPath,
 		Verbose:       os.Getenv("VERBOSE") == "true",
