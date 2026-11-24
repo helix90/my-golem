@@ -66,7 +66,8 @@
                 <li>
                     <think>
                         <set name="list_name"><star/></set>
-                        <set name="create_response"><sraix service="list_create">{"name":"<star/>","description":""}</sraix></set>
+                        <set name="list_description"></set>
+                        <set name="create_response"><sraix service="list_create">create</sraix></set>
                     </think>
                     <condition name="create_response">
                         <li value="Failed to create list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to create list '<get name="list_name"/>'.</li></condition></li>
@@ -104,7 +105,7 @@
                     <think>
                         <set name="list_name"><star index="1"/></set>
                         <set name="list_description"><star index="2"/></set>
-                        <set name="create_response"><sraix service="list_create">{"name":"<star index="1"/>","description":"<star index="2"/>"}</sraix></set>
+                        <set name="create_response"><sraix service="list_create">create</sraix></set>
                     </think>
                     <condition name="create_response">
                         <li value="Failed to create list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to create list '<get name="list_name"/>'.</li></condition></li>
@@ -238,7 +239,7 @@
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
                         <set name="item_content"><star index="2"/></set>
-                        <set name="add_response"><sraix service="list_item_add">{"content":"<star index="2"/>","list_id":"<star index="1"/>"}</sraix></set>
+                        <set name="add_response"><sraix service="list_item_add">add</sraix></set>
                     </think>
                     <condition name="add_response">
                         <li value="Failed to add item"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to add item to list <get name="target_list_id"/>.</li></condition></li>
@@ -299,7 +300,7 @@
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
                         <set name="target_item_id"><star index="2"/></set>
-                        <set name="delete_item_response"><sraix service="list_item_delete">{"list_id":"<star index="1"/>","item_id":"<star index="2"/>"}</sraix></set>
+                        <set name="delete_item_response"><sraix service="list_item_delete">delete</sraix></set>
                     </think>
                     <condition name="delete_item_response">
                         <li value="Failed to delete item"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to delete item <get name="target_item_id"/> from list <get name="target_list_id"/>.</li></condition></li>
@@ -330,7 +331,7 @@
                     <think>
                         <set name="target_list_id"><star index="1"/></set>
                         <set name="target_item_id"><star index="2"/></set>
-                        <set name="toggle_response"><sraix service="list_item_toggle">{"list_id":"<star index="1"/>","item_id":"<star index="2"/>"}</sraix></set>
+                        <set name="toggle_response"><sraix service="list_item_toggle">toggle</sraix></set>
                     </think>
                     <condition name="toggle_response">
                         <li value="Failed to toggle item"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to toggle item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li></condition></li>
@@ -376,7 +377,7 @@
                         <set name="target_list_id"><star index="1"/></set>
                         <set name="target_item_id"><star index="2"/></set>
                         <set name="new_content"><star index="3"/></set>
-                        <set name="update_response"><sraix service="list_item_update">{"list_id":"<star index="1"/>","item_id":"<star index="2"/>","content":"<star index="3"/>"}</sraix></set>
+                        <set name="update_response"><sraix service="list_item_update">update</sraix></set>
                     </think>
                     <condition name="update_response">
                         <li value="Failed to update item"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to update item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li></condition></li>
