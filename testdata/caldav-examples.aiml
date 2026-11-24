@@ -118,10 +118,23 @@
 
     <!-- Delete Event, by title or UID. A repeating event is deleted with all
          its occurrences. -->
+    <!-- Deleting asks first. The buttons send CONFIRM DELETE EVENT or KEEP
+         THE EVENT; typing yes or no works too. -->
     <category>
         <pattern>DELETE EVENT *</pattern>
         <template>
+            <think><set name="pending_delete_event"><star/></set></think>
+            Should I delete the event "<star/>"?
+            <button><text>Yes, delete it</text><postback>CONFIRM DELETE EVENT <star/></postback></button>
+            <button><text>No, keep it</text><postback>KEEP THE EVENT</postback></button>
+        </template>
+    </category>
+
+    <category>
+        <pattern>CONFIRM DELETE EVENT *</pattern>
+        <template>
             <think>
+                <set name="pending_delete_event"></set>
                 <set var="deleted"><sraix service="caldav_delete"><star/></sraix></set>
             </think>
             <condition var="deleted">
@@ -130,6 +143,21 @@
             </condition>
         </template>
     </category>
+
+    <category>
+        <pattern>KEEP THE EVENT</pattern>
+        <template><think><set name="pending_delete_event"></set></think>Okay, I'll leave it on your calendar.</template>
+    </category>
+
+    <category><pattern>YES</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>YES PLEASE</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>YEAH</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>SURE</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>DELETE IT</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>NO</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>NOPE</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>CANCEL</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>KEEP IT</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
 
     <category>
         <pattern>REMOVE EVENT *</pattern>

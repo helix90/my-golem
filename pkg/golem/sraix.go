@@ -130,6 +130,8 @@ type SRAIXManager struct {
 	client         *http.Client
 	logger         *log.Logger
 	verbose        bool
+	// reminders is the store of the "reminders" handler; see SetReminderStore
+	reminders *ReminderStore
 	// now returns the current time; tests replace it
 	now func() time.Time
 }
@@ -164,7 +166,7 @@ func (sm *SRAIXManager) addConfig(config *SRAIXConfig) error {
 	if config.Name == "" {
 		return fmt.Errorf("SRAIX config name cannot be empty")
 	}
-	if config.BaseURL == "" && config.URLTemplate == "" {
+	if config.BaseURL == "" && config.URLTemplate == "" && config.Handler != "reminders" {
 		return fmt.Errorf("SRAIX config base URL or URL template is required")
 	}
 	config = config.clone()
@@ -245,6 +247,11 @@ func validateHandler(config *SRAIXConfig) error {
 			return fmt.Errorf("SRAIX service '%s': unknown caldav operation %q", config.Name, config.Operation)
 		}
 		return nil
+	case "reminders":
+		if !reminderOperations[config.Operation] {
+			return fmt.Errorf("SRAIX service '%s': unknown reminders operation %q", config.Name, config.Operation)
+		}
+		return nil
 	}
 	return fmt.Errorf("SRAIX service '%s': unknown handler %q", config.Name, config.Handler)
 }
@@ -297,6 +304,9 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given
 
 	if config.Handler == "caldav" {
 		return sm.sendCalDAV(config, input, params)
+	}
+	if config.Handler == "reminders" {
+		return sm.sendReminders(config, input, params)
 	}
 
 	var requestURL, logURL string
@@ -953,7 +963,7 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 	}
 
 	// Validate required fields
-	if config.BaseURL == "" && config.URLTemplate == "" {
+	if config.BaseURL == "" && config.URLTemplate == "" && config.Handler != "reminders" {
 		return nil, fmt.Errorf("baseurl or urltemplate is required for SRAIX service '%s'", serviceName)
 	}
 

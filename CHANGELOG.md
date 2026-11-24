@@ -4,7 +4,31 @@ All notable changes to Golem are recorded here.
 
 ## Unreleased
 
+### Security
+
+- **Saved credentials, names and locations could be read by any user.** The persistence AIML saved them with `<learnf>` as categories such as `GET LIST PASSWORD FOR <telegram id>`, which anyone could match to get another user's password. They are now kept in a per-user store (`UserStore`) that input cannot reach, and the bot moves existing values there at startup, deleting the old categories from the knowledge base, `learned_categories/` and its backups.
+- Saved passwords and other secrets are encrypted in the store when `USER_STORE_KEY` is set, and hidden in `/session`. A message that carries a password is deleted from the Telegram chat and removed from the session's history.
+
+### Upgrading: behaviour changes
+
+- **The location predicates are renamed** `user_location`, `user_latitude` and `user_longitude` (were `location`, `latitude`, `longitude`), and the list credentials `user_list_username` and `user_list_password` (were `list_username`, `list_password`). Every `user_*` predicate is now saved per user when the bot has a user store and the session's `UserID` is set.
+- **"Delete event" asks first.** It replies with Yes/No buttons; `CONFIRM DELETE EVENT <title>` (or answering "yes") deletes.
+- The Telegram bot keeps its data in `/app/data` (Docker volume `golem-data`); set `USER_STORE_KEY`.
+
+### Added
+
+- **User store**: `OpenUserStore`, `Golem.SetUserStore`, `ChatSession.UserID`, `Golem.MigrateLegacyUserData`; `/forgetme` in the Telegram bot.
+- **Reminders, timers and a daily briefing**: the `reminders` SRAIX handler, `ReminderStore`, `testdata/reminders.aiml`. The Telegram bot delivers them when due.
+- **Buttons**: AIML 2.1 rich media (`<button>`, `<reply>`, `<location/>`) become Telegram inline buttons and suggested replies; `ParseRichResponse`. `<jsonformat button="...">` adds a tick button per list item. Weather offers to share a location, which the bot saves.
+- The Telegram bot stops cleanly on SIGTERM.
+
 ### Fixed
+
+- With no location saved, weather replies used the catch-all reply as the place name ("The weather in I'm not sure I understand..."), and a weather service failure was pasted into the sentence. Both now give a clear message.
+- A failed list login left the fallback text in `list_access_token`, so later list commands sent it as the token.
+- List items always showed as not done: the list handler's `is_completed` field was ignored.
+- `<that>` matched against rich media markup in the bot's previous reply.
+- `/session` showed the user's last message as the bot's last response.
 
 - Loading a directory merges its `.properties` files in load (lexical path) order, so a property set in several files takes its value from the file loaded last, as categories do. Before, the order was random, and the bot's name or other properties could change between runs.
 

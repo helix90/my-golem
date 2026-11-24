@@ -8,11 +8,13 @@
         <template>
             <think>
                 <set name="list_username"><star index="1"/></set>
-                <set name="temp_password"><star index="2"/></set>
                 <set name="list_access_token"><sraix service="list_login">username=<star index="1"/>&amp;password=<star index="2"/></sraix></set>
+                <condition name="list_access_token">
+                    <li value="Login failed. Please check your credentials."><set name="list_access_token"></set></li>
+                </condition>
             </think>
             <condition name="list_access_token">
-                <li value="Login failed. Please check your credentials.">Unable to login. Please check your username and password.</li>
+                <li value="">Unable to login. Please check your username and password.</li>
                 <li>
                     Logged in successfully as <get name="list_username"/>. You can now manage your lists.
                 </li>
@@ -169,8 +171,8 @@
                         <set name="list_response"><sraix service="list_get"><star/></sraix></set>
                     </think>
                     <condition name="list_response">
-                        <li value="List not found">List ID <get name="target_list_id"/> not found.</li>
-                        <li><jsonformat><get name="list_response"/></jsonformat></li>
+                        <li value="List not found">I couldn't find a list called "<get name="target_list_id"/>".</li>
+                        <li><jsonformat button="LIST {list} TOGGLE ITEM {id}"><get name="list_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>
@@ -330,7 +332,7 @@
                     </think>
                     <condition name="toggle_response">
                         <li value="Failed to toggle item">Unable to toggle item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li>
-                        <li>Toggled completion status for item <get name="target_item_id"/> in list <get name="target_list_id"/>.</li>
+                        <li><srai>LIST SHOW <get name="target_list_id"/></srai></li>
                     </condition>
                 </li>
             </condition>

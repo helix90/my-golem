@@ -27,7 +27,13 @@ WORKDIR /app
 COPY --from=builder /telegram-bot /app/telegram-bot
 COPY testdata/ /app/testdata/
 
+# What the bot remembers about each user, and their reminders
+RUN mkdir -p /app/data && chmod 700 /app/data
+VOLUME /app/data
+
 ENV AIML_PATH=/app/testdata
 ENV VERBOSE=false
+ENV USER_STORE_PATH=/app/data/users.json
+ENV REMINDERS_PATH=/app/data/reminders.json
 
 ENTRYPOINT ["/app/telegram-bot"]

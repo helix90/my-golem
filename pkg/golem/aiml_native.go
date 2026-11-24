@@ -3054,6 +3054,9 @@ func (session *ChatSession) GetSessionTopic() string {
 
 // AddToThatHistory adds a bot response to the that history with enhanced management
 func (session *ChatSession) AddToThatHistory(response string) {
+	// <that> sees the text the user read, not rich media markup
+	response = RichText(response)
+
 	// Use enhanced context management if available
 	if session.ContextConfig != nil && session.ContextConfig.EnableCompression {
 		session.AddToThatHistoryEnhanced(response, []string{}, make(map[string]interface{}))
@@ -3294,6 +3297,7 @@ func (session *ChatSession) InitializeContextConfig() {
 
 // AddToThatHistoryEnhanced adds a bot response to the that history with enhanced context management
 func (session *ChatSession) AddToThatHistoryEnhanced(response string, tags []string, metadata map[string]interface{}) {
+	response = RichText(response)
 	session.InitializeContextConfig()
 
 	// Apply depth limit

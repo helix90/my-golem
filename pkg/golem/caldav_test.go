@@ -268,14 +268,21 @@ func TestCalDAVExamples(t *testing.T) {
 	ask("get event lunch", "Event details: Lunch with Sam tomorrow at 12:00 PM until 1:00 PM")
 	ask("show event nothing like it", `I couldn't find a single event matching "nothing like it".`)
 
-	ask("delete event review", "Event deleted: Review on Fri Nov 20 at 2:00 PM")
+	// Deleting asks first; the Yes button (or typing yes) confirms
+	if response, _ := g.ProcessInput("delete event review", session); RichText(response) != `Should I delete the event "review"?` {
+		t.Errorf("Expected a question before deleting, got %q", response)
+	}
+	if f.lastRequest() == "" || strings.HasPrefix(f.lastRequest(), "DELETE") {
+		t.Errorf("Nothing should be deleted before confirming, got %s", f.lastRequest())
+	}
+	ask("yes", "Event deleted: Review on Fri Nov 20 at 2:00 PM")
 	if got := f.lastRequest(); !strings.HasPrefix(got, "DELETE /alice/personal/") {
 		t.Errorf("Expected a DELETE, got %s", got)
 	}
-	ask("delete event review", `I couldn't delete that event. Check that exactly one event matches "review".`)
+	ask("confirm delete event review", `I couldn't delete that event. Check that exactly one event matches "review".`)
 
 	ask("create event Lunch with Ana on Friday at 1pm", "Event created: Lunch with Ana on Fri Nov 20 at 1:00 PM")
-	ask("delete event lunch", `I couldn't delete that event. Check that exactly one event matches "lunch".`)
+	ask("confirm delete event lunch", `I couldn't delete that event. Check that exactly one event matches "lunch".`)
 
 	ask("use calendar work", "Switched to calendar: work")
 	ask("what is on my calendar", "You have no events in the next seven days.")
@@ -295,7 +302,7 @@ func TestCalDAVFindPrefersExactTitle(t *testing.T) {
 	for _, input := range []string{"create event Standup at 3pm", "create event Standup sync on Friday at 9am"} {
 		g.ProcessInput(input, session)
 	}
-	if response, _ := g.ProcessInput("delete event standup", session); response != "Event deleted: Standup today at 3:00 PM" {
+	if response, _ := g.ProcessInput("confirm delete event standup", session); response != "Event deleted: Standup today at 3:00 PM" {
 		t.Errorf("Expected the exact title to be deleted, got %q", response)
 	}
 	f.mu.Lock()

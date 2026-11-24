@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+  Reminders, timers and the daily briefing
+
+  Needs the remind_* services from reminders-config.properties, which the
+  bot handles itself (pkg/golem/reminders.go). The handler's replies are
+  shown as they are. When a reminder is due the Telegram bot sends it to the
+  chat it was set in; the daily briefing is sent by answering DAILY BRIEFING
+  in the user's session, so it can be changed here.
+-->
+
+<!-- ============================================================ -->
+<!-- Setting reminders                                            -->
+<!-- ============================================================ -->
+
+<!-- The input carries the task and the time in any order:
+     "to call mom at 5pm", "in 20 minutes to stretch",
+     "tomorrow at 9am to take the bins out", "every day at 8am to ..." -->
+<category>
+<pattern>REMIND ME *</pattern>
+<template><sraix service="remind_add"><star/></sraix></template>
+</category>
+<category><pattern>REMIND ME TO *</pattern><template><sraix service="remind_add"><star/></sraix></template></category>
+<category><pattern>REMIND ME ABOUT *</pattern><template><sraix service="remind_add"><star/></sraix></template></category>
+<category><pattern>SET A REMINDER TO *</pattern><template><srai>REMIND ME TO <star/></srai></template></category>
+<category><pattern>SET A REMINDER FOR *</pattern><template><srai>REMIND ME <star/></srai></template></category>
+<category><pattern>SET A REMINDER *</pattern><template><srai>REMIND ME <star/></srai></template></category>
+<category><pattern>ADD A REMINDER TO *</pattern><template><srai>REMIND ME TO <star/></srai></template></category>
+<category><pattern>CREATE A REMINDER TO *</pattern><template><srai>REMIND ME TO <star/></srai></template></category>
+<category><pattern>DO NOT LET ME FORGET TO *</pattern><template><srai>REMIND ME TO <star/></srai></template></category>
+
+<category>
+<pattern>REMIND ME</pattern>
+<template>Sure, what should I remind you about, and when? For example, "remind me to call mom at 5pm".</template>
+</category>
+<category><pattern>SET A REMINDER</pattern><template><srai>REMIND ME</srai></template></category>
+
+<!-- Timers are reminders a few minutes away -->
+<category>
+<pattern>SET A TIMER FOR *</pattern>
+<template><sraix service="remind_add">in <star/> to check the timer</sraix></template>
+</category>
+<category><pattern>SET TIMER FOR *</pattern><template><srai>SET A TIMER FOR <star/></srai></template></category>
+<category><pattern>START A TIMER FOR *</pattern><template><srai>SET A TIMER FOR <star/></srai></template></category>
+<category><pattern>TIMER FOR *</pattern><template><srai>SET A TIMER FOR <star/></srai></template></category>
+<category><pattern>SET A * TIMER</pattern><template><srai>SET A TIMER FOR <star/></srai></template></category>
+<category><pattern>SET A * MINUTE TIMER</pattern><template><srai>SET A TIMER FOR <star/> MINUTES</srai></template></category>
+
+<!-- ============================================================ -->
+<!-- Seeing and deleting reminders                                -->
+<!-- ============================================================ -->
+
+<category>
+<pattern>WHAT ARE MY REMINDERS</pattern>
+<template><sraix service="remind_list">list</sraix></template>
+</category>
+<category><pattern>SHOW MY REMINDERS</pattern><template><srai>WHAT ARE MY REMINDERS</srai></template></category>
+<category><pattern>LIST MY REMINDERS</pattern><template><srai>WHAT ARE MY REMINDERS</srai></template></category>
+<category><pattern>MY REMINDERS</pattern><template><srai>WHAT ARE MY REMINDERS</srai></template></category>
+<category><pattern>REMINDERS</pattern><template><srai>WHAT ARE MY REMINDERS</srai></template></category>
+<category><pattern>DO I HAVE ANY REMINDERS</pattern><template><srai>WHAT ARE MY REMINDERS</srai></template></category>
+
+<!-- By number from the list, or by words of the reminder -->
+<category>
+<pattern>DELETE REMINDER *</pattern>
+<template><sraix service="remind_delete"><star/></sraix></template>
+</category>
+<category><pattern>DELETE THE REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>DELETE MY REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>CANCEL REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>CANCEL THE REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>CANCEL MY REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>REMOVE REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>REMOVE THE REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>FORGET THE REMINDER *</pattern><template><srai>DELETE REMINDER <star/></srai></template></category>
+<category><pattern>CANCEL THE TIMER</pattern><template><srai>DELETE REMINDER CHECK THE TIMER</srai></template></category>
+<category><pattern>CANCEL MY TIMER</pattern><template><srai>CANCEL THE TIMER</srai></template></category>
+<category><pattern>STOP THE TIMER</pattern><template><srai>CANCEL THE TIMER</srai></template></category>
+
+<!-- ============================================================ -->
+<!-- The daily briefing                                           -->
+<!-- ============================================================ -->
+
+<category>
+<pattern>SEND ME A DAILY BRIEFING AT *</pattern>
+<template><sraix service="remind_briefing"><star/></sraix></template>
+</category>
+<category><pattern>SEND ME A BRIEFING EVERY DAY AT *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+<category><pattern>SEND ME A MORNING BRIEFING AT *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+<category><pattern>SEND ME MY BRIEFING AT *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+<category><pattern>DAILY BRIEFING AT *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+<category><pattern>SET MY DAILY BRIEFING TO *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+<category><pattern>SET MY BRIEFING FOR *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+<category><pattern>BRIEF ME EVERY MORNING AT *</pattern><template><srai>SEND ME A DAILY BRIEFING AT <star/></srai></template></category>
+
+<category>
+<pattern>STOP MY DAILY BRIEFING</pattern>
+<template><sraix service="remind_briefing_off">off</sraix></template>
+</category>
+<category><pattern>STOP THE DAILY BRIEFING</pattern><template><srai>STOP MY DAILY BRIEFING</srai></template></category>
+<category><pattern>CANCEL MY DAILY BRIEFING</pattern><template><srai>STOP MY DAILY BRIEFING</srai></template></category>
+<category><pattern>TURN OFF MY DAILY BRIEFING</pattern><template><srai>STOP MY DAILY BRIEFING</srai></template></category>
+<category><pattern>NO MORE BRIEFINGS</pattern><template><srai>STOP MY DAILY BRIEFING</srai></template></category>
+
+<!-- The briefing itself, sent at the chosen time and on request. Parts
+     that are not set up (no calendar, no location) are left out. -->
+<category>
+<pattern>DAILY BRIEFING</pattern>
+<template><think><set var="events"><sraix service="caldav_today">today</sraix></set></think><condition name="user_name"><li value="">Good morning!</li><li>Good morning, <get name="user_name"/>!</li></condition> Today is <date format="%A, %B %d"/>. <condition var="events"><li value="">Your calendar is clear today.</li><li value="Unable to retrieve calendar events"></li><li>On your calendar: <get var="events"/></li></condition> <condition name="user_latitude"><li value=""></li><li><srai>WHAT IS THE WEATHER</srai></li></condition></template>
+</category>
+<category><pattern>MY BRIEFING</pattern><template><srai>DAILY BRIEFING</srai></template></category>
+<category><pattern>MY DAILY BRIEFING</pattern><template><srai>DAILY BRIEFING</srai></template></category>
+<category><pattern>BRIEF ME</pattern><template><srai>DAILY BRIEFING</srai></template></category>
+<category><pattern>GIVE ME MY BRIEFING</pattern><template><srai>DAILY BRIEFING</srai></template></category>
+<category><pattern>WHAT IS MY DAY LOOKING LIKE</pattern><template><srai>DAILY BRIEFING</srai></template></category>
+
+<category>
+<pattern>REMINDER HELP</pattern>
+<template>Reminders: "remind me to call mom at 5pm", "remind me in 20 minutes to stretch", "remind me every day at 8am to take vitamins", "set a timer for 10 minutes", "show my reminders", "delete reminder 2". Daily briefing: "send me a daily briefing at 7am", "brief me", "stop my daily briefing".</template>
+</category>
+<category><pattern>REMINDERS HELP</pattern><template><srai>REMINDER HELP</srai></template></category>
+
+</aiml>

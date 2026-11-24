@@ -130,7 +130,12 @@ type ChatSession struct {
 	// mu makes concurrent ProcessInput calls on one session run one at a time
 	mu sync.Mutex
 
-	ID              string
+	ID string
+	// UserID names the person talking in the session, e.g. a Telegram user
+	// ID. When it is set and the bot has a UserStore, that person's
+	// persistent predicates are loaded before each input and saved after it.
+	// In a group chat, set it to each message's sender.
+	UserID          string
 	Variables       map[string]string
 	History         []string
 	CreatedAt       string
@@ -216,6 +221,8 @@ type Golem struct {
 	templateTagProcessingCache *TemplateTagProcessingCache
 	// Persistent learning components
 	persistentLearning *PersistentLearningManager
+	// userStore keeps per-user predicates; see SetUserStore
+	userStore *UserStore
 	// Enhanced context resolution components
 	fuzzyMatcher    *FuzzyContextMatcher
 	semanticMatcher *SemanticContextMatcher
@@ -1506,6 +1513,9 @@ func (g *Golem) ProcessInput(input string, session *ChatSession) (string, error)
 		return "", fmt.Errorf("no AIML knowledge base loaded")
 	}
 
+	stored := g.loadUserPredicates(session)
+	defer g.saveUserPredicates(session, stored)
+
 	sentences := inputSentences(input)
 	if len(sentences) <= 1 {
 		return g.processSentence(input, session)
@@ -1601,6 +1611,9 @@ func (g *Golem) ProcessInputWithThatIndex(input string, session *ChatSession, th
 		return "", fmt.Errorf("no AIML knowledge base loaded")
 	}
 
+	stored := g.loadUserPredicates(session)
+	defer g.saveUserPredicates(session, stored)
+
 	g.LogInfo("Processing input with that index %d: %s", thatIndex, input)
 
 	// Normalize input
@@ -1694,6 +1707,7 @@ func (g *Golem) SetKnowledgeBase(kb *AIMLKnowledgeBase) {
 	defer g.kbMu.Unlock()
 
 	g.aimlKB = kb
+	g.applyUserStoreProperties()
 
 	// Register properties handler now that we have a knowledge base
 	propertiesHandler := &PropertiesHandler{aimlKB: kb}

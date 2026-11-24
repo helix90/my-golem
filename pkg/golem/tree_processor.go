@@ -2485,7 +2485,7 @@ func (tp *TreeProcessor) processJsonFormatTag(node *ASTNode, content string) str
 	case "lists":
 		return tp.formatListsJSON(data)
 	case "list":
-		return tp.formatListJSON(data)
+		return tp.formatListJSON(data, node.Attributes["button"])
 	case "items":
 		return tp.formatItemsJSON(data)
 	case "item":
@@ -2534,7 +2534,27 @@ func (tp *TreeProcessor) formatListsJSON(data interface{}) string {
 	return strings.TrimSpace(result.String())
 }
 
-func (tp *TreeProcessor) formatListJSON(data interface{}) string {
+// jsonItemCompleted reports whether a list item is done. The list handler
+// sends is_completed as 0 or 1; "completed" may be a boolean.
+func jsonItemCompleted(item map[string]interface{}) bool {
+	for _, key := range []string{"is_completed", "completed"} {
+		switch v := item[key].(type) {
+		case bool:
+			return v
+		case float64:
+			return v != 0
+		case string:
+			return v == "1" || strings.EqualFold(v, "true")
+		}
+	}
+	return false
+}
+
+// formatListJSON formats a list and its items. With a button template, such
+// as "LIST {list} TOGGLE ITEM {id}", each item also gets a rich media
+// <button> whose postback is the template with {list}, {id} and {content}
+// filled in, so a client can show the items as tick boxes.
+func (tp *TreeProcessor) formatListJSON(data interface{}, buttonTemplate string) string {
 	list, ok := data.(map[string]interface{})
 	if !ok {
 		return "Invalid list format"
@@ -2543,7 +2563,7 @@ func (tp *TreeProcessor) formatListJSON(data interface{}) string {
 	name := fmt.Sprintf("%v", list["name"])
 	id := fmt.Sprintf("%v", list["id"])
 
-	var result strings.Builder
+	var result, buttons strings.Builder
 	result.WriteString(fmt.Sprintf("List: %s (ID: %s)\n", name, id))
 
 	if description, exists := list["description"]; exists && description != nil {
@@ -2567,10 +2587,7 @@ func (tp *TreeProcessor) formatListJSON(data interface{}) string {
 					}
 
 					content := fmt.Sprintf("%v", itemMap["content"])
-					completed := false
-					if comp, exists := itemMap["completed"]; exists {
-						completed, _ = comp.(bool)
-					}
+					completed := jsonItemCompleted(itemMap)
 
 					checkbox := "☐"
 					if completed {
@@ -2579,12 +2596,17 @@ func (tp *TreeProcessor) formatListJSON(data interface{}) string {
 
 					itemID := fmt.Sprintf("%v", itemMap["id"])
 					result.WriteString(fmt.Sprintf("%d. %s %s (ID: %s)\n", i+1, checkbox, content, itemID))
+					if buttonTemplate != "" {
+						postback := strings.NewReplacer("{list}", name, "{id}", itemID, "{content}", content).Replace(buttonTemplate)
+						buttons.WriteString(fmt.Sprintf("<button><text>%s %s</text><postback>%s</postback></button>",
+							checkbox, html.EscapeString(content), html.EscapeString(postback)))
+					}
 				}
 			}
 		}
 	}
 
-	return strings.TrimSpace(result.String())
+	return strings.TrimSpace(result.String()) + buttons.String()
 }
 
 func (tp *TreeProcessor) formatItemsJSON(data interface{}) string {
@@ -2611,10 +2633,7 @@ func (tp *TreeProcessor) formatItemsJSON(data interface{}) string {
 		}
 
 		content := fmt.Sprintf("%v", itemMap["content"])
-		completed := false
-		if comp, exists := itemMap["completed"]; exists {
-			completed, _ = comp.(bool)
-		}
+		completed := jsonItemCompleted(itemMap)
 
 		checkbox := "☐"
 		if completed {
@@ -2636,10 +2655,7 @@ func (tp *TreeProcessor) formatItemJSON(data interface{}) string {
 
 	content := fmt.Sprintf("%v", item["content"])
 	id := fmt.Sprintf("%v", item["id"])
-	completed := false
-	if comp, exists := item["completed"]; exists {
-		completed, _ = comp.(bool)
-	}
+	completed := jsonItemCompleted(item)
 
 	status := "not completed"
 	if completed {

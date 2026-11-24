@@ -36,18 +36,16 @@
 <pattern>WHAT IS THE WEATHER</pattern>
 <template>
   <think>
-    <!-- Auto-load saved location if not already set -->
-    <srai>AUTOLOAD LOCATION FOR WEATHER</srai>
 
-    <set var="lat"><get name="latitude"/></set>
-    <set var="lon"><get name="longitude"/></set>
+    <set var="lat"><get name="user_latitude"/></set>
+    <set var="lon"><get name="user_longitude"/></set>
   </think>
 
   <!-- Check if location is set -->
   <condition>
-    <li var="lat" value="">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
-    <li var="lat" value="0.0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
-    <li var="lat" value="0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
+    <li var="lat" value="">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
+    <li var="lat" value="0.0">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
+    <li var="lat" value="0">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
     <li>
       <!-- Call weather API with stored coordinates -->
       <srai>CALL WEATHER API</srai>
@@ -58,7 +56,7 @@
 
 <category>
 <pattern>CALL WEATHER API</pattern>
-<template>The weather in <get name="location"/> is <weatherformat><sraix service="weather">{"lat":"<get name="latitude"/>","lon":"<get name="longitude"/>"}</sraix></weatherformat></template>
+<template><think><set var="w"><sraix service="weather">{"lat":"<get name="user_latitude"/>","lon":"<get name="user_longitude"/>"}</sraix></set></think><condition var="w"><li value="Weather information is currently unavailable">I can't get the weather right now. Please try again later.</li><li>The weather in <get name="user_location"/> is <weatherformat><get var="w"/></weatherformat></li></condition></template>
 </category>
 
 <category>
@@ -93,7 +91,7 @@
     <li>
       <!-- Call weather API with the queried coordinates, leaving the user's location alone -->
       <think><set var="weather_result"><sraix service="weather">{"lat":"<get var="query_lat"/>","lon":"<get var="query_lon"/>"}</sraix></set></think>
-      The weather in <get var="query_location"/> is <weatherformat><get var="weather_result"/></weatherformat>
+      <condition var="weather_result"><li value="Weather information is currently unavailable">I can't get the weather right now. Please try again later.</li><li>The weather in <get var="query_location"/> is <weatherformat><get var="weather_result"/></weatherformat></li></condition>
     </li>
   </condition>
 </template>
@@ -119,19 +117,17 @@
 <pattern>WHAT IS THE WEATHER TOMORROW</pattern>
 <template>
   <think>
-    <!-- Auto-load saved location if not already set -->
-    <srai>AUTOLOAD LOCATION FOR WEATHER</srai>
 
-    <set var="lat"><get name="latitude"/></set>
-    <set var="lon"><get name="longitude"/></set>
+    <set var="lat"><get name="user_latitude"/></set>
+    <set var="lon"><get name="user_longitude"/></set>
   </think>
 
   <condition>
-    <li var="lat" value="">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
-    <li var="lat" value="0.0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
-    <li var="lat" value="0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
+    <li var="lat" value="">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
+    <li var="lat" value="0.0">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
+    <li var="lat" value="0">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
     <li>
-      In <get name="location"/>, <weatherformat day="tomorrow"><sraix service="weather">{"lat":"<get var="lat"/>","lon":"<get var="lon"/>"}</sraix></weatherformat>
+      <think><set var="w"><sraix service="weather">{"lat":"<get var="lat"/>","lon":"<get var="lon"/>"}</sraix></set></think><condition var="w"><li value="Weather information is currently unavailable">I can't get the weather right now. Please try again later.</li><li>In <get name="user_location"/>, <weatherformat day="tomorrow"><get var="w"/></weatherformat></li></condition>
     </li>
   </condition>
 </template>
@@ -192,7 +188,7 @@
     <li value="Unable to find that location">I couldn't find weather information for <get var="query_location"/>. Please check the location name and try again.</li>
     <li>
       <think><set var="weather_result"><sraix service="weather">{"lat":"<get var="query_lat"/>","lon":"<get var="query_lon"/>"}</sraix></set></think>
-      In <get var="query_location"/>, <weatherformat day="tomorrow"><get var="weather_result"/></weatherformat>
+      <condition var="weather_result"><li value="Weather information is currently unavailable">I can't get the weather right now. Please try again later.</li><li>In <get var="query_location"/>, <weatherformat day="tomorrow"><get var="weather_result"/></weatherformat></li></condition>
     </li>
   </condition>
 </template>
@@ -285,16 +281,16 @@
 <pattern>WEATHER FORECAST</pattern>
 <template>
   <think>
-    <set var="lat"><get name="latitude"/></set>
-    <set var="lon"><get name="longitude"/></set>
+    <set var="lat"><get name="user_latitude"/></set>
+    <set var="lon"><get name="user_longitude"/></set>
   </think>
 
   <condition>
-    <li var="lat" value="">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
-    <li var="lat" value="0.0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
-    <li var="lat" value="0">You haven't set your location yet. Please tell me your location first by saying "My location is [city name]".</li>
+    <li var="lat" value="">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
+    <li var="lat" value="0.0">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
+    <li var="lat" value="0">You haven't set your location yet. Tell me by saying "My location is [city name]", or share it. <reply><text>📍 Share my location</text><location/></reply></li>
     <li>
-      Here's the weather forecast for <get name="location"/>: <weatherformat><sraix service="weather">{"lat":"<get var="lat"/>","lon":"<get var="lon"/>"}</sraix></weatherformat>
+      <think><set var="w"><sraix service="weather">{"lat":"<get var="lat"/>","lon":"<get var="lon"/>"}</sraix></set></think><condition var="w"><li value="Weather information is currently unavailable">I can't get the weather right now. Please try again later.</li><li>Here's the weather forecast for <get name="user_location"/>: <weatherformat><get var="w"/></weatherformat></li></condition>
     </li>
   </condition>
 </template>
