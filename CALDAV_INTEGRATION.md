@@ -124,10 +124,18 @@ Bot:  Here are your events for today: Standup at 3:00 PM
 User: Show my upcoming events
 Bot:  Here are your upcoming events: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Review on Fri Nov 20 at 2:00 PM
 
+User: What do I have on Friday?
+Bot:  Here's your calendar on Friday, November 20: Review at 2:00 PM
+
+User: What's on my calendar this weekend?
+Bot:  You have nothing on your calendar this weekend.
+
 User: Get event lunch
 Bot:  Event details: Lunch with Sam tomorrow at 12:00 PM until 1:00 PM
 
 User: Delete event review
+Bot:  Should I delete the event "review"?   [Yes, delete it] [No, keep it]
+User: yes
 Bot:  Event deleted: Review on Fri Nov 20 at 2:00 PM
 
 User: Use calendar work
@@ -135,6 +143,23 @@ Bot:  Switched to calendar: work
 ```
 
 Say "calendar help" for the full list.
+
+### Asking about a day or a period
+
+"What's on my calendar ...", "what do I have on ...", "show my calendar for
+..." and `CALENDAR FOR <when>` take:
+
+| Asking about | Examples |
+|------|------------------|
+| A day | `today`, `tomorrow`, `Friday`, `next Tuesday`, `December 3`, `the 5th of January`, `2026-12-03` (the same date forms as events) |
+| A week | `this week` (today to Sunday), `next week` (Monday to Sunday) |
+| A weekend | `this weekend`, `the weekend`, `next weekend` |
+| A number of days | `the next 3 days`, `the coming seven days` (up to 62) |
+| A month | `this month` (today to its end), `next month` |
+
+The `caldav_range` service does the work (operation `range`); it sets the
+`calendar_range` predicate to a label such as "on Friday, November 20", or to
+"unknown" when the text isn't a day or period it knows.
 
 ### Writing events
 

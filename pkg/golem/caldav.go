@@ -23,6 +23,11 @@ import (
 //
 //	today    - today's events, e.g. "Standup at 9:00 AM; Lunch at 12:00 PM"
 //	upcoming - events from now to the end of the seventh day from today
+//	range    - events on the day or in the period the input names, e.g.
+//	           "tomorrow", "Friday", "December 3", "next week", "this
+//	           weekend", "the next 3 days"; sets the calendar_range
+//	           predicate to a label such as "on Friday, November 27", or to
+//	           "unknown" (and sends no request) when it can't read the input
 //	create   - creates an event from text such as "Lunch tomorrow at noon"
 //	get      - the details of the event whose title (or UID) the input names
 //	delete   - deletes the event whose title (or UID) the input names
@@ -32,7 +37,7 @@ import (
 // so that the tag falls back. Times are shown in the bot's local time zone.
 
 // caldavOperations are the operations of the caldav handler
-var caldavOperations = map[string]bool{"today": true, "upcoming": true, "create": true, "get": true, "delete": true}
+var caldavOperations = map[string]bool{"today": true, "upcoming": true, "range": true, "create": true, "get": true, "delete": true}
 
 // caldavSearchPast and caldavSearchFuture bound the events get and delete
 // search for the one the input names
@@ -98,6 +103,22 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 			return sraixResponse{}, err
 		}
 		return sraixResponse{text: formatEventList(events, now, true)}, nil
+	case "range":
+		start, end, singleDay, label, err := parseDateRange(input, now)
+		if err != nil {
+			return sraixResponse{set: map[string]string{"calendar_range": "unknown"}}, nil
+		}
+		events, err := c.query(start, end)
+		if err != nil {
+			return sraixResponse{}, err
+		}
+		// The label names the day, so a single day's events show only
+		// their times
+		text := formatEventList(events, now, true)
+		if singleDay {
+			text = formatEventList(events, start, false)
+		}
+		return sraixResponse{text: text, set: map[string]string{"calendar_range": label}}, nil
 	case "create":
 		event, err := parseEventText(input, now)
 		if err != nil {
@@ -647,6 +668,47 @@ var (
 	eventWeekdays    = map[string]time.Weekday{"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday, "wednesday": time.Wednesday, "thursday": time.Thursday, "friday": time.Friday, "saturday": time.Saturday}
 )
 
+// takeEventDate finds the date in text, as parseEventText describes, and
+// removes it with remove. It reports whether there was one.
+func takeEventDate(remove func(*regexp.Regexp) []string, today time.Time) (date time.Time, hasDate bool, err error) {
+	loc := today.Location()
+	if m := remove(eventDayAfterRe); m != nil {
+		date, hasDate = today.AddDate(0, 0, 2), true
+	} else if m := remove(eventRelativeRe); m != nil {
+		date, hasDate = today, true
+		if strings.EqualFold(m[1], "tomorrow") {
+			date = today.AddDate(0, 0, 1)
+		}
+	} else if m := remove(eventISODateRe); m != nil {
+		year, _ := strconv.Atoi(m[1])
+		month, _ := strconv.Atoi(m[2])
+		day, _ := strconv.Atoi(m[3])
+		date, hasDate = time.Date(year, time.Month(month), day, 0, 0, 0, 0, loc), true
+		if date.Month() != time.Month(month) || date.Day() != day {
+			return time.Time{}, false, fmt.Errorf("invalid date %s", strings.TrimSpace(m[0]))
+		}
+	} else if m := remove(eventMonthDayRe); m != nil {
+		var err error
+		if date, err = monthDayDate(m[1], m[2], m[3], today); err != nil {
+			return time.Time{}, false, err
+		}
+		hasDate = true
+	} else if m := remove(eventDayMonthRe); m != nil {
+		var err error
+		if date, err = monthDayDate(m[2], m[1], m[3], today); err != nil {
+			return time.Time{}, false, err
+		}
+		hasDate = true
+	} else if m := remove(eventWeekdayRe); m != nil {
+		days := (int(eventWeekdays[strings.ToLower(m[2])]) - int(today.Weekday()) + 7) % 7
+		if days == 0 && !strings.EqualFold(m[1], "this") {
+			days = 7
+		}
+		date, hasDate = today.AddDate(0, 0, days), true
+	}
+	return date, hasDate, nil
+}
+
 // parseEventText reads an event from text such as "Lunch with Sam tomorrow
 // at noon", "Dentist on Nov 20 at 9:15am for 30 minutes" or "Holiday on
 // Friday". The date can be today, tonight, tomorrow, the day after
@@ -677,41 +739,9 @@ func parseEventText(text string, now time.Time) (calendarEvent, error) {
 	}
 
 	// The date
-	var date time.Time
-	hasDate := false
-	if m := remove(eventDayAfterRe); m != nil {
-		date, hasDate = today.AddDate(0, 0, 2), true
-	} else if m := remove(eventRelativeRe); m != nil {
-		date, hasDate = today, true
-		if strings.EqualFold(m[1], "tomorrow") {
-			date = today.AddDate(0, 0, 1)
-		}
-	} else if m := remove(eventISODateRe); m != nil {
-		year, _ := strconv.Atoi(m[1])
-		month, _ := strconv.Atoi(m[2])
-		day, _ := strconv.Atoi(m[3])
-		date, hasDate = time.Date(year, time.Month(month), day, 0, 0, 0, 0, loc), true
-		if date.Month() != time.Month(month) || date.Day() != day {
-			return calendarEvent{}, fmt.Errorf("invalid date %s", strings.TrimSpace(m[0]))
-		}
-	} else if m := remove(eventMonthDayRe); m != nil {
-		var err error
-		if date, err = monthDayDate(m[1], m[2], m[3], today); err != nil {
-			return calendarEvent{}, err
-		}
-		hasDate = true
-	} else if m := remove(eventDayMonthRe); m != nil {
-		var err error
-		if date, err = monthDayDate(m[2], m[1], m[3], today); err != nil {
-			return calendarEvent{}, err
-		}
-		hasDate = true
-	} else if m := remove(eventWeekdayRe); m != nil {
-		days := (int(eventWeekdays[strings.ToLower(m[2])]) - int(today.Weekday()) + 7) % 7
-		if days == 0 && !strings.EqualFold(m[1], "this") {
-			days = 7
-		}
-		date, hasDate = today.AddDate(0, 0, days), true
+	date, hasDate, err := takeEventDate(remove, today)
+	if err != nil {
+		return calendarEvent{}, err
 	}
 
 	// The time
@@ -830,4 +860,135 @@ func cleanEventTitle(title string) string {
 		return "Event"
 	}
 	return title
+}
+
+var (
+	rangeWeekRe     = regexp.MustCompile(`(?i)\b(this|next)\s+week\b`)
+	rangeWeekendRe  = regexp.MustCompile(`(?i)\b(?:(this|next)\s+)?weekend\b`)
+	rangeMonthRe    = regexp.MustCompile(`(?i)\b(this|next)\s+month\b`)
+	rangeNextDaysRe = regexp.MustCompile(`(?i)\b(?:in\s+)?(?:the\s+)?(?:next|coming)\s+(\d{1,2}|two|three|four|five|six|seven|ten|fourteen)\s+days\b`)
+	rangeFillerRe   = regexp.MustCompile(`(?i)\b(?:for|on|in|over|during|the|my|calendar|schedule|agenda|events?|what|is|do|i|have|am|free|busy)\b|[?.,!]`)
+	rangeNumbers    = map[string]int{"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "ten": 10, "fourteen": 14}
+)
+
+// maxCalendarRange bounds how many days a range query covers
+const maxCalendarRange = 62
+
+// parseDateRange reads the days text such as "tomorrow", "on Friday",
+// "December 3", "this week", "next week", "this weekend", "the next 3 days"
+// or "next month" names. It returns the range (end exclusive), whether it
+// is a single day, and a label for it, e.g. "on Friday, November 27". Weeks
+// run Monday to Sunday; "this week" and "this weekend" start today when
+// they have begun. Text with anything but a date is not understood.
+func parseDateRange(text string, now time.Time) (start, end time.Time, singleDay bool, label string, err error) {
+	today := startOfDay(now)
+	rest := text
+	remove := func(re *regexp.Regexp) []string {
+		idx := re.FindStringSubmatchIndex(rest)
+		if idx == nil {
+			return nil
+		}
+		groups := make([]string, len(idx)/2)
+		for i := range groups {
+			if idx[2*i] >= 0 {
+				groups[i] = rest[idx[2*i]:idx[2*i+1]]
+			}
+		}
+		rest = rest[:idx[0]] + " " + rest[idx[1]:]
+		return groups
+	}
+	// Days since Monday
+	sinceMonday := (int(today.Weekday()) + 6) % 7
+
+	switch {
+	case func() bool {
+		m := remove(rangeNextDaysRe)
+		if m == nil {
+			return false
+		}
+		n, convErr := strconv.Atoi(m[1])
+		if convErr != nil {
+			n = rangeNumbers[strings.ToLower(m[1])]
+		}
+		if n < 1 || n > maxCalendarRange {
+			err = fmt.Errorf("too many days")
+			return true
+		}
+		start, end, label = today, today.AddDate(0, 0, n), fmt.Sprintf("in the next %d days", n)
+		return true
+	}():
+	case func() bool {
+		m := remove(rangeWeekRe)
+		if m == nil {
+			return false
+		}
+		monday := today.AddDate(0, 0, -sinceMonday)
+		if strings.EqualFold(m[1], "next") {
+			start, end, label = monday.AddDate(0, 0, 7), monday.AddDate(0, 0, 14), "next week"
+		} else {
+			start, end, label = today, monday.AddDate(0, 0, 7), "this week"
+		}
+		return true
+	}():
+	case func() bool {
+		m := remove(rangeWeekendRe)
+		if m == nil {
+			return false
+		}
+		saturday := today.AddDate(0, 0, 5-sinceMonday) // this week's
+		start = saturday
+		if today.After(saturday) {
+			start = today // Sunday
+		}
+		end, label = saturday.AddDate(0, 0, 2), "this weekend"
+		if strings.EqualFold(m[1], "next") {
+			start, end, label = saturday.AddDate(0, 0, 7), saturday.AddDate(0, 0, 9), "next weekend"
+		}
+		return true
+	}():
+	case func() bool {
+		m := remove(rangeMonthRe)
+		if m == nil {
+			return false
+		}
+		first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+		if strings.EqualFold(m[1], "next") {
+			start, end, label = first.AddDate(0, 1, 0), first.AddDate(0, 2, 0), "next month"
+		} else {
+			start, end, label = today, first.AddDate(0, 1, 0), "this month"
+		}
+		return true
+	}():
+	default:
+		date, hasDate, dateErr := takeEventDate(remove, today)
+		if dateErr != nil {
+			return time.Time{}, time.Time{}, false, "", dateErr
+		}
+		if !hasDate {
+			return time.Time{}, time.Time{}, false, "", fmt.Errorf("no date in %q", text)
+		}
+		start, end, singleDay = date, date.AddDate(0, 0, 1), true
+		switch days := int(date.Sub(today).Hours() / 24); {
+		case days == 0:
+			label = "today"
+		case days == 1:
+			label = "tomorrow"
+		case days > 1 && days < 7:
+			label = "on " + date.Format("Monday, January 2")
+		default:
+			label = "on " + date.Format("Monday, January 2, 2006")
+			if date.Year() == today.Year() {
+				label = "on " + date.Format("Monday, January 2")
+			}
+		}
+	}
+	if err != nil {
+		return time.Time{}, time.Time{}, false, "", err
+	}
+	// Anything left must be filler, so that "dentist on Friday" is not read
+	// as just "Friday"
+	if strings.TrimSpace(rangeFillerRe.ReplaceAllString(rest, " ")) != "" {
+		return time.Time{}, time.Time{}, false, "", fmt.Errorf("not a date: %q", text)
+	}
+	return start, end, singleDay, label, nil
 }

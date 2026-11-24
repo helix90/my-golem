@@ -59,6 +59,34 @@
         </template>
     </category>
 
+    <!-- Events on a day or in a period: "tomorrow", "Friday", "December 3",
+         "this week", "next week", "this weekend", "the next 3 days",
+         "next month". caldav_range sets calendar_range to a label for the
+         period, or to "unknown" when it can't read it. -->
+    <category>
+        <pattern>CALENDAR FOR *</pattern>
+        <template>
+            <think>
+                <set name="calendar_range"></set>
+                <set var="events"><sraix service="caldav_range"><star/></sraix></set>
+            </think>
+            <condition name="calendar_range">
+                <li value="unknown">I'm not sure which day you mean. Try "tomorrow", "Friday", "December 3", "next week" or "this weekend".</li>
+                <li value="">I'm having trouble accessing your calendar right now.</li>
+                <li><condition var="events"><li value="">You have nothing on your calendar <get name="calendar_range"/>.</li><li>Here's your calendar <get name="calendar_range"/>: <get var="events"/></li></condition></li>
+            </condition>
+        </template>
+    </category>
+    <category><pattern>WHAT IS ON MY CALENDAR *</pattern><template><srai>CALENDAR FOR <star/></srai></template></category>
+    <category><pattern>WHAT IS ON MY CALENDAR FOR *</pattern><template><srai>CALENDAR FOR <star/></srai></template></category>
+    <category><pattern>SHOW MY CALENDAR FOR *</pattern><template><srai>CALENDAR FOR <star/></srai></template></category>
+    <category><pattern>SHOW MY CALENDAR *</pattern><template><srai>CALENDAR FOR <star/></srai></template></category>
+    <category><pattern>WHAT DO I HAVE ON *</pattern><template><srai>CALENDAR FOR <star/></srai></template></category>
+    <category><pattern>WHAT DO I HAVE TOMORROW</pattern><template><srai>CALENDAR FOR TOMORROW</srai></template></category>
+    <category><pattern>WHAT DO I HAVE THIS WEEK</pattern><template><srai>CALENDAR FOR THIS WEEK</srai></template></category>
+    <category><pattern>WHAT DO I HAVE NEXT WEEK</pattern><template><srai>CALENDAR FOR NEXT WEEK</srai></template></category>
+    <category><pattern>WHAT DO I HAVE THIS WEEKEND</pattern><template><srai>CALENDAR FOR THIS WEEKEND</srai></template></category>
+
     <!-- Create New Event: the text gives the title, date, time and length,
          e.g. "Lunch with Sam tomorrow at noon for 90 minutes" -->
     <category>
@@ -257,6 +285,7 @@
         <template>
             I can help you manage your calendar. Try these commands:
             - "What is on my calendar today"
+            - "What is on my calendar tomorrow", "...on Friday", "...next week", "...this weekend"
             - "Show my upcoming events"
             - "Create event Lunch with Sam tomorrow at noon"
             - "Create event called Review on Friday at 2pm"

@@ -191,7 +191,7 @@ All `.properties` files must use JSON array format:
   - `{name}` - A predicate the service names with `param.<name>`, e.g. `["sraix.list_get.param.access_token", "list_access_token"]`; the engine passes no session values otherwise
 - `default.<placeholder>` gives a placeholder a value when nothing else does; `${ENV_VAR:-fallback}` works in templates, defaults and credentials
 - `username`/`password` send basic auth (they can use `${ENV_VAR}`)
-- `handler` = `caldav` with `operation` = `today`/`upcoming`/`create`/`get`/`delete` talks to a CalDAV calendar instead of making one HTTP request (`caldav.go`; see `CALDAV_INTEGRATION.md` and `testdata/caldav-*`)
+- `handler` = `caldav` with `operation` = `today`/`upcoming`/`range`/`create`/`get`/`delete` talks to a CalDAV calendar instead of making one HTTP request (`caldav.go`; see `CALDAV_INTEGRATION.md` and `testdata/caldav-*`)
 - `reauth` = an input the bot answers when the service replies 401 Unauthorized (e.g. `LIST RELOGIN`, which logs in again); `<sraix>` then re-reads the service's `param.*` predicates and, if one changed, retries once
 - `body` = a request body template with the same placeholders, each value escaped for the Content-Type (URL-encoded for `application/x-www-form-urlencoded`, JSON-string-escaped for JSON, so write `"{name}"` in quotes); prefer it to building a body in AIML, where `&` or `"` in a value breaks it (e.g. `list_login`)
 - `set.<predicate>` = JSON path sets a predicate from each successful JSON response, e.g. `geocode` returns `0.lat` and sets `geocode_lon` from `0.lon`
