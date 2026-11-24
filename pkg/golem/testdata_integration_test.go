@@ -1,6 +1,9 @@
 package golem
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -333,4 +336,64 @@ func maskAPIKey(url string) string {
 		}
 	}
 	return strings.Join(parts, "/")
+}
+
+// TestTestDataServicesAreConfigured checks that every SRAIX service the
+// bot's AIML uses is configured by the bot's properties. An unconfigured
+// service makes <sraix> fall back to its content, so the bot repeats the
+// user's words back (as "ask openai ..." did when an example file was in
+// testdata/). Examples belong in examples-module/.
+func TestTestDataServicesAreConfigured(t *testing.T) {
+	g := NewForTesting(t, false)
+	kb, err := g.LoadAIMLFromDirectory("../../testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.SetKnowledgeBase(kb)
+	configured := make(map[string]bool)
+	for _, name := range g.sraixMgr.ListServices() {
+		configured[name] = true
+	}
+
+	files, err := filepath.Glob("../../testdata/*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceRe := regexp.MustCompile(`<sraix[^>]*\bservice="([^"<]+)"`)
+	for _, file := range files {
+		if !strings.HasSuffix(file, ".aiml") {
+			continue
+		}
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range serviceRe.FindAllStringSubmatch(string(data), -1) {
+			if !configured[m[1]] {
+				t.Errorf("%s uses SRAIX service %q, which testdata/ does not configure", filepath.Base(file), m[1])
+			}
+		}
+	}
+}
+
+// TestTestDataDoesNotEchoUnknownServices checks that requests for services
+// the bot doesn't have are not answered by repeating the user's words
+func TestTestDataDoesNotEchoUnknownServices(t *testing.T) {
+	g := NewForTesting(t, false)
+	kb, err := g.LoadAIMLFromDirectory("../../testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.SetKnowledgeBase(kb)
+	s := g.CreateSession("test")
+	for input, echo := range map[string]string{
+		"ask openai what is love":   "what is love",
+		"translate hello to french": "hello",
+		"chat how are things":       "how are things",
+	} {
+		got, _ := g.ProcessInput(input, s)
+		if strings.TrimSpace(got) == echo {
+			t.Errorf("%q was answered by repeating %q", input, echo)
+		}
+	}
 }

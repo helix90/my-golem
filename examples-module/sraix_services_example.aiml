@@ -3,6 +3,10 @@
 <!--
   Example AIML demonstrating SRAIX service usage with property-based configuration
 
+  An example only: it is not in testdata/, which the bot loads, because its
+  services (openai, translate, myservice, simple) are not configured there
+  and would echo the user's words back.
+
   To use this example:
   1. Load sraix-config-example.properties as bot properties
   2. Services will be automatically configured when SetKnowledgeBase is called

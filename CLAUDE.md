@@ -156,7 +156,7 @@ See `ARCHITECTURE.md` for detailed explanation of state persistence patterns.
 - **`/pkg/golem/`** - Main library (19 source files: core engine, AST parser, tree processor, graphmaster, feature implementations; 95 test files)
 - **`/cmd/golem/`** - CLI with flag parsing and interactive mode
 - **`/examples-module/`** - Library usage, Telegram bot, and tag demos with documentation
-- **`/testdata/`** - The bot's AIML, maps and properties, which the Docker image ships (sample.aiml, bot.properties, weather, CalDAV, lists, persistence)
+- **`/testdata/`** - The bot's AIML, maps and properties, which the Docker image ships (sample.aiml, bot.properties, weather, CalDAV, lists, reminders, persistence); every `<sraix>` service it uses must be configured in its `.properties` (`TestTestDataServicesAreConfigured`), and examples belong in `/examples-module/`
 - **`/pkg/golem/testdata/`** - Test fixtures for the loader tests; keep them out of `/testdata/`, since loading a directory merges every file in it (`loader_test/test.properties` would rename the bot)
 
 ### Configuration File Formats
@@ -177,7 +177,7 @@ All `.properties` files must use JSON array format:
 - Automatically loaded from directories via `LoadPropertiesFromDirectory()`
 - Merged into `AIMLKnowledgeBase.Properties`
 
-**SRAIX Configuration** (e.g., `weather-config.properties`, `sraix-config-example.properties`):
+**SRAIX Configuration** (e.g., `weather-config.properties`, `list-handler-config.properties`):
 - Configure external SRAIX services via properties
 - Property format: `sraix.servicename.property`
 - Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`, `param.<placeholder>`, `default.<placeholder>`, `set.<predicate>`, `username`, `password`, `handler`, `operation`, `reauth`, `body`
