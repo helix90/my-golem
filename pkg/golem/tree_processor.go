@@ -802,6 +802,7 @@ func (tp *TreeProcessor) processSetTag(node *ASTNode, content string) string {
 				tp.ctx.LocalVars = make(map[string]string)
 			}
 			tp.ctx.LocalVars[varKey] = value
+			tp.golem.noteSecret(varKey, value)
 		} else {
 			// Session predicates are stored in Session.Variables
 			// Special handling for "topic" - update session topic
@@ -816,6 +817,7 @@ func (tp *TreeProcessor) processSetTag(node *ASTNode, content string) string {
 					tp.ctx.Session.Variables = make(map[string]string)
 				}
 				tp.ctx.Session.Variables[varKey] = value
+				tp.golem.noteSecret(varKey, value)
 			} else if tp.ctx.KnowledgeBase != nil {
 				// No session - set in knowledge base variables (global)
 				tp.ctx.KnowledgeBase.setVariable(varKey, value)
@@ -1003,6 +1005,7 @@ func (tp *TreeProcessor) setPredicate(name, value string) {
 			tp.ctx.Session.Variables = make(map[string]string)
 		}
 		tp.ctx.Session.Variables[name] = value
+		tp.golem.noteSecret(name, value)
 	} else if tp.ctx.KnowledgeBase != nil {
 		tp.ctx.KnowledgeBase.setVariable(name, value)
 	}

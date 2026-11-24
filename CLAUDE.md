@@ -180,7 +180,7 @@ All `.properties` files must use JSON array format:
 **SRAIX Configuration** (e.g., `weather-config.properties`, `sraix-config-example.properties`):
 - Configure external SRAIX services via properties
 - Property format: `sraix.servicename.property`
-- Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`, `param.<placeholder>`, `default.<placeholder>`, `set.<predicate>`, `username`, `password`, `handler`, `operation`, `reauth`
+- Available properties: `baseurl`, `urltemplate`, `method`, `timeout`, `responseformat`, `responsepath`, `fallback`, `includewildcards`, `header.<HeaderName>`, `apikey`, `param.<placeholder>`, `default.<placeholder>`, `set.<predicate>`, `username`, `password`, `handler`, `operation`, `reauth`, `body`
 - URL template placeholders:
   - `${ENV_VAR}` - Environment variables (e.g., `${PIRATE_WEATHER_API_KEY}`)
   - `{input}` - The SRAIX input text
@@ -193,6 +193,7 @@ All `.properties` files must use JSON array format:
 - `username`/`password` send basic auth (they can use `${ENV_VAR}`)
 - `handler` = `caldav` with `operation` = `today`/`upcoming`/`create`/`get`/`delete` talks to a CalDAV calendar instead of making one HTTP request (`caldav.go`; see `CALDAV_INTEGRATION.md` and `testdata/caldav-*`)
 - `reauth` = an input the bot answers when the service replies 401 Unauthorized (e.g. `LIST RELOGIN`, which logs in again); `<sraix>` then re-reads the service's `param.*` predicates and, if one changed, retries once
+- `body` = a request body template with the same placeholders, each value escaped for the Content-Type (URL-encoded for `application/x-www-form-urlencoded`, JSON-string-escaped for JSON, so write `"{name}"` in quotes); prefer it to building a body in AIML, where `&` or `"` in a value breaks it (e.g. `list_login`)
 - `set.<predicate>` = JSON path sets a predicate from each successful JSON response, e.g. `geocode` returns `0.lat` and sets `geocode_lon` from `0.lon`
 - Reloading properties removes services whose properties are gone
 - Values that can come from the user are escaped in URLs (as a path segment before the template's `?`, as a query value after it); header values (e.g. `Bearer {access_token}`) are substituted without escaping
@@ -295,6 +296,12 @@ Enable verbose logging:
 ```go
 g := golem.New(true)  // Enable verbose logging
 ```
+
+Every log line goes through `logredact.go`, which masks secrets: the value of
+any secret predicate (`*password*`, `*secret*`, `*token*`, or the user store's
+patterns) once it has been set, and inputs matching `DefaultLogRedactions` or
+`AddLogRedaction` patterns (the bundled list-credential commands). Log through
+`LogInfo`/`LogDebug`/... rather than `g.logger` directly.
 
 Debugging demos are library functions, not programs: `DemoThatContextDebugging()`
 (`debugger_demo.go`) and `RunConflictDetectionDemo()` (`conflict_demo.go`).

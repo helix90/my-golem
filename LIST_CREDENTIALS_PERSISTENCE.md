@@ -22,6 +22,14 @@ Every list command in `testdata/list-handler-examples.aiml` calls `AUTOLOAD
 LIST CREDENTIALS` first, which logs in with the saved credentials when the
 session has no token.
 
+**Special characters.** The login form is built and URL-encoded by the
+engine (the `list_login` service's `body` setting), so passwords may contain
+`&`, `+`, `=`, `%` and the like. A password can't contain spaces, or end with
+`.`, `!` or `?`, since the bot splits input into words and sentences.
+
+**Logs.** With `VERBOSE=true`, the password and the access token are masked
+as `********` in every log line.
+
 **Expired tokens.** The list handler's tokens expire (after 30 minutes by
 default). When it rejects one with 401, the list services' `reauth` setting
 makes the bot answer `LIST RELOGIN`, which logs in again with the saved

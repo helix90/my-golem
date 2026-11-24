@@ -396,6 +396,7 @@ func (g *Golem) loadUserPredicates(session *ChatSession) map[string]string {
 	for name, value := range stored {
 		if store.IsPersistent(name) {
 			session.Variables[name] = value
+			g.noteSecret(name, value)
 		}
 	}
 	return stored

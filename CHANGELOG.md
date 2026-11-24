@@ -22,12 +22,16 @@ All notable changes to Golem are recorded here.
 - **Reminders, timers and a daily briefing**: the `reminders` SRAIX handler, `ReminderStore`, `testdata/reminders.aiml`. The Telegram bot delivers them when due.
 - **Buttons**: AIML 2.1 rich media (`<button>`, `<reply>`, `<location/>`) become Telegram inline buttons and suggested replies; `ParseRichResponse`. `<jsonformat button="...">` adds a tick button per list item. Weather offers to share a location, which the bot saves.
 - The Telegram bot stops cleanly on SIGTERM.
+- SRAIX `body`: a request body template whose values are escaped for its Content-Type (URL-encoded for forms, escaped for JSON).
+- Log redaction: every golem log line masks the values of secret predicates and the passwords in credential commands; `AddLogRedaction` adds patterns.
 - SRAIX `reauth`: an input to answer when a service replies 401 Unauthorized, after which the request is retried once if the service's params changed. The list services use it to log in again when their token expires.
 - An allowlist for the Telegram bot: `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_ADMINS`, `TELEGRAM_ALLOW_ALL`.
 
 ### Fixed
 
 - With no location saved, weather replies used the catch-all reply as the place name ("The weather in I'm not sure I understand..."), and a weather service failure was pasted into the sentence. Both now give a clear message.
+- List login failed for passwords containing `&`, `+`, `=` or `%`: the form body was built in AIML without URL-encoding. `list_login` now uses a `body` template.
+- With verbose logging, passwords and list access tokens were written to the log (the raw input, predicate lookups and sets). They are now masked.
 - List commands failed once the list handler's token expired (30 minutes), saying for example that the list could not be found, until the user logged in again. They now log in again with the saved credentials and retry, or say that the login has expired.
 - A failed list login left the fallback text in `list_access_token`, so later list commands sent it as the token.
 - List items always showed as not done: the list handler's `is_completed` field was ignored.

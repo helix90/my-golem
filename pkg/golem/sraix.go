@@ -71,6 +71,13 @@ type SRAIXConfig struct {
 	// A <sraix> tag then reads the service's Params again and, if one
 	// changed, retries the request once.
 	Reauth string `json:"reauth"`
+	// BodyTemplate, when set, is the request body, with placeholders
+	// filled as in the URL template and escaped for the Content-Type:
+	// URL-encoded for application/x-www-form-urlencoded, JSON string
+	// escaped for JSON (so a template writes "{name}" in quotes), as they
+	// are otherwise. Use it rather than building a body in AIML, where a
+	// value with & or " would break it.
+	BodyTemplate string `json:"body"`
 }
 
 // sraixStatusError is a request that the service answered with an HTTP
@@ -370,7 +377,7 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given
 	var contentType string
 	if hasBody {
 		var err error
-		body, contentType, err = requestBody(config, input, wildcards, params)
+		body, contentType, err = sm.requestBody(config, input, wildcards, params)
 		if err != nil {
 			return sraixResponse{}, err
 		}
@@ -522,7 +529,7 @@ func headerValue(headers map[string]string, name string) string {
 // services get the input as it is. JSON services get JSON input as it is,
 // and other input wrapped as {"input": ...}, with the wildcards if the
 // service asks for them, and the tag's botid, host and hint.
-func requestBody(config *SRAIXConfig, input string, wildcards, params map[string]string) ([]byte, string, error) {
+func (sm *SRAIXManager) requestBody(config *SRAIXConfig, input string, wildcards, params map[string]string) ([]byte, string, error) {
 	mediaType := ""
 	if configured := headerValue(config.Headers, "Content-Type"); configured != "" {
 		parsed, _, err := mime.ParseMediaType(configured)
@@ -530,6 +537,9 @@ func requestBody(config *SRAIXConfig, input string, wildcards, params map[string
 			return nil, "", fmt.Errorf("invalid Content-Type %q: %v", configured, err)
 		}
 		mediaType = parsed
+	}
+	if config.BodyTemplate != "" {
+		return sm.templateBody(config, mediaType, input, params)
 	}
 	if mediaType != "" && mediaType != "application/json" && !strings.HasSuffix(mediaType, "+json") {
 		return []byte(input), "", nil
@@ -556,6 +566,34 @@ func requestBody(config *SRAIXConfig, input string, wildcards, params map[string
 		return nil, "", fmt.Errorf("failed to marshal request data: %v", err)
 	}
 	return data, "application/json", nil
+}
+
+// templateBody fills a service's body template, escaping each value for the
+// body's media type (JSON when the service configures none)
+func (sm *SRAIXManager) templateBody(config *SRAIXConfig, mediaType, input string, params map[string]string) ([]byte, string, error) {
+	contentType := ""
+	if mediaType == "" {
+		mediaType, contentType = "application/json", "application/json"
+	}
+	var escape func(value string, pos int) string
+	switch {
+	case mediaType == "application/x-www-form-urlencoded":
+		escape = func(value string, _ int) string { return url.QueryEscape(value) }
+	case mediaType == "application/json" || strings.HasSuffix(mediaType, "+json"):
+		escape = func(value string, _ int) string {
+			var quoted bytes.Buffer
+			encoder := json.NewEncoder(&quoted)
+			encoder.SetEscapeHTML(false)
+			_ = encoder.Encode(value)
+			text := strings.TrimSpace(quoted.String())
+			return text[1 : len(text)-1]
+		}
+	}
+	body, _, err := sm.substitutePlaceholders(config.BodyTemplate, input, params, config.Headers, escape)
+	if err != nil {
+		return nil, "", fmt.Errorf("SRAIX service '%s' body: %v", config.Name, err)
+	}
+	return []byte(body), contentType, nil
 }
 
 // maxSRAIXErrorBody limits how much of an error response goes into the
@@ -970,6 +1008,8 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 			config.Handler = value
 		case key == "reauth":
 			config.Reauth = value
+		case key == "body":
+			config.BodyTemplate = value
 		case key == "operation":
 			config.Operation = value
 		case strings.HasPrefix(key, "default.") && len(key) > len("default."):

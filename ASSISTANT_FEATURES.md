@@ -46,6 +46,8 @@ data. (Earlier versions saved this with `<learnf>` as categories like
   secret: `/session` shows them as `(hidden)`, and with `USER_STORE_KEY` set
   they are encrypted in the file (AES-256-GCM). Set `USER_STORE_KEY` to a long
   random string and keep it; without it the bot can't read saved passwords.
+- **Logs.** Even with `VERBOSE=true`, secret values and passwords typed in
+  credential commands are masked as `********` in golem's log.
 - **Passwords in chat.** When someone types `save my list credentials USER
   PASS` or `list login USER PASS`, the bot deletes that message from the chat
   and removes the password from the session's history.

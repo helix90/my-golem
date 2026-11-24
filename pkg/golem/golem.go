@@ -221,6 +221,8 @@ type Golem struct {
 	templateTagProcessingCache *TemplateTagProcessingCache
 	// Persistent learning components
 	persistentLearning *PersistentLearningManager
+	// redactor masks secrets in log lines; see logredact.go
+	redactor *logRedactor
 	// userStore keeps per-user predicates; see SetUserStore
 	userStore *UserStore
 	// Enhanced context resolution components
@@ -880,6 +882,7 @@ func New(verbose bool) *Golem {
 		variableResolutionCache:    variableResolutionCache,
 		templateTagProcessingCache: templateTagProcessingCache,
 		persistentLearning:         persistentLearning,
+		redactor:                   newLogRedactor(),
 	}
 	// Created up front so concurrent template processing never races to
 	// initialize it
@@ -890,35 +893,35 @@ func New(verbose bool) *Golem {
 // LogError logs an error message
 func (g *Golem) LogError(format string, args ...interface{}) {
 	if g.logLevel >= LogLevelError {
-		g.logger.Printf("[ERROR] "+format, args...)
+		g.logf("[ERROR] ", format, args...)
 	}
 }
 
 // LogWarn logs a warning message
 func (g *Golem) LogWarn(format string, args ...interface{}) {
 	if g.logLevel >= LogLevelWarn {
-		g.logger.Printf("[WARN] "+format, args...)
+		g.logf("[WARN] ", format, args...)
 	}
 }
 
 // LogInfo logs an info message
 func (g *Golem) LogInfo(format string, args ...interface{}) {
 	if g.logLevel >= LogLevelInfo {
-		g.logger.Printf("[INFO] "+format, args...)
+		g.logf("[INFO] ", format, args...)
 	}
 }
 
 // LogDebug logs a debug message
 func (g *Golem) LogDebug(format string, args ...interface{}) {
 	if g.logLevel >= LogLevelDebug {
-		g.logger.Printf("[DEBUG] "+format, args...)
+		g.logf("[DEBUG] ", format, args...)
 	}
 }
 
 // LogTrace logs a trace message
 func (g *Golem) LogTrace(format string, args ...interface{}) {
 	if g.logLevel >= LogLevelTrace {
-		g.logger.Printf("[TRACE] "+format, args...)
+		g.logf("[TRACE] ", format, args...)
 	}
 }
 

@@ -2697,6 +2697,7 @@ func (g *Golem) setVariable(varName, varValue string, scope VariableScope, ctx *
 				ctx.Session.Variables = make(map[string]string)
 			}
 			ctx.Session.Variables[varName] = varValue
+			g.noteSecret(varName, varValue)
 
 			// Special case: if setting the topic variable, also set the session topic
 			if varName == "topic" {
