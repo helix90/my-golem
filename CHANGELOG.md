@@ -22,6 +22,7 @@ All notable changes to Golem are recorded here.
 - **Reminders, timers and a daily briefing**: the `reminders` SRAIX handler, `ReminderStore`, `testdata/reminders.aiml`. The Telegram bot delivers them when due.
 - **Buttons**: AIML 2.1 rich media (`<button>`, `<reply>`, `<location/>`) become Telegram inline buttons and suggested replies; `ParseRichResponse`. `<jsonformat button="...">` adds a tick button per list item. Weather offers to share a location, which the bot saves.
 - The Telegram bot stops cleanly on SIGTERM.
+- List items by name: `LIST <list> CHECK OFF <item>`, `UNCHECK` and `REMOVE` (and "check off milk on list groceries", "remove milk from list groceries") find the item with the list handler's new `items/search` (list-handler 0.5) and say which item they changed. "Check off" always marks done, so repeating it doesn't undo it.
 - Calendar questions about a day or a period: "what do I have on Friday", "what's on my calendar tomorrow / next week / this weekend / the next 3 days / next month", `CALENDAR FOR <when>`. The `caldav` handler's new `range` operation reads the date.
 - SRAIX `body`: a request body template whose values are escaped for its Content-Type (URL-encoded for forms, escaped for JSON).
 - Log redaction: every golem log line masks the values of secret predicates and the passwords in credential commands; `AddLogRedaction` adds patterns.

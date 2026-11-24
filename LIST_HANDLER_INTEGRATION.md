@@ -199,6 +199,30 @@ User: show items in list 1
 Bot:  Items in list 1: [ ] Buy milk (ID: 1); [✓] Pay bills (ID: 2)
 ```
 
+### Ticking Off and Removing Items by Name
+
+```
+User: list groceries check off milk
+Bot:  Ticked off "milk" on your groceries list.
+
+User: check off oat on list groceries
+Bot:  Ticked off "Oat milk" on your groceries list.
+
+User: list groceries uncheck milk
+Bot:  Unticked "milk" on your groceries list.
+
+User: remove eggs from list groceries
+Bot:  Removed "Eggs" from your groceries list.
+```
+
+The bot finds the item with the list handler's
+`GET /users/me/lists/{list}/items/search?q=...` (list-handler 0.5 or later),
+which ignores case and prefers an item whose text is exactly the name, then one
+starting with it, then one containing it; the reply names the item it changed.
+"Check off" always marks the item done (and "uncheck" not done), so saying it
+twice doesn't undo it. With an older list handler the search fails and nothing
+is changed.
+
 ### Toggle Item Completion
 
 ```

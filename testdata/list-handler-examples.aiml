@@ -388,6 +388,127 @@
         </template>
     </category>
 
+    <!-- Items by name: "list groceries check off milk". LIST FIND ITEM looks
+         up the item named by item_query in target_list_id (best match
+         first, see the list handler's items/search) and sets
+         target_item_id and found_item_content. -->
+    <category>
+        <pattern>LIST FIND ITEM</pattern>
+        <template>
+            <think>
+                <set name="found_item_content"></set>
+                <set name="target_item_id"><sraix service="list_item_find">find</sraix></set>
+                <condition name="target_item_id">
+                    <li value="Item not found"><set name="target_item_id"></set></li>
+                </condition>
+            </think>
+        </template>
+    </category>
+
+    <!-- What to say when LIST FIND ITEM found nothing -->
+    <category>
+        <pattern>LIST ITEM NOT FOUND</pattern>
+        <template>
+            <condition name="list_login_expired">
+                <li value="yes"><srai>LIST LOGIN HINT</srai></li>
+                <li>I couldn't find "<get name="item_query"/>" on your <get name="target_list_id"/> list.</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST * CHECK OFF *</pattern>
+        <template>
+            <think><srai>AUTOLOAD LIST CREDENTIALS</srai></think>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="item_query"><star index="2"/></set>
+                        <srai>LIST FIND ITEM</srai>
+                    </think>
+                    <condition name="target_item_id">
+                        <li value=""><srai>LIST ITEM NOT FOUND</srai></li>
+                        <li>
+                            <think>
+                                <set name="item_done">1</set>
+                                <set var="result"><sraix service="list_item_set_done">done</sraix></set>
+                            </think>
+                            <condition var="result">
+                                <li value="Failed to update item">I found "<get name="found_item_content"/>" but couldn't tick it off.</li>
+                                <li>Ticked off "<get name="found_item_content"/>" on your <get name="target_list_id"/> list.</li>
+                            </condition>
+                        </li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST * UNCHECK *</pattern>
+        <template>
+            <think><srai>AUTOLOAD LIST CREDENTIALS</srai></think>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="item_query"><star index="2"/></set>
+                        <srai>LIST FIND ITEM</srai>
+                    </think>
+                    <condition name="target_item_id">
+                        <li value=""><srai>LIST ITEM NOT FOUND</srai></li>
+                        <li>
+                            <think>
+                                <set name="item_done">0</set>
+                                <set var="result"><sraix service="list_item_set_done">not done</sraix></set>
+                            </think>
+                            <condition var="result">
+                                <li value="Failed to update item">I found "<get name="found_item_content"/>" but couldn't untick it.</li>
+                                <li>Unticked "<get name="found_item_content"/>" on your <get name="target_list_id"/> list.</li>
+                            </condition>
+                        </li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST * REMOVE *</pattern>
+        <template>
+            <think><srai>AUTOLOAD LIST CREDENTIALS</srai></think>
+            <condition name="list_access_token">
+                <li value="">Please login first using 'list login username password' or save credentials with 'save my list credentials username password'</li>
+                <li>
+                    <think>
+                        <set name="target_list_id"><star index="1"/></set>
+                        <set name="item_query"><star index="2"/></set>
+                        <srai>LIST FIND ITEM</srai>
+                    </think>
+                    <condition name="target_item_id">
+                        <li value=""><srai>LIST ITEM NOT FOUND</srai></li>
+                        <li>
+                            <think><set var="result"><sraix service="list_item_delete">delete</sraix></set></think>
+                            <condition var="result">
+                                <li value="Failed to delete item">I found "<get name="found_item_content"/>" but couldn't remove it.</li>
+                                <li>Removed "<get name="found_item_content"/>" from your <get name="target_list_id"/> list.</li>
+                            </condition>
+                        </li>
+                    </condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category><pattern>CHECK OFF * ON LIST *</pattern><template><srai>LIST <star index="2"/> CHECK OFF <star/></srai></template></category>
+    <category><pattern>CROSS OFF * ON LIST *</pattern><template><srai>LIST <star index="2"/> CHECK OFF <star/></srai></template></category>
+    <category><pattern>LIST * CROSS OFF *</pattern><template><srai>LIST <star/> CHECK OFF <star index="2"/></srai></template></category>
+    <category><pattern>UNCHECK * ON LIST *</pattern><template><srai>LIST <star index="2"/> UNCHECK <star/></srai></template></category>
+    <category><pattern>REMOVE * FROM LIST *</pattern><template><srai>LIST <star index="2"/> REMOVE <star/></srai></template></category>
+
     <!-- Help -->
     <category>
         <pattern>LIST HELP</pattern>
@@ -407,7 +528,9 @@
             - 'list delete [id]' - Delete a list
 
             Item Management:
-            - 'list [id] add [content]' - Add item to list
+            - 'list [name] add [content]' - Add item to list
+            - 'list [name] check off [item]' - Tick off an item by name ('list [name] uncheck [item]' to untick)
+            - 'list [name] remove [item]' - Remove an item by name
             - 'list [id] items' - Show all items in list
             - 'list [id] delete item [item_id]' - Delete item from list
             - 'list [id] toggle item [item_id]' - Toggle item completion

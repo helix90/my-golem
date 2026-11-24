@@ -145,7 +145,8 @@ replies, for other clients.
 The bundled AIML uses buttons for:
 
 - **Deleting a calendar event**, which now asks first.
-- **Lists**: `show list groceries` shows a ☐/☑ button for each item, and
+- **Lists**: `list groceries check off milk` and `list groceries remove
+  milk` change an item by its name. `show list groceries` shows a ☐/☑ button for each item, and
   tapping one ticks it and shows the list again. `<jsonformat
   button="LIST {list} TOGGLE ITEM {id}">` adds them; `{list}`, `{id}` and
   `{content}` are filled in per item.
