@@ -22,6 +22,13 @@ Every list command in `testdata/list-handler-examples.aiml` calls `AUTOLOAD
 LIST CREDENTIALS` first, which logs in with the saved credentials when the
 session has no token.
 
+**Expired tokens.** The list handler's tokens expire (after 30 minutes by
+default). When it rejects one with 401, the list services' `reauth` setting
+makes the bot answer `LIST RELOGIN`, which logs in again with the saved
+credentials, and the request is retried once with the new token, so the
+user notices nothing. Without saved credentials the token is cleared and the
+user is told their login has expired.
+
 **Upgrading:** earlier versions saved credentials with `<learnf>` as `GET LIST
 USERNAME FOR <id>` and `GET LIST PASSWORD FOR <id>` categories, which any user
 could match to read another user's password. The bot moves those into the

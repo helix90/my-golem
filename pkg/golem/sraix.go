@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -65,6 +66,28 @@ type SRAIXConfig struct {
 	Handler string `json:"handler"`
 	// Operation is what the handler does, e.g. "today" for caldav
 	Operation string `json:"operation"`
+	// Reauth is an input the bot answers when the service replies 401
+	// Unauthorized, such as one that logs in again and sets a fresh token.
+	// A <sraix> tag then reads the service's Params again and, if one
+	// changed, retries the request once.
+	Reauth string `json:"reauth"`
+}
+
+// sraixStatusError is a request that the service answered with an HTTP
+// error status
+type sraixStatusError struct {
+	status int
+	detail string
+}
+
+func (e *sraixStatusError) Error() string {
+	return fmt.Sprintf("SRAIX request failed with status %d: %s", e.status, e.detail)
+}
+
+// isUnauthorized reports whether a SRAIX request failed with 401 Unauthorized
+func isUnauthorized(err error) bool {
+	var statusErr *sraixStatusError
+	return errors.As(err, &statusErr) && statusErr.status == http.StatusUnauthorized
 }
 
 // applyDefaults fills in the method, timeout, response format and headers
@@ -568,7 +591,7 @@ func (sm *SRAIXManager) doRequest(req *http.Request, config *SRAIXConfig) (sraix
 		if len(detail) > maxSRAIXErrorBody {
 			detail = detail[:maxSRAIXErrorBody] + "..."
 		}
-		return sraixResponse{}, fmt.Errorf("SRAIX request failed with status %d: %s", resp.StatusCode, detail)
+		return sraixResponse{}, &sraixStatusError{status: resp.StatusCode, detail: detail}
 	}
 	if resp.StatusCode == http.StatusNoContent && len(config.Set) == 0 {
 		return sraixResponse{}, nil
@@ -945,6 +968,8 @@ func (sm *SRAIXManager) buildConfigFromProperties(serviceName string, props map[
 			config.Password = value
 		case key == "handler":
 			config.Handler = value
+		case key == "reauth":
+			config.Reauth = value
 		case key == "operation":
 			config.Operation = value
 		case strings.HasPrefix(key, "default.") && len(key) > len("default."):

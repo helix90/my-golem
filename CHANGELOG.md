@@ -22,11 +22,13 @@ All notable changes to Golem are recorded here.
 - **Reminders, timers and a daily briefing**: the `reminders` SRAIX handler, `ReminderStore`, `testdata/reminders.aiml`. The Telegram bot delivers them when due.
 - **Buttons**: AIML 2.1 rich media (`<button>`, `<reply>`, `<location/>`) become Telegram inline buttons and suggested replies; `ParseRichResponse`. `<jsonformat button="...">` adds a tick button per list item. Weather offers to share a location, which the bot saves.
 - The Telegram bot stops cleanly on SIGTERM.
+- SRAIX `reauth`: an input to answer when a service replies 401 Unauthorized, after which the request is retried once if the service's params changed. The list services use it to log in again when their token expires.
 - An allowlist for the Telegram bot: `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_ADMINS`, `TELEGRAM_ALLOW_ALL`.
 
 ### Fixed
 
 - With no location saved, weather replies used the catch-all reply as the place name ("The weather in I'm not sure I understand..."), and a weather service failure was pasted into the sentence. Both now give a clear message.
+- List commands failed once the list handler's token expired (30 minutes), saying for example that the list could not be found, until the user logged in again. They now log in again with the saved credentials and retry, or say that the login has expired.
 - A failed list login left the fallback text in `list_access_token`, so later list commands sent it as the token.
 - List items always showed as not done: the list handler's `is_completed` field was ignored.
 - `<that>` matched against rich media markup in the bot's previous reply.

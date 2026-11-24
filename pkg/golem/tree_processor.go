@@ -21,6 +21,9 @@ type TreeProcessor struct {
 	// kbReadLocked is set when the caller holds golem.kbMu for reading, so
 	// that <sraix> can release it for the length of its request
 	kbReadLocked bool
+	// reauthorizing is set while a <sraix> answers its service's reauth
+	// input, so that a 401 there does not start another
+	reauthorizing bool
 }
 
 // NewTreeProcessor creates a new tree processor
@@ -623,11 +626,7 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 			requestParams[key] = value
 		}
 	}
-	for placeholder, predicate := range config.Params {
-		if value, exists := tp.predicateValue(predicate); exists && value != "" {
-			requestParams[placeholder] = value
-		}
-	}
+	requestParams, _ = tp.sraixParams(config, requestParams)
 
 	// Pattern wildcards are available to URL templates as {STAR1}, {STAR2}, ...
 	var wildcards map[string]string
@@ -636,6 +635,18 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 	}
 
 	response, err := tp.requestSRAIX(config, sraixContent, wildcards, requestParams)
+	if err != nil && isUnauthorized(err) && config.Reauth != "" && !tp.reauthorizing {
+		// The credentials have expired: answer the service's reauth input,
+		// which logs in again, and retry if it changed the params
+		tp.golem.LogInfo("SRAIX service '%s' replied 401; answering %q and retrying", targetService, config.Reauth)
+		tp.reauthorizing = true
+		tp.processSRAITag(nil, config.Reauth)
+		tp.reauthorizing = false
+		retryParams, changed := tp.sraixParams(config, requestParams)
+		if changed {
+			response, err = tp.requestSRAIX(config, sraixContent, wildcards, retryParams)
+		}
+	}
 	if err != nil {
 		tp.golem.LogInfo("SRAIX request failed: %v", err)
 		return fallBack(config)
@@ -646,6 +657,32 @@ func (tp *TreeProcessor) processSRAIXTag(node *ASTNode, content string) string {
 
 	tp.golem.LogInfo("SRAIX result: service='%s', %d bytes, %d predicates set", targetService, len(response.text), len(response.set))
 	return response.text
+}
+
+// sraixParams returns a copy of params with the predicates the service
+// names (its Params) filled in from their current values, and whether any
+// of those differ from params
+func (tp *TreeProcessor) sraixParams(config *SRAIXConfig, params map[string]string) (map[string]string, bool) {
+	result := make(map[string]string, len(params)+len(config.Params))
+	for key, value := range params {
+		result[key] = value
+	}
+	changed := false
+	for placeholder, predicate := range config.Params {
+		value, exists := tp.predicateValue(predicate)
+		if !exists || value == "" {
+			if _, had := result[placeholder]; had {
+				delete(result, placeholder)
+				changed = true
+			}
+			continue
+		}
+		if result[placeholder] != value {
+			result[placeholder] = value
+			changed = true
+		}
+	}
+	return result, changed
 }
 
 // requestSRAIX makes a SRAIX request without holding the knowledge base lock.
