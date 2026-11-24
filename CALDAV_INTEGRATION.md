@@ -35,6 +35,46 @@ export RADICALE_CALENDAR="personal"           # until a session picks one; defau
 
 The user name and password are sent with HTTP basic authentication. Use `https://` in `RADICALE_URL` anywhere but on your own machine.
 
+#### From a calendar URL to these settings
+
+The bot builds the calendar's address from three settings:
+
+```
+RADICALE_URL / RADICALE_USER / RADICALE_CALENDAR /
+```
+
+Calendar apps and servers (FreedomBox, Thunderbird, Radicale's web page) show
+the whole address, with the user and the calendar already in it. Don't put
+that in `RADICALE_URL`: split it. For example, FreedomBox shows
+
+```
+https://freedombox.example.org/radicale/alice/fb88f562-4b7a-bc77-d37b-aeef7e64dee9/
+```
+
+which becomes
+
+```bash
+RADICALE_URL=https://freedombox.example.org/radicale     # everything before the user
+RADICALE_USER=alice                                      # the account that owns the calendar
+RADICALE_PASSWORD=...                                    # that account's password
+RADICALE_CALENDAR=fb88f562-4b7a-bc77-d37b-aeef7e64dee9   # the calendar's ID, often not its display name
+```
+
+`RADICALE_USER` is both the path segment and the login, so it must be the
+account that owns the calendar. If `RADICALE_USER` is empty, the bot sends no
+request at all.
+
+To check the address and password without the bot (it asks for the password):
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -u alice -X PROPFIND -H "Depth: 0" \
+  https://freedombox.example.org/radicale/alice/fb88f562-4b7a-bc77-d37b-aeef7e64dee9/
+```
+
+`207` means both are right, `401` a wrong password or user, `404` a wrong
+path or calendar ID. With `VERBOSE=true` the bot's log gives the reason for a
+failed request in a `SRAIX request failed` line.
+
 Times are read and shown in the bot's local time zone. Set `TZ` (e.g. `TZ=Europe/Paris`) if the bot runs somewhere else, such as in a container that defaults to UTC.
 
 ### 3. Load the configuration and AIML
