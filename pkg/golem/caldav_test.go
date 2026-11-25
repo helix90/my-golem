@@ -160,7 +160,10 @@ func newFakeCalDAV(t *testing.T) (*fakeCalDAV, *httptest.Server) {
 			out.WriteString(`<?xml version="1.0"?><multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">`)
 			for _, path := range paths {
 				events := parseICalendar(f.events[path], time.UTC)
-				if len(events) == 0 || !events[0].start.Before(end) || !events[0].end.After(start) {
+				// A repeating event that has started may occur in the range,
+				// so a server returns it; the client expands it
+				repeating := len(events) > 0 && events[0].rrule != "" && events[0].start.Before(end)
+				if len(events) == 0 || (!repeating && (!events[0].start.Before(end) || !events[0].end.After(start))) {
 					continue
 				}
 				fmt.Fprintf(&out, `<response><href>%s</href><propstat><prop><getetag>"1"</getetag><C:calendar-data><![CDATA[%s]]></C:calendar-data></prop><status>HTTP/1.1 200 OK</status></propstat></response>`, path, f.events[path])

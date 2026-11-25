@@ -56,6 +56,15 @@ type calendarEvent struct {
 	start, end  time.Time
 	allDay      bool // start and end are dates; end is exclusive
 	repeats     bool
+	// recurrence is how an event created from text repeats; nil for one
+	// that doesn't (events read from a calendar only set repeats)
+	recurrence *eventRecurrence
+
+	// Read from a calendar: how the event repeats, as written
+	rrule        string         // the RRULE value; "" for none
+	exdates      []time.Time    // occurrences left out
+	recurrenceID time.Time      // for an occurrence that was changed: the one it replaces
+	zone         *time.Location // the zone DTSTART is written in, which occurrences keep
 }
 
 // caldavClient makes the requests of one caldav operation
@@ -129,6 +138,9 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		}
 		if err := c.put(event, now); err != nil {
 			return sraixResponse{}, err
+		}
+		if event.recurrence != nil {
+			return sraixResponse{text: event.summary + " " + event.recurrence.describe(event, now)}, nil
 		}
 		return sraixResponse{text: event.summary + " " + eventWhen(event, now, true)}, nil
 	case "get":
@@ -209,9 +221,7 @@ func (c *caldavClient) query(start, end time.Time) ([]calendarEvent, error) {
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:prop>
     <D:getetag/>
-    <C:calendar-data>
-      <C:expand start="%[1]s" end="%[2]s"/>
-    </C:calendar-data>
+    <C:calendar-data/>
   </D:prop>
   <C:filter>
     <C:comp-filter name="VCALENDAR">
@@ -220,7 +230,7 @@ func (c *caldavClient) query(start, end time.Time) ([]calendarEvent, error) {
       </C:comp-filter>
     </C:comp-filter>
   </C:filter>
-</C:calendar-query>`, caldavTime(start), caldavTime(end))
+</C:calendar-query>`, caldavTime(start.AddDate(0, 0, -1)), caldavTime(end.AddDate(0, 0, 1)))
 
 	status, data, err := c.do("REPORT", "", body, map[string]string{
 		"Content-Type": "application/xml; charset=utf-8",
@@ -236,6 +246,7 @@ func (c *caldavClient) query(start, end time.Time) ([]calendarEvent, error) {
 	if err != nil {
 		return nil, err
 	}
+	events = expandEvents(events, start, end)
 	sort.SliceStable(events, func(i, j int) bool { return events[i].start.Before(events[j].start) })
 	return events, nil
 }
@@ -408,11 +419,24 @@ func parseICalendar(data string, loc *time.Location) []calendarEvent {
 			event.location = unescapeICalText(value)
 		case "DESCRIPTION":
 			event.description = unescapeICalText(value)
-		case "RRULE", "RDATE", "RECURRENCE-ID":
+		case "RRULE":
+			event.repeats, event.rrule = true, value
+		case "RDATE":
 			event.repeats = true
+		case "EXDATE":
+			for _, part := range strings.Split(value, ",") {
+				if t, _, err := parseICalTime(strings.TrimSpace(part), params, loc); err == nil {
+					event.exdates = append(event.exdates, t)
+				}
+			}
+		case "RECURRENCE-ID":
+			if t, _, err := parseICalTime(value, params, loc); err == nil {
+				event.repeats, event.recurrenceID = true, t
+			}
 		case "DTSTART":
 			if t, allDay, err := parseICalTime(value, params, loc); err == nil {
 				event.start, event.allDay = t, allDay
+				event.zone = icalTimeZone(value, params, loc)
 			}
 		case "DTEND":
 			if t, _, err := parseICalTime(value, params, loc); err == nil {
@@ -456,6 +480,20 @@ func parseContentLine(line string) (string, map[string]string, string, bool) {
 
 // parseICalTime parses a DATE or DATE-TIME value: UTC (ending in Z), in the
 // zone its TZID names, or else in loc. It reports whether it is a date.
+// icalTimeZone returns the zone a date-time is written in: its TZID, UTC
+// for a time ending in Z, or loc for a floating time or a date
+func icalTimeZone(value string, params map[string]string, loc *time.Location) *time.Location {
+	if strings.HasSuffix(value, "Z") {
+		return time.UTC
+	}
+	if tzid := params["TZID"]; tzid != "" {
+		if named, err := time.LoadLocation(strings.TrimPrefix(tzid, "/")); err == nil {
+			return named
+		}
+	}
+	return loc
+}
+
 func parseICalTime(value string, params map[string]string, loc *time.Location) (time.Time, bool, error) {
 	if params["VALUE"] == "DATE" || len(value) == 8 {
 		t, err := time.ParseInLocation("20060102", value, loc)
@@ -548,15 +586,33 @@ func eventICalendar(event calendarEvent, now time.Time) string {
 	write("BEGIN:VCALENDAR")
 	write("VERSION:2.0")
 	write("PRODID:-//Golem//CalDAV SRAIX//EN")
+	// A recurring event with a time is written in its time zone, so that it
+	// keeps its local time across daylight saving time changes
+	zone := ""
+	if event.recurrence != nil && !event.allDay {
+		zone = eventTimeZoneName(event.start.Location())
+	}
+	if zone != "" {
+		for _, line := range vtimezone(zone, event.start.Location(), event.start) {
+			write(line)
+		}
+	}
 	write("BEGIN:VEVENT")
 	write("UID:" + event.uid)
 	write("DTSTAMP:" + caldavTime(now))
-	if event.allDay {
+	switch {
+	case event.allDay:
 		write("DTSTART;VALUE=DATE:" + event.start.Format("20060102"))
 		write("DTEND;VALUE=DATE:" + event.end.Format("20060102"))
-	} else {
+	case zone != "":
+		write("DTSTART;TZID=" + zone + ":" + event.start.Format("20060102T150405"))
+		write("DTEND;TZID=" + zone + ":" + event.end.Format("20060102T150405"))
+	default:
 		write("DTSTART:" + caldavTime(event.start))
 		write("DTEND:" + caldavTime(event.end))
+	}
+	if event.recurrence != nil {
+		write("RRULE:" + event.recurrence.rrule(event, zone == ""))
 	}
 	write("SUMMARY:" + escapeICalText(event.summary))
 	write("END:VEVENT")
@@ -738,10 +794,21 @@ func parseEventText(text string, now time.Time) (calendarEvent, error) {
 		return groups
 	}
 
+	// How it repeats ("every Monday"), before the date, which would read
+	// "Monday" as one day
+	rec, err := takeEventRecurrence(&title, today)
+	if err != nil {
+		return calendarEvent{}, err
+	}
+
 	// The date
 	date, hasDate, err := takeEventDate(remove, today)
 	if err != nil {
 		return calendarEvent{}, err
+	}
+	if rec != nil {
+		// "every Monday starting December 7": the date is the first one
+		title = recurStartRe.ReplaceAllString(title, " ")
 	}
 
 	// The time
@@ -811,6 +878,11 @@ func parseEventText(text string, now time.Time) (calendarEvent, error) {
 		}
 		event.start = time.Date(date.Year(), date.Month(), date.Day(), hour, minute, 0, 0, loc)
 		event.end = event.start.Add(duration)
+	}
+	if rec != nil {
+		if err := applyRecurrence(&event, rec); err != nil {
+			return calendarEvent{}, err
+		}
 	}
 	return event, nil
 }

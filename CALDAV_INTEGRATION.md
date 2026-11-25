@@ -157,6 +157,12 @@ Say "calendar help" for the full list.
 | A number of days | `the next 3 days`, `the coming seven days` (up to 62) |
 | A month | `this month` (today to its end), `next month` |
 
+Repeating events, whether the bot or another app (such as Thunderbird) created
+them, are expanded by the bot in their own time zone, including dates left out
+and single occurrences that were moved. The calendar server isn't asked to
+expand them: Radicale repeats an event at its first occurrence's UTC time, so
+its occurrences after a daylight saving time change came back an hour off.
+
 The `caldav_range` service does the work (operation `range`); it sets the
 `calendar_range` predicate to a label such as "on Friday, November 20", or to
 "unknown" when the text isn't a day or period it knows.
@@ -170,7 +176,12 @@ The text after "create event" (or "add event", "schedule") gives the event's tit
 | Date | `today`, `tonight`, `tomorrow`, `the day after tomorrow`, a weekday (`Friday`, `next Friday`: the next one after today; `this Tuesday` on a Tuesday is today), `Nov 20`, `November 20th, 2027`, `20 November`, `2026-11-20` |
 | Time | `2pm`, `2:30 p.m.`, `14:00`, `noon`, `midnight`, or a bare hour after "at" (`at 3`; 1 to 7 are taken as PM) |
 | Length | `for 30 minutes`, `for 2 hours`, `for an hour`, `for half an hour`; one hour if not given |
+| Repeats | `every Monday`, `every Tuesday and Thursday`, `every Mon, Wed and Fri`, `on Mondays`, `every weekday`, `every weekend`, `every day`, `every week`, `every other Friday`, `every 2 weeks`, `every month`, `every year`, `daily`, `weekly`, `fortnightly`, `monthly`, `yearly` |
+| Repeat end | `until December 18`, `for 6 weeks`, `10 times`; none if not given. `starting December 7` gives the first day |
 
+- A repeating event starts on its first matching day: "yoga every Monday at 6pm" on a Wednesday starts next Monday. "On Monday" without "every" (or a plural "Mondays") is a single event.
+- Repeating events with a time are written in the bot's time zone (`TZ`, e.g. `TZ=Europe/London`), so they keep their local time when the clocks change. Without `TZ`, they are written in UTC, which keeps the weekday but moves an hour across a change.
+- Deleting a repeating event deletes all its occurrences.
 - An event with a date but no time lasts all day.
 - An event with a time but no date is today, or tomorrow if that time has passed.
 - An event with neither is an all-day event today.

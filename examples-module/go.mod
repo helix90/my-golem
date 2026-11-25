@@ -7,4 +7,6 @@ require (
 	github.com/helix90/my-golem v1.5.2
 )
 
+require github.com/teambition/rrule-go v1.8.2 // indirect
+
 replace github.com/helix90/my-golem => ../
