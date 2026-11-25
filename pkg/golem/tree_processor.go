@@ -3264,7 +3264,7 @@ func (tp *TreeProcessor) processDateTag(node *ASTNode, _ string) string {
 	}
 	// Convert C-style or alternative formats to Go time format
 	goFormat := tp.golem.convertToGoTimeFormat(format)
-	return time.Now().Format(goFormat)
+	return tp.golem.now().Format(goFormat)
 }
 
 func (tp *TreeProcessor) processTimeTag(node *ASTNode, _ string) string {
@@ -3284,7 +3284,7 @@ func (tp *TreeProcessor) processTimeTag(node *ASTNode, _ string) string {
 		goFormat = defaultFormat
 	}
 
-	return time.Now().Format(goFormat)
+	return tp.golem.now().Format(goFormat)
 }
 
 // System tags

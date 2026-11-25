@@ -147,14 +147,32 @@ func TestDailyBriefing(t *testing.T) {
 	g, _ := newReminderTestBot(t, filepath.Join(t.TempDir(), "reminders.json"))
 	s := reminderSession(g, "111", "5001")
 	ask(t, g, s, "my name is Alice")
-	got := ask(t, g, s, "daily briefing")
-	if !strings.Contains(got, "Good morning, Alice!") || !strings.Contains(got, "Today is ") {
-		t.Errorf("briefing: %q", got)
-	}
-	// No calendar or location is set up, so neither is mentioned
-	for _, unwanted := range []string{"calendar right now", "trouble", "location", "rephrase"} {
-		if strings.Contains(got, unwanted) {
-			t.Errorf("briefing mentions %q: %q", unwanted, got)
+
+	// The greeting follows the time of day (timeofday.map)
+	for hour, greeting := range map[int]string{
+		8: "Good morning, Alice!", 14: "Good afternoon, Alice!", 19: "Good evening, Alice!",
+		23: "Hello, Alice!", 4: "Hello, Alice!", 5: "Good morning, Alice!",
+	} {
+		at := time.Date(2026, 11, 24, hour, 30, 0, 0, time.Local)
+		if hour == 4 {
+			at = at.Add(29 * time.Minute) // 4:59, the last minute of night
 		}
+		g.clock = func() time.Time { return at }
+		got := ask(t, g, s, "daily briefing")
+		if !strings.HasPrefix(got, greeting+" Today is Tuesday, November 24.") {
+			t.Errorf("at %s: %q, want it to start %q", at.Format("15:04"), got, greeting)
+		}
+		// No calendar or location is set up, so neither is mentioned
+		for _, unwanted := range []string{"calendar right now", "trouble", "location", "rephrase"} {
+			if strings.Contains(got, unwanted) {
+				t.Errorf("briefing mentions %q: %q", unwanted, got)
+			}
+		}
+	}
+
+	// Without a name
+	g.clock = func() time.Time { return time.Date(2026, 11, 24, 15, 0, 0, 0, time.Local) }
+	if got := ask(t, g, reminderSession(g, "222", "5002"), "brief me"); !strings.HasPrefix(got, "Good afternoon! Today is") {
+		t.Errorf("no name: %q", got)
 	}
 }

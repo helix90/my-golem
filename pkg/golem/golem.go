@@ -223,6 +223,8 @@ type Golem struct {
 	persistentLearning *PersistentLearningManager
 	// redactor masks secrets in log lines; see logredact.go
 	redactor *logRedactor
+	// clock, when set, is the time <date> and <time> show; tests set it
+	clock func() time.Time
 	// userStore keeps per-user predicates; see SetUserStore
 	userStore *UserStore
 	// Enhanced context resolution components
@@ -888,6 +890,14 @@ func New(verbose bool) *Golem {
 	// initialize it
 	g.treeProcessor = NewTreeProcessor(g)
 	return g
+}
+
+// now returns the current time for <date> and <time>
+func (g *Golem) now() time.Time {
+	if g.clock != nil {
+		return g.clock()
+	}
+	return time.Now()
 }
 
 // LogError logs an error message

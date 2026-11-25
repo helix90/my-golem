@@ -103,11 +103,13 @@
 <category><pattern>TURN OFF MY DAILY BRIEFING</pattern><template><srai>STOP MY DAILY BRIEFING</srai></template></category>
 <category><pattern>NO MORE BRIEFINGS</pattern><template><srai>STOP MY DAILY BRIEFING</srai></template></category>
 
-<!-- The briefing itself, sent at the chosen time and on request. Parts
-     that are not set up (no calendar, no location) are left out. -->
+<!-- The briefing itself, sent at the chosen time and on request. It greets
+     by the time of day (timeofday.map, in the bot's TZ): good morning,
+     afternoon or evening, and hello at night. Parts that are not set up (no
+     calendar, no location) are left out. -->
 <category>
 <pattern>DAILY BRIEFING</pattern>
-<template><think><set var="events"><sraix service="caldav_today">today</sraix></set></think><condition name="user_name"><li value="">Good morning!</li><li>Good morning, <get name="user_name"/>!</li></condition> Today is <date format="%A, %B %d"/>. <condition var="events"><li value="">Your calendar is clear today.</li><li value="Unable to retrieve calendar events"></li><li>On your calendar: <get var="events"/></li></condition> <condition name="user_latitude"><li value=""></li><li><srai>WHAT IS THE WEATHER</srai></li></condition></template>
+<template><think><set var="events"><sraix service="caldav_today">today</sraix></set><set var="period"><map name="timeofday"><time format="hour"/></map></set><condition var="period"><li value="night"><set var="greeting">Hello</set></li><li><set var="greeting">Good <get var="period"/></set></li></condition></think><condition name="user_name"><li value=""><get var="greeting"/>!</li><li><get var="greeting"/>, <get name="user_name"/>!</li></condition> Today is <date format="%A, %B %d"/>. <condition var="events"><li value="">Your calendar is clear today.</li><li value="Unable to retrieve calendar events"></li><li>On your calendar: <get var="events"/></li></condition> <condition name="user_latitude"><li value=""></li><li><srai>WHAT IS THE WEATHER</srai></li></condition></template>
 </category>
 <category><pattern>MY BRIEFING</pattern><template><srai>DAILY BRIEFING</srai></template></category>
 <category><pattern>MY DAILY BRIEFING</pattern><template><srai>DAILY BRIEFING</srai></template></category>

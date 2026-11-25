@@ -140,14 +140,17 @@ User: send me a daily briefing at 7am
 Bot:  Okay, I'll send you a briefing every day at 7:00 AM, starting tomorrow at 7:00 AM.
 
 User: brief me
-Bot:  Good morning, Alice! Today is Wednesday, November 25. Your calendar is clear today.
+Bot:  Good evening, Alice! Today is Wednesday, November 25. Your calendar is clear today.
 
 User: stop my daily briefing
 Bot:  Okay, I've stopped your daily briefing.
 ```
 
-With events today the briefing lists them ("On your calendar: ..."), and with
-a saved location and a weather service it adds the weather.
+The greeting follows the time of day in the bot's time zone (`TZ`): good
+morning (5:00 to 11:59), afternoon (12:00 to 16:59) or evening (17:00 to
+21:59), and hello at night. With events today the briefing lists them ("On
+your calendar: ..."), and with a saved location and a weather service it adds
+the weather.
 
 Reminders are kept in `REMINDERS_PATH` (default `data/reminders.json`) and
 survive restarts; one that came due while the bot was down is sent when it
