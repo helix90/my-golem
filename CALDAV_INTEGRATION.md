@@ -144,6 +144,42 @@ Bot:  Switched to calendar: work
 
 Say "calendar help" for the full list.
 
+### Repeating events
+
+Recorded against a Radicale server with `TZ=Europe/London`, on a Wednesday:
+
+```
+User: create event yoga every Monday at 6pm
+Bot:  Event created: yoga every Monday at 6:00 PM, starting Mon Nov 30
+
+User: schedule standup every weekday at 9am until December 18
+Bot:  Event created: standup every weekday at 9:00 AM, starting tomorrow, until Fri Dec 18
+
+User: add team sync every other Friday at 2pm to my calendar
+Bot:  Event created: team sync every other Friday at 2:00 PM, starting Fri Nov 27
+
+User: create event physio every Wednesday at noon for 6 weeks
+Bot:  Event created: physio every Wednesday at 12:00 PM, starting Wed Dec 2, until Tue Jan 12 2027
+
+User: create event bins every Thursday
+Bot:  Event created: bins every Thursday, starting tomorrow
+
+User: add Mum's birthday every year on December 3 to my calendar
+Bot:  Event created: Mum's birthday every year on December 3, starting Thu Dec 3
+
+User: what do I have next week
+Bot:  Here's your calendar next week: standup on Mon Nov 30 at 9:00 AM; yoga on Mon Nov 30 at 6:00 PM; standup on Tue Dec 1 at 9:00 AM; standup on Wed Dec 2 at 9:00 AM; physio on Wed Dec 2 at 12:00 PM; Mum's birthday on Thu Dec 3 (all day); bins on Thu Dec 3 (all day); standup on Thu Dec 3 at 9:00 AM; standup on Fri Dec 4 at 9:00 AM
+
+User: delete event yoga
+Bot:  Should I delete the event "yoga"?   [Yes, delete it] [No, keep it]
+User: yes
+Bot:  Event deleted: yoga on Mon Nov 30 at 6:00 PM
+```
+
+("Add ... to my calendar" comes from the my-AIML phrase pack; "create event",
+"add event" and "schedule" are built in.) Deleting a repeating event deletes
+all its occurrences.
+
 ### Asking about a day or a period
 
 "What's on my calendar ...", "what do I have on ...", "show my calendar for

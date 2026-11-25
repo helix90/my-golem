@@ -60,7 +60,8 @@ data. (Earlier versions saved this with `<learnf>` as categories like
   from the knowledge base, `learned_categories.json` and its backups. Its log
   says how many it moved.
 - **Forgetting.** `/forgetme` deletes everything stored about the user and
-  their reminders. `/clear` only clears the conversation.
+  their reminders ("🗑️ Done. I've deleted everything I remembered about you
+  and 2 reminder(s)."). `/clear` only clears the conversation.
 
 Predicates used by the bundled AIML:
 
@@ -100,6 +101,54 @@ Times use the date parser of the calendar (today, tomorrow, weekdays, dates,
 "at 5pm", "noon", ...) plus "in N minutes/hours/days" and "every day". A date
 with no time means 9 AM. Times are in the bot's time zone (`TZ`).
 
+For example, on a Wednesday evening:
+
+```
+User: remind me to call mom at 5pm
+Bot:  Okay, I'll remind you to call mom tomorrow at 5:00 PM.
+
+User: remind me in 20 minutes to stretch
+Bot:  Okay, I'll remind you to stretch today at 6:05 PM.
+
+User: set a timer for 10 minutes
+Bot:  Okay, I'll remind you to check the timer today at 5:55 PM.
+
+User: remind me every day at 8am to take vitamins
+Bot:  Okay, I'll remind you to take vitamins every day at 8:00 AM.
+
+User: remind me to call mom
+Bot:  When should I remind you? Try something like "remind me to call mom at 5pm" or "remind me in 20 minutes to stretch".
+
+User: show my reminders
+Bot:  Your reminders:
+      1. check the timer, today at 5:55 PM
+      2. stretch, today at 6:05 PM
+      3. take vitamins, every day at 8:00 AM
+      4. call mom, tomorrow at 5:00 PM
+
+User: delete reminder 2
+Bot:  Deleted the reminder to stretch.
+
+User: cancel the timer
+Bot:  Deleted the reminder to check the timer.
+
+  ... at 5:00 PM the next day ...
+
+Bot:  ⏰ Reminder: call mom
+
+User: send me a daily briefing at 7am
+Bot:  Okay, I'll send you a briefing every day at 7:00 AM, starting tomorrow at 7:00 AM.
+
+User: brief me
+Bot:  Good morning, Alice! Today is Wednesday, November 25. Your calendar is clear today.
+
+User: stop my daily briefing
+Bot:  Okay, I've stopped your daily briefing.
+```
+
+With events today the briefing lists them ("On your calendar: ..."), and with
+a saved location and a weather service it adds the weather.
+
 Reminders are kept in `REMINDERS_PATH` (default `data/reminders.json`) and
 survive restarts; one that came due while the bot was down is sent when it
 starts. The bot checks every 20 seconds and sends each reminder to the chat it
@@ -138,6 +187,29 @@ Should I delete the event "<star/>"?
   which arrives as `MY COORDINATES ARE <lat> <lon>`.
 - `<that>` sees only the text, so typed answers still work: the delete
   question above also accepts "yes" and "no".
+
+In a conversation (buttons in brackets, suggested replies in parentheses):
+
+```
+User: delete event dentist
+Bot:  Should I delete the event "dentist"?
+      [Yes, delete it] [No, keep it]
+User: no                                   (or tap "No, keep it")
+Bot:  Okay, I'll leave it on your calendar.
+
+User: what is the weather
+Bot:  You haven't set your location yet. Tell me by saying "My location is [city name]", or share it.
+      (📍 Share my location)
+      ... the user taps it and Telegram shares their location ...
+Bot:  Thanks! I've saved your location (51.5072, -0.1276), so you can ask me about the weather there.
+
+User: show list groceries
+Bot:  List: groceries (ID: 1)
+      Items (2):
+      1. ☐ milk (ID: 1)
+      2. ☐ oat milk (ID: 2)
+      [☐ milk] [☐ oat milk]
+```
 
 `golem.ParseRichResponse` splits a response into its text, buttons and
 replies, for other clients.

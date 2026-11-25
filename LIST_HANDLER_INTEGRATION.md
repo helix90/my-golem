@@ -199,6 +199,29 @@ User: show items in list 1
 Bot:  Items in list 1: [ ] Buy milk (ID: 1); [✓] Pay bills (ID: 2)
 ```
 
+### Empty Lists and Tick Buttons
+
+```
+User: show my lists
+Bot:  You have no lists yet.
+
+User: create list holiday
+Bot:  Created list 'holiday' successfully (ID: 2)
+
+User: list holiday items
+Bot:  No items in this list.
+
+User: show list groceries
+Bot:  List: groceries (ID: 1)
+      Items (2):
+      1. ☐ milk (ID: 1)
+      2. ☐ oat milk (ID: 2)
+      [☐ milk] [☐ oat milk]
+```
+
+In Telegram, each item of `show list groceries` has a tick button; tapping
+one ticks it off and shows the list again.
+
 ### Ticking Off and Removing Items by Name
 
 ```

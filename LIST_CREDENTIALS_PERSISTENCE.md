@@ -10,6 +10,32 @@ load my list credentials                     logs in again now
 forget my list credentials                   deletes them and logs out
 ```
 
+```
+User: show my lists
+Bot:  Please login first using 'list login username password' or save credentials with 'save my list credentials username password'
+
+User: save my list credentials alice ********
+Bot:  I've saved your list credentials and logged you in as alice. List commands will log you in automatically from now on.
+Bot:  🔒 I deleted your message with the password, so it doesn't stay in this chat.
+
+User: do I have saved list credentials
+Bot:  Yes, you have saved credentials for username alice. You are logged in as alice.
+```
+
+When the login expires, the bot logs in again by itself and the user sees
+the answer as usual. Without saved credentials (after `list login`), it says
+so instead:
+
+```
+User: list login alice ********
+Bot:  Logged in successfully as alice. You can now manage your lists.
+
+  ... the login expires ...
+
+User: show list groceries
+Bot:  Your list login has expired. Log in again with 'list login USERNAME PASSWORD', or save your credentials with 'save my list credentials USERNAME PASSWORD' and I'll log in again for you when this happens.
+```
+
 The credentials are kept in the user store as `user_list_username` and
 `user_list_password`, for the Telegram user who saved them (see
 [ASSISTANT_FEATURES.md](ASSISTANT_FEATURES.md)). The password is a secret:
