@@ -32,6 +32,8 @@ All notable changes to Golem are recorded here.
 
 ### Fixed
 
+- Repeating events (for example made in Thunderbird) showed an hour off after a daylight saving time change: Radicale expands them at their first occurrence's UTC time. The bot now fetches them unexpanded and expands them itself, in their own time zone, with EXDATE and changed occurrences (RECURRENCE-ID), using github.com/teambition/rrule-go.
+
 - With no location saved, weather replies used the catch-all reply as the place name ("The weather in I'm not sure I understand..."), and a weather service failure was pasted into the sentence. Both now give a clear message.
 - "Ask openai ...", "chat ...", "translate ... to French" and similar replied by repeating the user's words: `testdata/sraix-config-example.aiml`, an example for services the bot doesn't have, was loaded with the bot's AIML. It and `geocode-config-example.properties` (a stale copy of the geocode service) are moved to `examples-module/`, and a test checks that every service `testdata/` uses is configured there.
 - "Show my lists" with no lists, or the items of an empty list, replied `[]`. They now say "You have no lists yet." and "No items in this list.", and `<jsonformat>` shows any other empty array as "There's nothing here yet."
