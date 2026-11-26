@@ -2523,7 +2523,7 @@ func (tp *TreeProcessor) processJsonFormatTag(node *ASTNode, content string) str
 	// Format based on type
 	switch formatType {
 	case "lists":
-		return tp.formatListsJSON(data)
+		return tp.formatListsJSON(data, node.Attributes["button"], node.Attributes["only"] == "buttons")
 	case "list":
 		return tp.formatListJSON(data, node.Attributes["button"])
 	case "items":
@@ -2535,43 +2535,54 @@ func (tp *TreeProcessor) processJsonFormatTag(node *ASTNode, content string) str
 	}
 }
 
-func (tp *TreeProcessor) formatListsJSON(data interface{}) string {
+// formatListsJSON formats the user's lists as a sentence ("You have 2
+// lists: groceries and hardware.") or, when any has a description, one per
+// line. With a button template, such as "LIST SHOW {list}", each list also
+// gets a rich media <button>; with only="buttons" only the buttons are
+// returned, for a question such as "Which list?".
+func (tp *TreeProcessor) formatListsJSON(data interface{}, buttonTemplate string, onlyButtons bool) string {
 	lists, ok := data.([]interface{})
 	if !ok {
 		return "Invalid lists format"
 	}
 
-	if len(lists) == 0 {
-		return "You have no lists yet."
-	}
-
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("You have %d list", len(lists)))
-	if len(lists) != 1 {
-		result.WriteString("s")
-	}
-	result.WriteString(":\n")
-
-	for i, item := range lists {
+	var names, lines []string
+	var buttons strings.Builder
+	described := false
+	for _, item := range lists {
 		list, ok := item.(map[string]interface{})
 		if !ok {
 			continue
 		}
-
-		id := fmt.Sprintf("%v", list["id"])
 		name := fmt.Sprintf("%v", list["name"])
-		desc := ""
+		line := "• " + name
 		if description, exists := list["description"]; exists && description != nil {
-			descStr := fmt.Sprintf("%v", description)
-			if descStr != "" {
-				desc = fmt.Sprintf(" - %s", descStr)
+			if descStr := fmt.Sprintf("%v", description); descStr != "" {
+				line += " – " + descStr
+				described = true
 			}
 		}
-
-		result.WriteString(fmt.Sprintf("%d. %s (ID: %s)%s\n", i+1, name, id, desc))
+		names = append(names, name)
+		lines = append(lines, line)
+		if buttonTemplate != "" {
+			postback := strings.NewReplacer("{list}", name, "{id}", fmt.Sprintf("%v", list["id"])).Replace(buttonTemplate)
+			buttons.WriteString(fmt.Sprintf("<button><text>%s</text><postback>%s</postback></button>",
+				html.EscapeString(name), html.EscapeString(postback)))
+		}
 	}
-
-	return strings.TrimSpace(result.String())
+	if onlyButtons {
+		return buttons.String()
+	}
+	if len(names) == 0 {
+		return "You have no lists yet."
+	}
+	if len(names) == 1 && !described {
+		return fmt.Sprintf("You have one list: %s.", names[0]) + buttons.String()
+	}
+	if described {
+		return fmt.Sprintf("You have %d lists:\n%s", len(names), strings.Join(lines, "\n")) + buttons.String()
+	}
+	return fmt.Sprintf("You have %d lists: %s and %s.", len(names), strings.Join(names[:len(names)-1], ", "), names[len(names)-1]) + buttons.String()
 }
 
 // jsonItemCompleted reports whether a list item is done. The list handler
@@ -2590,7 +2601,8 @@ func jsonItemCompleted(item map[string]interface{}) bool {
 	return false
 }
 
-// formatListJSON formats a list and its items. With a button template, such
+// formatListJSON formats a list and its items, one per line with a tick
+// box ("Your groceries list has 2 items:\n☐ milk\n☑ eggs"). With a button template, such
 // as "LIST {list} TOGGLE ITEM {id}", each item also gets a rich media
 // <button> whose postback is the template with {list}, {id} and {content}
 // filled in, so a client can show the items as tick boxes.
@@ -2601,48 +2613,48 @@ func (tp *TreeProcessor) formatListJSON(data interface{}, buttonTemplate string)
 	}
 
 	name := fmt.Sprintf("%v", list["name"])
-	id := fmt.Sprintf("%v", list["id"])
 
 	var result, buttons strings.Builder
-	result.WriteString(fmt.Sprintf("List: %s (ID: %s)\n", name, id))
-
-	if description, exists := list["description"]; exists && description != nil {
-		descStr := fmt.Sprintf("%v", description)
-		if descStr != "" {
-			result.WriteString(fmt.Sprintf("Description: %s\n", descStr))
-		}
+	// "Your groceries list", or "Your packing list" for a list called that
+	header := "Your " + name
+	if !strings.HasSuffix(strings.ToLower(name), "list") {
+		header += " list"
 	}
 
-	if items, exists := list["items"]; exists {
-		itemsList, ok := items.([]interface{})
-		if ok {
-			if len(itemsList) == 0 {
-				result.WriteString("\nThis list is empty.")
-			} else {
-				result.WriteString(fmt.Sprintf("\nItems (%d):\n", len(itemsList)))
-				for i, item := range itemsList {
-					itemMap, ok := item.(map[string]interface{})
-					if !ok {
-						continue
-					}
+	var description string
+	if desc, exists := list["description"]; exists && desc != nil {
+		description = fmt.Sprintf("%v", desc)
+	}
 
-					content := fmt.Sprintf("%v", itemMap["content"])
-					completed := jsonItemCompleted(itemMap)
+	if description != "" {
+		header += " (" + description + ")"
+	}
 
-					checkbox := "☐"
-					if completed {
-						checkbox = "☑"
-					}
-
-					itemID := fmt.Sprintf("%v", itemMap["id"])
-					result.WriteString(fmt.Sprintf("%d. %s %s (ID: %s)\n", i+1, checkbox, content, itemID))
-					if buttonTemplate != "" {
-						postback := strings.NewReplacer("{list}", name, "{id}", itemID, "{content}", content).Replace(buttonTemplate)
-						buttons.WriteString(fmt.Sprintf("<button><text>%s %s</text><postback>%s</postback></button>",
-							checkbox, html.EscapeString(content), html.EscapeString(postback)))
-					}
-				}
-			}
+	itemsList, _ := list["items"].([]interface{})
+	switch len(itemsList) {
+	case 0:
+		result.WriteString(header + " is empty.")
+	case 1:
+		result.WriteString(header + " has 1 item:")
+	default:
+		result.WriteString(fmt.Sprintf("%s has %d items:", header, len(itemsList)))
+	}
+	for _, item := range itemsList {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		content := fmt.Sprintf("%v", itemMap["content"])
+		checkbox := "☐"
+		if jsonItemCompleted(itemMap) {
+			checkbox = "☑"
+		}
+		result.WriteString(fmt.Sprintf("\n%s %s", checkbox, content))
+		if buttonTemplate != "" {
+			itemID := fmt.Sprintf("%v", itemMap["id"])
+			postback := strings.NewReplacer("{list}", name, "{id}", itemID, "{content}", content).Replace(buttonTemplate)
+			buttons.WriteString(fmt.Sprintf("<button><text>%s %s</text><postback>%s</postback></button>",
+				checkbox, html.EscapeString(content), html.EscapeString(postback)))
 		}
 	}
 

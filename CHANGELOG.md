@@ -18,6 +18,8 @@ All notable changes to Golem are recorded here.
 
 ### Added
 
+- **Plain-English list replies.** Lists read "Your groceries list has 2 items:" with one ☐/☑ line per item, and "You have 2 lists: groceries and hardware." with a button for each list. Item and list IDs are no longer shown. "Added "milk" to your groceries list.", "Created a list called "groceries".", "Deleted your groceries list." `<jsonformat type="lists">` takes `button="LIST SHOW {list}"`, and `only="buttons"` for buttons alone.
+- **Missing lists.** Adding to or showing a list that doesn't exist asks "Should I create it?" (and add the item), with Yes/No buttons; checking off on one says so, with a button for each list and one to create it. New helpers for phrase packs: `LIST LOOKUP <name>` (service `list_lookup`), `LIST NOT FOUND`, `LIST CHOICE BUTTONS`, `LIST ADD PENDING TO <list>`. Showing or changing a list sets `list_current`, the list in use. Lists are found by name loosely with list-handler 0.6 ("Grocery" finds "groceries").
 - **User store**: `OpenUserStore`, `Golem.SetUserStore`, `ChatSession.UserID`, `Golem.MigrateLegacyUserData`; `/forgetme` in the Telegram bot.
 - **Reminders, timers and a daily briefing**: the `reminders` SRAIX handler, `ReminderStore`, `testdata/reminders.aiml`. The Telegram bot delivers them when due.
 - **Buttons**: AIML 2.1 rich media (`<button>`, `<reply>`, `<location/>`) become Telegram inline buttons and suggested replies; `ParseRichResponse`. `<jsonformat button="...">` adds a tick button per list item. Weather offers to share a location, which the bot saves.

@@ -42,6 +42,8 @@ func (f *fakeItemsAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/auth/login":
 		fmt.Fprint(w, `{"access_token":"tok","token_type":"bearer"}`)
+	case path == "/users/me/lists/groceries" && r.Method == http.MethodGet:
+		fmt.Fprint(w, `{"id":1,"name":"groceries","items":[]}`)
 	case path == prefix+"/search" && r.Method == http.MethodGet && !f.noSearch:
 		q := strings.ToLower(r.URL.Query().Get("q"))
 		var exact, starts, contains []map[string]interface{}

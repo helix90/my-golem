@@ -70,8 +70,8 @@
                         <set name="create_response"><sraix service="list_create">create</sraix></set>
                     </think>
                     <condition name="create_response">
-                        <li value="Failed to create list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to create list '<get name="list_name"/>'.</li></condition></li>
-                        <li>Created list '<get name="list_name"/>' successfully (ID: <get name="create_response"/>)</li>
+                        <li value="Failed to create list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>I couldn't create a list called "<get name="list_name"/>".</li></condition></li>
+                        <li>Created a list called "<get name="list_name"/>".</li>
                     </condition>
                 </li>
             </condition>
@@ -108,8 +108,8 @@
                         <set name="create_response"><sraix service="list_create">create</sraix></set>
                     </think>
                     <condition name="create_response">
-                        <li value="Failed to create list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to create list '<get name="list_name"/>'.</li></condition></li>
-                        <li>Created list '<get name="list_name"/>' with description successfully (ID: <get name="create_response"/>)</li>
+                        <li value="Failed to create list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>I couldn't create a list called "<get name="list_name"/>".</li></condition></li>
+                        <li>Created a list called "<get name="list_name"/>" (<get name="list_description"/>).</li>
                     </condition>
                 </li>
             </condition>
@@ -131,7 +131,7 @@
                     </think>
                     <condition name="lists_response">
                         <li value="Unable to retrieve lists"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to retrieve your lists.</li></condition></li>
-                        <li><jsonformat type="lists"><get name="lists_response"/></jsonformat></li>
+                        <li><jsonformat type="lists" button="LIST SHOW {list}"><get name="lists_response"/></jsonformat></li>
                     </condition>
                 </li>
             </condition>
@@ -174,7 +174,7 @@
                         <set name="list_response"><sraix service="list_get"><star/></sraix></set>
                     </think>
                     <condition name="list_response">
-                        <li value="List not found"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>I couldn't find a list called "<get name="target_list_id"/>".</li></condition></li>
+                        <li value="List not found"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li><srai>LIST OFFER TO CREATE <get name="target_list_id"/></srai></li></condition></li>
                         <li><jsonformat button="LIST {list} TOGGLE ITEM {id}"><get name="list_response"/></jsonformat></li>
                     </condition>
                 </li>
@@ -204,8 +204,8 @@
                         <set name="delete_response"><sraix service="list_delete"><star/></sraix></set>
                     </think>
                     <condition name="delete_response">
-                        <li value="Failed to delete list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to delete list <get name="delete_list_id"/>.</li></condition></li>
-                        <li>List <get name="delete_list_id"/> deleted successfully.</li>
+                        <li value="Failed to delete list"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li><think><set name="lookup_list_name"><get name="delete_list_id"/></set></think><srai>LIST NOT FOUND</srai></li></condition></li>
+                        <li><think><condition name="list_current"><li><value><get name="delete_list_id"/></value><set name="list_current"></set></li></condition></think>Deleted your <get name="delete_list_id"/> list.</li>
                     </condition>
                 </li>
             </condition>
@@ -242,8 +242,15 @@
                         <set name="add_response"><sraix service="list_item_add">add</sraix></set>
                     </think>
                     <condition name="add_response">
-                        <li value="Failed to add item"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>Unable to add item to list <get name="target_list_id"/>.</li></condition></li>
-                        <li>Added '<get name="item_content"/>' to list <get name="target_list_id"/> (Item ID: <get name="add_response"/>)</li>
+                        <li value="Failed to add item"><condition name="list_login_expired"><li value="yes"><srai>LIST LOGIN HINT</srai></li><li>
+                            <!-- Is it there? If not, offer to create it and add the item -->
+                            <think><srai>LIST LOOKUP <get name="target_list_id"/></srai></think>
+                            <condition name="list_lookup_status">
+                                <li value="missing"><think><set name="pending_add_item"><get name="item_content"/></set></think><srai>LIST OFFER TO CREATE <get name="target_list_id"/></srai></li>
+                                <li>I couldn't add "<get name="item_content"/>" to your <get name="target_list_id"/> list.</li>
+                            </condition>
+                        </li></condition></li>
+                        <li><think><srai>LIST USE <get name="target_list_id"/></srai></think>Added "<get name="item_content"/>" to your <get name="target_list_id"/> list.</li>
                     </condition>
                 </li>
             </condition>
@@ -411,7 +418,13 @@
         <template>
             <condition name="list_login_expired">
                 <li value="yes"><srai>LIST LOGIN HINT</srai></li>
-                <li>I couldn't find "<get name="item_query"/>" on your <get name="target_list_id"/> list.</li>
+                <li>
+                    <think><srai>LIST LOOKUP <get name="target_list_id"/></srai></think>
+                    <condition name="list_lookup_status">
+                        <li value="missing"><srai>LIST NOT FOUND</srai></li>
+                        <li><think><set name="list_current"><get name="found_list_name"/></set></think>I couldn't find "<get name="item_query"/>" on your <get name="target_list_id"/> list.</li>
+                    </condition>
+                </li>
             </condition>
         </template>
     </category>
@@ -437,7 +450,7 @@
                             </think>
                             <condition var="result">
                                 <li value="Failed to update item">I found "<get name="found_item_content"/>" but couldn't tick it off.</li>
-                                <li>Ticked off "<get name="found_item_content"/>" on your <get name="target_list_id"/> list.</li>
+                                <li><think><srai>LIST USE <get name="target_list_id"/></srai></think>Ticked off "<get name="found_item_content"/>" on your <get name="target_list_id"/> list.</li>
                             </condition>
                         </li>
                     </condition>
@@ -467,7 +480,7 @@
                             </think>
                             <condition var="result">
                                 <li value="Failed to update item">I found "<get name="found_item_content"/>" but couldn't untick it.</li>
-                                <li>Unticked "<get name="found_item_content"/>" on your <get name="target_list_id"/> list.</li>
+                                <li><think><srai>LIST USE <get name="target_list_id"/></srai></think>Unticked "<get name="found_item_content"/>" on your <get name="target_list_id"/> list.</li>
                             </condition>
                         </li>
                     </condition>
@@ -494,7 +507,7 @@
                             <think><set var="result"><sraix service="list_item_delete">delete</sraix></set></think>
                             <condition var="result">
                                 <li value="Failed to delete item">I found "<get name="found_item_content"/>" but couldn't remove it.</li>
-                                <li>Removed "<get name="found_item_content"/>" from your <get name="target_list_id"/> list.</li>
+                                <li><think><srai>LIST USE <get name="target_list_id"/></srai></think>Removed "<get name="found_item_content"/>" from your <get name="target_list_id"/> list.</li>
                             </condition>
                         </li>
                     </condition>
@@ -508,6 +521,165 @@
     <category><pattern>LIST * CROSS OFF *</pattern><template><srai>LIST <star/> CHECK OFF <star index="2"/></srai></template></category>
     <category><pattern>UNCHECK * ON LIST *</pattern><template><srai>LIST <star index="2"/> UNCHECK <star/></srai></template></category>
     <category><pattern>REMOVE * FROM LIST *</pattern><template><srai>LIST <star index="2"/> REMOVE <star/></srai></template></category>
+
+    <!-- ============================================================ -->
+    <!-- Lists that may not be there                                  -->
+    <!-- ============================================================ -->
+
+    <!-- LIST LOOKUP <name> finds the user's list by name. The list handler
+         ignores case, plurals, "my"/"the" and a trailing "list", so
+         "Grocery" finds "groceries". Sets list_lookup_status to found,
+         missing or login (not logged in, or the login has expired), and
+         found_list_name to the list's real name. Says nothing. -->
+    <category>
+        <pattern>LIST LOOKUP *</pattern>
+        <template>
+            <think>
+                <srai>AUTOLOAD LIST CREDENTIALS</srai>
+                <set name="lookup_list_name"><star/></set>
+                <set name="found_list_name"></set>
+                <condition name="list_access_token">
+                    <li value=""><set name="list_lookup_status">login</set></li>
+                    <li>
+                        <set name="found_list_name"><sraix service="list_lookup">lookup</sraix></set>
+                        <condition name="found_list_name">
+                            <li value="List not found">
+                                <set name="found_list_name"></set>
+                                <condition name="list_login_expired">
+                                    <li value="yes"><set name="list_lookup_status">login</set></li>
+                                    <li><set name="list_lookup_status">missing</set></li>
+                                </condition>
+                            </li>
+                            <li><set name="list_lookup_status">found</set></li>
+                        </condition>
+                    </li>
+                </condition>
+            </think>
+        </template>
+    </category>
+
+    <!-- LIST USE <name>: after a change to the list typed as <name>, makes
+         it the list in use (list_current) under its real name, and sets
+         target_list_id to that name for the reply. It looks the name up
+         only when it isn't the list already in use. -->
+    <category>
+        <pattern>LIST USE *</pattern>
+        <template>
+            <think>
+                <condition name="list_current">
+                    <li><value><star/></value></li>
+                    <li>
+                        <srai>LIST LOOKUP <star/></srai>
+                        <condition name="list_lookup_status">
+                            <li value="found"><set name="list_current"><get name="found_list_name"/></set></li>
+                            <li><set name="list_current"><star/></set></li>
+                        </condition>
+                    </li>
+                </condition>
+                <set name="target_list_id"><get name="list_current"/></set>
+            </think>
+        </template>
+    </category>
+
+    <!-- After LIST LOOKUP found nothing: says so, with a button for each
+         list the user has and one to create the list -->
+    <category>
+        <pattern>LIST NOT FOUND</pattern>
+        <template>
+            <think><set var="lists"><sraix service="list_get_all"></sraix></set></think>
+            <condition var="lists">
+                <li value="[]">You don't have a list called "<get name="lookup_list_name"/>". You have no lists yet.</li>
+                <li value="Unable to retrieve lists">You don't have a list called "<get name="lookup_list_name"/>".</li>
+                <li>You don't have a list called "<get name="lookup_list_name"/>". Here are the lists you have:<jsonformat type="lists" button="LIST SHOW {list}" only="buttons"><get var="lists"/></jsonformat></li>
+            </condition>
+            <button><text>➕ Create "<get name="lookup_list_name"/>"</text><postback>LIST CREATE <get name="lookup_list_name"/></postback></button>
+        </template>
+    </category>
+
+    <!-- For "Which list should I add ... to?": a button for each list,
+         which adds pending_add_item to it -->
+    <category>
+        <pattern>LIST CHOICE BUTTONS</pattern>
+        <template>
+            <think><srai>AUTOLOAD LIST CREDENTIALS</srai></think>
+            <condition name="list_access_token">
+                <li value=""></li>
+                <li><think><set var="lists"><sraix service="list_get_all"></sraix></set></think><condition var="lists"><li value="Unable to retrieve lists"></li><li><jsonformat type="lists" button="LIST ADD PENDING TO {list}" only="buttons"><get var="lists"/></jsonformat></li></condition></li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST ADD PENDING TO *</pattern>
+        <template>
+            <think>
+                <set var="item"><get name="pending_add_item"/></set>
+                <set name="pending_add_item"></set>
+            </think>
+            <condition var="item">
+                <li value="">What should I add to your <star/> list?</li>
+                <li><srai>LIST <star/> ADD <get var="item"/></srai></li>
+            </condition>
+        </template>
+    </category>
+
+    <!-- "You don't have a list called X. Should I create it?" With
+         pending_add_item set, it offers to add that item too. The buttons
+         come first, so that golem versions whose <that> still sees button
+         markup match the question too. -->
+    <category>
+        <pattern>LIST OFFER TO CREATE *</pattern>
+        <template>
+            <think><set name="pending_create_list"><star/></set></think>
+            <condition name="pending_add_item">
+                <li value=""><button><text>Yes, create it</text><postback>LIST CONFIRM CREATE</postback></button><button><text>No</text><postback>LIST CANCEL CREATE</postback></button> You don't have a list called "<star/>". Should I create it?</li>
+                <li><button><text>Yes, create it</text><postback>LIST CONFIRM CREATE</postback></button><button><text>No</text><postback>LIST CANCEL CREATE</postback></button> You don't have a list called "<star/>" yet. Should I create it and add "<get name="pending_add_item"/>" to it?</li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST CONFIRM CREATE</pattern>
+        <template>
+            <think>
+                <set var="name"><get name="pending_create_list"/></set>
+                <set var="item"><get name="pending_add_item"/></set>
+                <set name="pending_create_list"></set>
+                <set name="pending_add_item"></set>
+            </think>
+            <condition var="name">
+                <li value="">There's no list waiting to be created.</li>
+                <li>
+                    <think><set var="created"><srai>LIST CREATE <get var="name"/></srai></set></think>
+                    <condition var="item"><li value=""><think><set name="list_current"><get var="name"/></set></think><get var="created"/></li><li><get var="created"/> <srai>LIST <get var="name"/> ADD <get var="item"/></srai></li></condition>
+                </li>
+            </condition>
+        </template>
+    </category>
+
+    <category>
+        <pattern>LIST CANCEL CREATE</pattern>
+        <template>
+            <think>
+                <set name="pending_create_list"></set>
+                <set name="pending_add_item"></set>
+            </think>
+            Okay, I won't create it.
+        </template>
+    </category>
+
+    <category><pattern>YES</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>YES PLEASE</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>YEAH</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>YEP</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>SURE</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>OK</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>OKAY</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>CREATE IT</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CONFIRM CREATE</srai></template></category>
+    <category><pattern>NO</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CANCEL CREATE</srai></template></category>
+    <category><pattern>NOPE</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CANCEL CREATE</srai></template></category>
+    <category><pattern>NO THANKS</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CANCEL CREATE</srai></template></category>
+    <category><pattern>DO NOT</pattern><that>^ SHOULD I CREATE IT ^</that><template><srai>LIST CANCEL CREATE</srai></template></category>
 
     <!-- Help -->
     <category>
@@ -524,14 +696,14 @@
             - 'list create [name]' - Create a new list
             - 'list create [name] description [desc]' - Create list with description
             - 'list show all' / 'show my lists' - Show all your lists
-            - 'list show [id]' - Show specific list with items
-            - 'list delete [id]' - Delete a list
+            - 'list show [name]' - Show a list with its items
+            - 'list delete [name]' - Delete a list
 
             Item Management:
             - 'list [name] add [content]' - Add item to list
             - 'list [name] check off [item]' - Tick off an item by name ('list [name] uncheck [item]' to untick)
             - 'list [name] remove [item]' - Remove an item by name
-            - 'list [id] items' - Show all items in list
+            - 'list [name] items' - Show all items in list
             - 'list [id] delete item [item_id]' - Delete item from list
             - 'list [id] toggle item [item_id]' - Toggle item completion
             - 'list [id] update item [item_id] to [content]' - Update item content

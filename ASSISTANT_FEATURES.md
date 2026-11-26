@@ -207,11 +207,14 @@ Bot:  You haven't set your location yet. Tell me by saying "My location is [city
 Bot:  Thanks! I've saved your location (51.5072, -0.1276), so you can ask me about the weather there.
 
 User: show list groceries
-Bot:  List: groceries (ID: 1)
-      Items (2):
-      1. ☐ milk (ID: 1)
-      2. ☐ oat milk (ID: 2)
+Bot:  Your groceries list has 2 items:
+      ☐ milk
+      ☐ oat milk
       [☐ milk] [☐ oat milk]
+
+User: show my lists
+Bot:  You have 2 lists: groceries and hardware.
+      [groceries] [hardware]
 ```
 
 `golem.ParseRichResponse` splits a response into its text, buttons and
@@ -221,7 +224,9 @@ The bundled AIML uses buttons for:
 
 - **Deleting a calendar event**, which now asks first.
 - **Lists**: `list groceries check off milk` and `list groceries remove
-  milk` change an item by its name. `show list groceries` shows a ☐/☑ button for each item, and
+  milk` change an item by its name. `show my lists` shows a button for each
+  list. Adding to or showing a list that isn't there asks whether to create
+  it, with Yes/No buttons. `show list groceries` shows a ☐/☑ button for each item, and
   tapping one ticks it and shows the list again. `<jsonformat
   button="LIST {list} TOGGLE ITEM {id}">` adds them; `{list}`, `{id}` and
   `{content}` are filled in per item.

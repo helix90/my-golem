@@ -75,19 +75,20 @@ func TestListRequestBodiesWithSpecialCharacters(t *testing.T) {
 	g := newTestdataBot(t, filepath.Join(t.TempDir(), "users.json"))
 	s := telegramSession(g, "111")
 	ask(t, g, s, "list login alice pw")
+	s.Variables["list_current"] = "groceries" // so adding makes no lookup after the request
 
 	steps := []struct {
 		input, reply, method, path string
 		body                       map[string]interface{}
 	}{
-		{`add 12" pizza to list groceries`, `Added '12" pizza'`, "POST", "/users/me/lists/groceries/items",
+		{`add 12" pizza to list groceries`, `Added "12" pizza" to your groceries list.`, "POST", "/users/me/lists/groceries/items",
 			map[string]interface{}{"content": `12" pizza`}},
-		{`list groceries add C:\temp\notes`, `Added 'C:\temp\notes'`, "POST", "/users/me/lists/groceries/items",
+		{`list groceries add C:\temp\notes`, `Added "C:\temp\notes" to your groceries list.`, "POST", "/users/me/lists/groceries/items",
 			map[string]interface{}{"content": `C:\temp\notes`}},
-		{`list create Kid's stuff description toys, books & "games"`, "Created list", "POST", "/users/me/lists",
+		{`list create Kid's stuff description toys, books & "games"`, `Created a list called "Kid's stuff" (toys, books & "games").`, "POST", "/users/me/lists",
 			map[string]interface{}{"name": "Kid's stuff", "description": `toys, books & "games"`}},
 		// A plain create must not reuse the description above
-		{`create list holiday`, "Created list 'holiday'", "POST", "/users/me/lists",
+		{`create list holiday`, `Created a list called "holiday".`, "POST", "/users/me/lists",
 			map[string]interface{}{"name": "holiday", "description": ""}},
 		{`list groceries update item 7 to 2% milk "organic"`, "", "PUT", "/users/me/lists/groceries/items/7",
 			map[string]interface{}{"content": `2% milk "organic"`}},

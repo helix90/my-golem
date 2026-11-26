@@ -65,7 +65,7 @@ func TestListShowsTickButtons(t *testing.T) {
 	g := NewForTesting(t, false)
 	out := g.ProcessTemplate(`<jsonformat button="LIST {list} TOGGLE ITEM {id}">{"id":3,"name":"Groceries","description":"","items":[{"id":12,"content":"Milk & eggs","is_completed":0},{"id":13,"content":"Bread","is_completed":1}]}</jsonformat>`, nil)
 	r := ParseRichResponse(out)
-	if !strings.Contains(r.Text, "1. ☐ Milk & eggs") || !strings.Contains(r.Text, "2. ☑ Bread") {
+	if r.Text != "Your Groceries list has 2 items:\n☐ Milk & eggs\n☑ Bread" {
 		t.Errorf("text: %q", r.Text)
 	}
 	want := []RichButton{

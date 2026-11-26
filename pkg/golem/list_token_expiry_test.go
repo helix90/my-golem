@@ -124,7 +124,7 @@ func TestListTokenRefusedAgainRetriesOnce(t *testing.T) {
 
 	_, requestsBefore := fake.counts()
 	got := ask(t, g, s, "show list groceries")
-	if !strings.Contains(got, "couldn't find a list") {
+	if !strings.Contains(got, `list called "groceries"`) {
 		t.Errorf("got %q", got)
 	}
 	if _, requests := fake.counts(); requests-requestsBefore != 2 {

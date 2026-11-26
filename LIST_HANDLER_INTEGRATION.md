@@ -141,86 +141,93 @@ Bot:  Logged out successfully.
 
 ```
 User: list create Shopping
-Bot:  Created list 'Shopping' successfully (ID: 1)
-
-User: create list Work
-Bot:  Created list 'Work' successfully (ID: 2)
+Bot:  Created a list called "Shopping".
 
 User: list create Groceries description Items to buy at store
-Bot:  Created list 'Groceries' with description successfully (ID: 3)
+Bot:  Created a list called "Groceries" (Items to buy at store).
 ```
 
 ### View Lists
 
 ```
 User: show my lists
-Bot:  Your lists: Shopping (ID: 1); Work (ID: 2) - Tasks; Groceries (ID: 3) - Items to buy at store
+Bot:  You have 2 lists:
+      • Shopping
+      • Groceries – Items to buy at store
+      [Shopping] [Groceries]
 
-User: list show all
-Bot:  Your lists: Shopping (ID: 1); Work (ID: 2) - Tasks
-
-User: list show 1
-Bot:  List details: Shopping (ID: 1)
-      Items (2):
-        [ ] Buy milk (ID: 1)
-        [✓] Pay bills (ID: 2)
+User: show list groceries
+Bot:  Your Groceries list (Items to buy at store) has 2 items:
+      ☐ milk
+      ☑ bread
+      [☐ milk] [☑ bread]
 ```
 
-### Delete Lists
+Each list is a button that shows it, and each item a button that ticks it
+off (or back on) and shows the list again. The list handler finds lists
+loosely (list-handler 0.6): `show list Grocery` and `show list my groceries
+list` find "Groceries" too.
+
+### Add Items and Delete Lists
 
 ```
-User: list delete 1
-Bot:  List 1 deleted successfully.
+User: list groceries add milk
+Bot:  Added "milk" to your groceries list.
 
-User: delete list 2
-Bot:  List 2 deleted successfully.
+User: add bread to list groceries
+Bot:  Added "bread" to your groceries list.
 
-User: remove list 3
-Bot:  List 3 deleted successfully.
+User: list delete Shopping
+Bot:  Deleted your Shopping list.
 ```
 
-### Add Items to Lists
+### Lists That Aren't There
+
+Adding to or showing a list that doesn't exist offers to create it:
 
 ```
-User: list 1 add Buy milk
-Bot:  Added 'Buy milk' to list 1 (Item ID: 1)
+User: list hardware add nails
+Bot:  You don't have a list called "hardware" yet. Should I create it and add "nails" to it?
+      [Yes, create it] [No]
+User: yes
+Bot:  Created a list called "hardware". Added "nails" to your hardware list.
 
-User: add Pay bills to list 1
-Bot:  Added 'Pay bills' to list 1 (Item ID: 2)
+User: show list packing
+Bot:  You don't have a list called "packing". Should I create it?
+      [Yes, create it] [No]
+User: no
+Bot:  Okay, I won't create it.
+
+User: list unicorns check off milk
+Bot:  You don't have a list called "unicorns". Here are the lists you have:
+      [groceries] [hardware] [➕ Create "unicorns"]
 ```
 
-### View Items in Lists
-
-```
-User: list 1 items
-Bot:  Items in list 1: [ ] Buy milk (ID: 1); [ ] Pay bills (ID: 2)
-
-User: show items in list 1
-Bot:  Items in list 1: [ ] Buy milk (ID: 1); [✓] Pay bills (ID: 2)
-```
-
-### Empty Lists and Tick Buttons
+### Empty Lists
 
 ```
 User: show my lists
 Bot:  You have no lists yet.
 
-User: create list holiday
-Bot:  Created list 'holiday' successfully (ID: 2)
-
-User: list holiday items
-Bot:  No items in this list.
-
-User: show list groceries
-Bot:  List: groceries (ID: 1)
-      Items (2):
-      1. ☐ milk (ID: 1)
-      2. ☐ oat milk (ID: 2)
-      [☐ milk] [☐ oat milk]
+User: show list holiday
+Bot:  Your holiday list is empty.
 ```
 
-In Telegram, each item of `show list groceries` has a tick button; tapping
-one ticks it off and shows the list again.
+### The List in Use
+
+Showing a list or changing one of its items sets the session predicate
+`list_current`, which phrase packs use for "add eggs" or "cross milk off"
+with no list named (see my-AIML's `assistant/list-phrases.aiml`).
+
+Helpers for phrase packs:
+
+- `LIST LOOKUP <name>` says nothing; it sets `list_lookup_status` to
+  `found`, `missing` or `login` (not logged in) and `found_list_name` to the
+  list's real name (service `list_lookup`).
+- `LIST NOT FOUND` says that `lookup_list_name` isn't a list, with a button
+  for each list there is.
+- `LIST CHOICE BUTTONS` gives a button per list that adds `pending_add_item`
+  to it (`LIST ADD PENDING TO <list>`), for asking "Which list?".
 
 ### Ticking Off and Removing Items by Name
 
