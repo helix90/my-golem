@@ -279,7 +279,7 @@ func cleanReminderTask(task string) string {
 func reminderWhen(r Reminder, now time.Time) string {
 	when := eventWhen(calendarEvent{start: r.Due}, now, true)
 	if r.Repeat == "daily" {
-		return "every day at " + r.Due.In(now.Location()).Format("3:04 PM")
+		return "every day at " + clockPhrase(r.Due.In(now.Location()))
 	}
 	return when
 }
@@ -381,7 +381,7 @@ func (sm *SRAIXManager) sendReminders(config *SRAIXConfig, input string, params 
 		if _, err := store.Add(r); err != nil {
 			return sraixResponse{}, err
 		}
-		return reply(fmt.Sprintf("Okay, I'll send you a briefing every day at %s, starting %s.", due.Format("3:04 PM"), eventWhen(calendarEvent{start: due}, now, true)))
+		return reply(fmt.Sprintf("Okay, I'll send you a briefing every day at %s, starting %s.", clockPhrase(due), eventWhen(calendarEvent{start: due}, now, true)))
 
 	case "briefing_off":
 		stopped := false

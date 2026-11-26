@@ -70,23 +70,23 @@ func TestCalDAVCalendarFor(t *testing.T) {
 		"create event Review on Friday at 2pm",
 		"create event Planning next Tuesday at 9am",
 	} {
-		if response, _ := g.ProcessInput(input, session); !strings.HasPrefix(response, "Event created") {
+		if response, _ := g.ProcessInput(input, session); !strings.Contains(response, "Okay, I've added") {
 			t.Fatalf("%q: %q", input, response)
 		}
 	}
 
 	for input, want := range map[string]string{
-		"what is on my calendar tomorrow":     "Here's your calendar tomorrow: Lunch with Sam at 12:00 PM",
-		"what do I have on Friday":            "Here's your calendar on Friday, November 20: Review at 2:00 PM",
-		"what is on my calendar this week":    "Here's your calendar this week: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Review on Fri Nov 20 at 2:00 PM",
-		"what do I have next week":            "Here's your calendar next week: Planning on Tue Nov 24 at 9:00 AM",
-		"what do I have this weekend":         "You have nothing on your calendar this weekend.",
-		"show my calendar for December 3":     "You have nothing on your calendar on Thursday, December 3.",
-		"what is on my calendar for Thursday": "You have nothing on your calendar on Thursday, November 19.",
+		"what is on my calendar tomorrow":     "Tomorrow, you have Lunch with Sam at noon.",
+		"what do I have on Friday":            "On Friday, November 20, you have Review at 2 PM.",
+		"what is on my calendar this week":    "This week, you have Standup today at 3 PM, Lunch with Sam tomorrow at noon and Review on Friday at 2 PM.",
+		"what do I have next week":            "Next week, you have Planning on Tuesday, November 24 at 9 AM.",
+		"what do I have this weekend":         "Your calendar is clear this weekend.",
+		"show my calendar for December 3":     "Your calendar is clear on Thursday, December 3.",
+		"what is on my calendar for Thursday": "Your calendar is clear on Thursday, November 19.",
 		"calendar for the cat":                `I'm not sure which day you mean. Try "tomorrow", "Friday", "December 3", "next week" or "this weekend".`,
 		// Unchanged: today, and the coming seven days
-		"what is on my calendar today": "Here are your events for today: Standup at 3:00 PM",
-		"what is on my calendar":       "Here are your upcoming events: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Review on Fri Nov 20 at 2:00 PM; Planning on Tue Nov 24 at 9:00 AM",
+		"what is on my calendar today": "Today you have Standup at 3 PM.",
+		"what is on my calendar":       "Here's what's coming up: • Today: Standup at 3 PM • Tomorrow: Lunch with Sam at noon • Friday: Review at 2 PM • Tuesday, November 24: Planning at 9 AM",
 	} {
 		response, err := g.ProcessInput(input, session)
 		if err != nil {

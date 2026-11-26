@@ -77,17 +77,17 @@ func TestRemindersThroughAIML(t *testing.T) {
 
 	steps := []struct{ input, want string }{
 		{"what are my reminders", "don't have any reminders"},
-		{"remind me to call mom at 5pm", "remind you to call mom today at 5:00 PM"},
+		{"remind me to call mom at 5pm", "remind you to call mom today at 5 PM"},
 		{"Remind me in 20 minutes to stretch", "remind you to stretch today at 2:50 PM"},
 		{"set a timer for 10 minutes", "remind you to check the timer today at 2:40 PM"},
-		{"remind me every day at 8am to take vitamins", "take vitamins every day at 8:00 AM"},
+		{"remind me every day at 8am to take vitamins", "take vitamins every day at 8 AM"},
 		{"remind me to call mom", "When should I remind you?"},
-		{"show my reminders", "1. check the timer, today at 2:40 PM\n2. stretch, today at 2:50 PM\n3. call mom, today at 5:00 PM\n4. take vitamins, every day at 8:00 AM"},
+		{"show my reminders", "1. check the timer, today at 2:40 PM\n2. stretch, today at 2:50 PM\n3. call mom, today at 5 PM\n4. take vitamins, every day at 8 AM"},
 		{"cancel the timer", "Deleted the reminder to check the timer"},
 		{"delete reminder 1", "Deleted the reminder to stretch"},
 		{"delete reminder mom", "Deleted the reminder to call mom"},
 		{"delete reminder 7", "couldn't find that reminder"},
-		{"send me a daily briefing at 7am", "briefing every day at 7:00 AM, starting tomorrow"},
+		{"send me a daily briefing at 7am", "briefing every day at 7 AM, starting tomorrow"},
 	}
 	for _, step := range steps {
 		if got := ask(t, g, s, step.input); !strings.Contains(got, step.want) {

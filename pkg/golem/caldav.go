@@ -37,7 +37,7 @@ import (
 // so that the tag falls back. Times are shown in the bot's local time zone.
 
 // caldavOperations are the operations of the caldav handler
-var caldavOperations = map[string]bool{"today": true, "upcoming": true, "range": true, "create": true, "get": true, "delete": true}
+var caldavOperations = map[string]bool{"today": true, "upcoming": true, "range": true, "create": true, "get": true, "delete": true, "move": true}
 
 // caldavSearchPast and caldavSearchFuture bound the events get and delete
 // search for the one the input names
@@ -65,6 +65,10 @@ type calendarEvent struct {
 	exdates      []time.Time    // occurrences left out
 	recurrenceID time.Time      // for an occurrence that was changed: the one it replaces
 	zone         *time.Location // the zone DTSTART is written in, which occurrences keep
+	raw          string         // the iCalendar data it came from
+
+	// Parsed from text: whether it named a date and a time
+	dated, timed bool
 }
 
 // caldavClient makes the requests of one caldav operation
@@ -105,13 +109,13 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		if err != nil {
 			return sraixResponse{}, err
 		}
-		return sraixResponse{text: formatEventList(events, now, false)}, nil
+		return eventListResponse(events, now, false, nil), nil
 	case "upcoming":
 		events, err := c.query(now, today.AddDate(0, 0, 8))
 		if err != nil {
 			return sraixResponse{}, err
 		}
-		return sraixResponse{text: formatEventList(events, now, true)}, nil
+		return eventListResponse(events, now, true, nil), nil
 	case "range":
 		start, end, singleDay, label, err := parseDateRange(input, now)
 		if err != nil {
@@ -123,15 +127,19 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		}
 		// The label names the day, so a single day's events show only
 		// their times
-		text := formatEventList(events, now, true)
 		if singleDay {
-			text = formatEventList(events, start, false)
+			return eventListResponse(events, start, false, map[string]string{"calendar_range": label}), nil
 		}
-		return sraixResponse{text: text, set: map[string]string{"calendar_range": label}}, nil
+		return eventListResponse(events, now, true, map[string]string{"calendar_range": label}), nil
 	case "create":
 		event, err := parseEventText(input, now)
 		if err != nil {
 			return sraixResponse{}, err
+		}
+		// Nothing says when: ask rather than guess today
+		if !event.dated && !event.timed && event.recurrence == nil {
+			return sraixResponse{text: "NEEDS WHEN", set: map[string]string{
+				"calendar_event_title": event.summary, "calendar_event_when": "missing"}}, nil
 		}
 		if event.uid, err = newEventUID(); err != nil {
 			return sraixResponse{}, err
@@ -139,16 +147,24 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		if err := c.put(event, now); err != nil {
 			return sraixResponse{}, err
 		}
+		when := eventWhen(event, now, true)
 		if event.recurrence != nil {
-			return sraixResponse{text: event.summary + " " + event.recurrence.describe(event, now)}, nil
+			when = event.recurrence.describe(event, now)
 		}
-		return sraixResponse{text: event.summary + " " + eventWhen(event, now, true)}, nil
+		return sraixResponse{text: event.summary + " " + when, set: map[string]string{
+			"calendar_event_title": event.summary, "calendar_event_when": when, "calendar_event_uid": event.uid}}, nil
 	case "get":
 		event, err := c.find(input, now)
+		if several, ok := err.(severalEventsError); ok {
+			return several.response(now, params["match_action"]), nil
+		}
+		if _, ok := err.(noEventError); ok {
+			return sraixResponse{text: "Event not found"}, nil
+		}
 		if err != nil {
 			return sraixResponse{}, err
 		}
-		return sraixResponse{text: eventDetails(event, now)}, nil
+		return sraixResponse{text: eventDetails(event, now), set: eventPredicates(event, now)}, nil
 	case "delete":
 		event, err := c.find(input, now)
 		if err != nil {
@@ -157,7 +173,35 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		if err := c.delete(event); err != nil {
 			return sraixResponse{}, err
 		}
-		return sraixResponse{text: event.summary + " " + eventWhen(event, now, true)}, nil
+		return sraixResponse{text: event.summary + " " + eventWhen(event, now, true), set: eventPredicates(event, now)}, nil
+	case "move":
+		// The event is the param "event"; the input says when to
+		event, err := c.find(strings.TrimSpace(params["event"]), now)
+		if several, ok := err.(severalEventsError); ok {
+			return several.response(now, params["match_action"]), nil
+		}
+		if _, ok := err.(noEventError); ok {
+			return sraixResponse{text: "NOT FOUND"}, nil
+		}
+		if err != nil {
+			return sraixResponse{}, err
+		}
+		set := eventPredicates(event, now)
+		if event.repeats {
+			return sraixResponse{text: "REPEATING", set: set}, nil
+		}
+		moved, ok, err := moveEvent(event, input, now)
+		if err != nil {
+			return sraixResponse{}, err
+		}
+		if !ok {
+			return sraixResponse{text: "NO WHEN", set: set}, nil
+		}
+		if err := c.update(event, moved, now); err != nil {
+			return sraixResponse{}, err
+		}
+		set = eventPredicates(moved, now)
+		return sraixResponse{text: moved.summary + " " + set["calendar_event_when"], set: set}, nil
 	}
 	return sraixResponse{}, fmt.Errorf("unknown caldav operation %q", config.Operation)
 }
@@ -277,29 +321,36 @@ func (c *caldavClient) find(input string, now time.Time) (calendarEvent, error) 
 		}
 	}
 
-	lowered := strings.ToLower(input)
-	for _, match := range []func(calendarEvent) bool{
-		func(e calendarEvent) bool { return e.uid == input },
-		func(e calendarEvent) bool { return strings.ToLower(e.summary) == lowered },
-		func(e calendarEvent) bool { return strings.Contains(strings.ToLower(e.summary), lowered) },
-	} {
-		var found []calendarEvent
-		for _, href := range hrefs {
-			if match(byHref[href]) {
-				found = append(found, byHref[href])
+	for _, query := range eventQueries(input) {
+		lowered := strings.ToLower(query)
+		for _, match := range []func(calendarEvent) bool{
+			func(e calendarEvent) bool { return e.uid == query },
+			func(e calendarEvent) bool { return strings.ToLower(e.summary) == lowered },
+			func(e calendarEvent) bool { return strings.Contains(strings.ToLower(e.summary), lowered) },
+		} {
+			var found []calendarEvent
+			for _, href := range hrefs {
+				if match(byHref[href]) {
+					found = append(found, byHref[href])
+				}
+			}
+			switch len(found) {
+			case 0:
+				continue
+			case 1:
+				return found[0], nil
+			default:
+				return calendarEvent{}, severalEventsError{query: query, events: found}
 			}
 		}
-		switch len(found) {
-		case 0:
-			continue
-		case 1:
-			return found[0], nil
-		default:
-			return calendarEvent{}, fmt.Errorf("%d events match %q", len(found), input)
-		}
 	}
-	return calendarEvent{}, fmt.Errorf("no event matches %q", input)
+	return calendarEvent{}, noEventError{input}
 }
+
+// noEventError is find's error when no event matches
+type noEventError struct{ query string }
+
+func (e noEventError) Error() string { return fmt.Sprintf("no event matches %q", e.query) }
 
 // put creates an event, failing rather than replacing one with its UID
 func (c *caldavClient) put(event calendarEvent, now time.Time) error {
@@ -352,6 +403,7 @@ func parseMultiStatus(data []byte, loc *time.Location) ([]calendarEvent, error) 
 		for _, propStat := range response.PropStat {
 			for _, event := range parseICalendar(propStat.CalendarData, loc) {
 				event.href = strings.TrimSpace(response.Href)
+				event.raw = propStat.CalendarData
 				events = append(events, event)
 			}
 		}
@@ -640,20 +692,13 @@ func startOfDay(t time.Time) time.Time {
 func eventWhen(event calendarEvent, now time.Time, withDay bool) string {
 	start := event.start.In(now.Location())
 	day := ""
-	switch days := int(startOfDay(start).Sub(startOfDay(now)).Hours()+12) / 24; {
-	case days == 0 && start.Year() == now.Year() && start.YearDay() == now.YearDay():
-		if withDay {
-			day = "today"
+	if phrase := dayPhrase(start, now); phrase != "today" || withDay {
+		day = phrase
+		if phrase != "today" && phrase != "tomorrow" {
+			day = "on " + phrase
 		}
-	case days == 1:
-		day = "tomorrow"
-	case start.Year() == now.Year():
-		day = "on " + start.Format("Mon Jan 2")
-	default:
-		day = "on " + start.Format("Mon Jan 2 2006")
 	}
-
-	when := "at " + start.Format("3:04 PM")
+	when := "at " + clockPhrase(start)
 	if event.allDay {
 		when = "(all day)"
 	}
@@ -663,14 +708,59 @@ func eventWhen(event calendarEvent, now time.Time, withDay bool) string {
 	return day + " " + when
 }
 
-// formatEventList lists events as "Standup at 9:00 AM; Lunch at 12:00 PM",
-// with their days when withDay is set, or returns "" when there are none
-func formatEventList(events []calendarEvent, now time.Time, withDay bool) string {
-	descriptions := make([]string, len(events))
-	for i, event := range events {
-		descriptions[i] = eventTitle(event) + " " + eventWhen(event, now, withDay)
+// clockPhrase says a time of day: "9 AM", "9:30 AM", "noon" or "midnight"
+func clockPhrase(t time.Time) string {
+	switch {
+	case t.Hour() == 12 && t.Minute() == 0:
+		return "noon"
+	case t.Hour() == 0 && t.Minute() == 0:
+		return "midnight"
+	case t.Minute() == 0:
+		return t.Format("3 PM")
 	}
-	return strings.Join(descriptions, "; ")
+	return t.Format("3:04 PM")
+}
+
+// formatEventList lists events for a reply. Up to three read as a sentence
+// ("standup at 9 AM, lunch at noon and gym at 6 PM", with their days when
+// withDay is set); more go one per line, or with withDay one line per day
+// ("\n• Tomorrow: standup at 9 AM, lunch at noon\n• Friday: ..."). It
+// returns "" when there are none, and the layout: "inline" or "lines".
+func formatEventList(events []calendarEvent, now time.Time, withDay bool) (string, string) {
+	if len(events) == 0 {
+		return "", "inline"
+	}
+	if len(events) <= 3 {
+		descriptions := make([]string, len(events))
+		for i, event := range events {
+			descriptions[i] = eventTitle(event) + " " + eventWhen(event, now, withDay)
+		}
+		return joinWithAnd(descriptions), "inline"
+	}
+	var b strings.Builder
+	if !withDay {
+		for _, event := range events {
+			b.WriteString("\n• " + eventTitle(event) + " " + eventWhen(event, now, false))
+		}
+		return b.String(), "lines"
+	}
+	var days []string
+	byDay := map[string][]string{}
+	for _, event := range events {
+		day := dayPhrase(event.start.In(now.Location()), now)
+		if _, seen := byDay[day]; !seen {
+			days = append(days, day)
+		}
+		at := "at " + clockPhrase(event.start.In(now.Location()))
+		if event.allDay {
+			at = "(all day)"
+		}
+		byDay[day] = append(byDay[day], eventTitle(event)+" "+at)
+	}
+	for _, day := range days {
+		b.WriteString("\n• " + strings.ToUpper(day[:1]) + day[1:] + ": " + strings.Join(byDay[day], ", "))
+	}
+	return b.String(), "lines"
 }
 
 // eventTitle returns an event's summary, or "Untitled event"
@@ -681,27 +771,28 @@ func eventTitle(event calendarEvent) string {
 	return event.summary
 }
 
-// eventDetails describes an event in full: its title, when it is, where,
-// and its description
+// eventDetails describes an event in full, as a sentence: its title, when
+// it is, where, and its description
 func eventDetails(event calendarEvent, now time.Time) string {
 	var b strings.Builder
-	b.WriteString(eventTitle(event) + " " + eventWhen(event, now, true))
+	b.WriteString(`"` + eventTitle(event) + `" is ` + eventWhen(event, now, true))
 	if !event.allDay && event.end.After(event.start) {
 		end := event.end.In(now.Location())
 		if startOfDay(end).Equal(startOfDay(event.start.In(now.Location()))) {
-			b.WriteString(" until " + end.Format("3:04 PM"))
+			b.WriteString(" until " + clockPhrase(end))
 		} else {
-			b.WriteString(" until " + end.Format("Mon Jan 2 3:04 PM"))
+			b.WriteString(" until " + dayPhrase(end, now) + " at " + clockPhrase(end))
 		}
-	}
-	if event.repeats {
-		b.WriteString(", repeating")
 	}
 	if event.location != "" {
 		b.WriteString(", at " + event.location)
 	}
+	b.WriteString(".")
+	if event.repeats {
+		b.WriteString(" It repeats.")
+	}
 	if event.description != "" {
-		b.WriteString(". " + strings.TrimSpace(event.description))
+		b.WriteString(" " + strings.TrimSpace(event.description))
 	}
 	return b.String()
 }
@@ -862,7 +953,7 @@ func parseEventText(text string, now time.Time) (calendarEvent, error) {
 		}
 	}
 
-	event := calendarEvent{summary: cleanEventTitle(title)}
+	event := calendarEvent{summary: cleanEventTitle(title), dated: hasDate, timed: hour >= 0}
 	switch {
 	case hour < 0:
 		if !hasDate {
@@ -915,7 +1006,7 @@ func monthDayDate(monthName, dayText, yearText string, today time.Time) (time.Ti
 
 // eventTitleTrimRe matches the words and punctuation left at the ends of a
 // title once its date and time are removed
-var eventTitleTrimRe = regexp.MustCompile(`(?i)^(?:\s|[,;:.\-]|\b(?:on|at|for|from|the)\b)+|(?:\s|[,;:\-]|\b(?:on|at|for|from|the)\b)+$`)
+var eventTitleTrimRe = regexp.MustCompile(`(?i)^(?:\s|[,;:.\-]|\b(?:on|at|for|from|the|a|an|my|our)\b)+|(?:\s|[,;:\-]|\b(?:on|at|for|from|the)\b)+$`)
 
 // cleanEventTitle tidies what is left of the text once its date and time are
 // removed, or returns "Event" when nothing is

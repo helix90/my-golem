@@ -352,32 +352,36 @@ func (rec *eventRecurrence) describe(event calendarEvent, now time.Time) string 
 		}
 	}
 	if !event.allDay {
-		what += " at " + start.Format("3:04 PM")
+		what += " at " + clockPhrase(start)
 	}
 	what += ", starting " + dayPhrase(start, now)
 	switch {
 	case rec.count > 0:
 		what += fmt.Sprintf(", %d times", rec.count)
 	case !rec.until.IsZero():
-		what += ", until " + rec.until.Format("Mon Jan 2")
+		what += ", until " + rec.until.Format("January 2")
 		if rec.until.Year() != now.Year() {
-			what += rec.until.Format(" 2006")
+			what += rec.until.Format(", 2006")
 		}
 	}
 	return what
 }
 
-// dayPhrase names a day: "today", "tomorrow" or "Mon Nov 30"
+// dayPhrase names a day: "today", "tomorrow", "Friday" in the coming
+// week, otherwise "Friday, December 4" (with the year when it isn't this
+// one)
 func dayPhrase(day, now time.Time) string {
 	switch days := int(startOfDay(day).Sub(startOfDay(now)).Hours()+12) / 24; {
 	case days == 0:
 		return "today"
 	case days == 1:
 		return "tomorrow"
+	case days > 1 && days < 7:
+		return day.Format("Monday")
 	case day.Year() == now.Year():
-		return day.Format("Mon Jan 2")
+		return day.Format("Monday, January 2")
 	}
-	return day.Format("Mon Jan 2 2006")
+	return day.Format("Monday, January 2, 2006")
 }
 
 func joinWithAnd(items []string) string {

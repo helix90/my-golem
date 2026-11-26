@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseRichResponse(t *testing.T) {
@@ -38,26 +39,33 @@ func TestParseRichResponse(t *testing.T) {
 }
 
 func TestDeleteEventAsksFirst(t *testing.T) {
+	f, srv := newFakeCalDAV(t)
+	t.Setenv("RADICALE_URL", srv.URL)
+	t.Setenv("RADICALE_USER", "alice")
+	t.Setenv("RADICALE_PASSWORD", "secret")
+	t.Setenv("RADICALE_CALENDAR", "")
 	g := newTestdataBot(t, filepath.Join(t.TempDir(), "users.json"))
+	g.sraixMgr.now = func() time.Time { return caldavNow }
 	s := telegramSession(g, "111")
+	ask(t, g, s, "create event Dentist on Friday at 2pm")
 
-	r := ParseRichResponse(ask(t, g, s, "delete event Dentist"))
-	if r.Text != `Should I delete the event "Dentist"?` || len(r.Buttons) != 2 || r.Buttons[0].Postback != "CONFIRM DELETE EVENT Dentist" {
+	r := ParseRichResponse(ask(t, g, s, "delete event dentist"))
+	if r.Text != `Should I remove "Dentist" on Friday at 2 PM from your calendar?` || len(r.Buttons) != 2 || !strings.HasPrefix(r.Buttons[0].Postback, "CONFIRM DELETE EVENT ") {
 		t.Fatalf("question: %+v", r)
 	}
-	// Typing "yes" answers the question: with no calendar server here, the
-	// delete is attempted and fails
-	if got := ask(t, g, s, "yes"); !strings.Contains(got, `couldn't delete that event`) || !strings.Contains(got, "Dentist") {
-		t.Errorf("yes: %q", got)
-	}
-
-	ask(t, g, s, "delete event Dentist")
+	ask(t, g, s, "delete event dentist")
 	if got := ask(t, g, s, "no"); !strings.Contains(got, "leave it on your calendar") {
 		t.Errorf("no: %q", got)
 	}
-	// The button's postback works as input on its own
-	if got := ask(t, g, s, r.Buttons[0].Postback); !strings.Contains(got, `couldn't delete that event`) {
+	// The button's postback works as input on its own, later on
+	ask(t, g, s, "what is on my calendar")
+	if got := ask(t, g, s, r.Buttons[0].Postback); got != `Okay, I've removed "Dentist" on Friday at 2 PM from your calendar.` {
 		t.Errorf("postback: %q", got)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.events) != 0 {
+		t.Errorf("events left: %d", len(f.events))
 	}
 }
 

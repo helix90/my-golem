@@ -105,7 +105,7 @@ For example, on a Wednesday evening:
 
 ```
 User: remind me to call mom at 5pm
-Bot:  Okay, I'll remind you to call mom tomorrow at 5:00 PM.
+Bot:  Okay, I'll remind you to call mom tomorrow at 5 PM.
 
 User: remind me in 20 minutes to stretch
 Bot:  Okay, I'll remind you to stretch today at 6:05 PM.
@@ -114,7 +114,7 @@ User: set a timer for 10 minutes
 Bot:  Okay, I'll remind you to check the timer today at 5:55 PM.
 
 User: remind me every day at 8am to take vitamins
-Bot:  Okay, I'll remind you to take vitamins every day at 8:00 AM.
+Bot:  Okay, I'll remind you to take vitamins every day at 8 AM.
 
 User: remind me to call mom
 Bot:  When should I remind you? Try something like "remind me to call mom at 5pm" or "remind me in 20 minutes to stretch".
@@ -123,8 +123,8 @@ User: show my reminders
 Bot:  Your reminders:
       1. check the timer, today at 5:55 PM
       2. stretch, today at 6:05 PM
-      3. take vitamins, every day at 8:00 AM
-      4. call mom, tomorrow at 5:00 PM
+      3. take vitamins, every day at 8 AM
+      4. call mom, tomorrow at 5 PM
 
 User: delete reminder 2
 Bot:  Deleted the reminder to stretch.
@@ -132,12 +132,12 @@ Bot:  Deleted the reminder to stretch.
 User: cancel the timer
 Bot:  Deleted the reminder to check the timer.
 
-  ... at 5:00 PM the next day ...
+  ... at 5 PM the next day ...
 
 Bot:  ⏰ Reminder: call mom
 
 User: send me a daily briefing at 7am
-Bot:  Okay, I'll send you a briefing every day at 7:00 AM, starting tomorrow at 7:00 AM.
+Bot:  Okay, I'll send you a briefing every day at 7 AM, starting tomorrow at 7 AM.
 
 User: brief me
 Bot:  Good evening, Alice! Today is Wednesday, November 25. Your calendar is clear today.
@@ -148,9 +148,9 @@ Bot:  Okay, I've stopped your daily briefing.
 
 The greeting follows the time of day in the bot's time zone (`TZ`): good
 morning (5:00 to 11:59), afternoon (12:00 to 16:59) or evening (17:00 to
-21:59), and hello at night. With events today the briefing lists them ("On
-your calendar: ..."), and with a saved location and a weather service it adds
-the weather.
+21:59), and hello at night. With events today the briefing lists them ("Today
+you have standup at 9 AM and lunch at noon."), and with a saved location and
+a weather service it adds the weather.
 
 Reminders are kept in `REMINDERS_PATH` (default `data/reminders.json`) and
 survive restarts; one that came due while the bot was down is sent when it
@@ -195,8 +195,8 @@ In a conversation (buttons in brackets, suggested replies in parentheses):
 
 ```
 User: delete event dentist
-Bot:  Should I delete the event "dentist"?
-      [Yes, delete it] [No, keep it]
+Bot:  Should I remove "dentist" on Friday at 3 PM from your calendar?
+      [Yes, remove it] [No, keep it]
 User: no                                   (or tap "No, keep it")
 Bot:  Okay, I'll leave it on your calendar.
 

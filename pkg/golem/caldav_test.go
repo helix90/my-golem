@@ -46,6 +46,9 @@ func TestParseEventText(t *testing.T) {
 		{"Launch at midnight", "Launch", day(11, 18, 0, 0), day(11, 18, 1, 0), false},
 		{"tomorrow at 8am", "Event", day(11, 18, 8, 0), day(11, 18, 9, 0), false},
 		{"Trip the day after tomorrow", "Trip", day(11, 19, 0, 0), day(11, 20, 0, 0), true},
+		{"a dentist appointment on Friday at 3pm", "dentist appointment", day(11, 20, 15, 0), day(11, 20, 16, 0), false},
+		{"my piano lesson tomorrow at 4pm", "piano lesson", day(11, 18, 16, 0), day(11, 18, 17, 0), false},
+		{"A Team offsite on Friday", "Team offsite", day(11, 20, 0, 0), day(11, 21, 0, 0), true},
 	}
 	for _, tt := range tests {
 		event, err := parseEventText(tt.text, caldavNow)
@@ -234,19 +237,19 @@ func TestCalDAVExamples(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q: %v", input, err)
 		}
-		if response != want {
+		if response = RichText(response); response != want {
 			t.Errorf("%q: expected %q, got %q", input, want, response)
 		}
 	}
 
-	ask("what is on my calendar today", "You have no events scheduled for today.")
+	ask("what is on my calendar today", "Your calendar is clear today.")
 	if got := f.lastRequest(); got != "REPORT /alice/personal/" {
 		t.Errorf("Expected a REPORT on the default calendar, got %s", got)
 	}
 
-	ask("create event Lunch with Sam tomorrow at noon", "Event created: Lunch with Sam tomorrow at 12:00 PM")
-	ask("create event called Review on Friday at 2pm", "Event created: Review on Fri Nov 20 at 2:00 PM")
-	ask("schedule Standup at 3pm for 15 minutes", "Event created: Standup today at 3:00 PM")
+	ask("create event Lunch with Sam tomorrow at noon", `Okay, I've added "Lunch with Sam" to your calendar tomorrow at noon.`)
+	ask("create event called Review on Friday at 2pm", `Okay, I've added "Review" to your calendar on Friday at 2 PM.`)
+	ask("schedule Standup at 3pm for 15 minutes", `Okay, I've added "Standup" to your calendar today at 3 PM.`)
 
 	f.mu.Lock()
 	var lunch string
@@ -266,34 +269,35 @@ func TestCalDAVExamples(t *testing.T) {
 	}
 	f.mu.Unlock()
 
-	ask("what is on my calendar today", "Here are your events for today: Standup at 3:00 PM")
-	ask("show my upcoming events", "Here are your upcoming events: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Review on Fri Nov 20 at 2:00 PM")
-	ask("get event lunch", "Event details: Lunch with Sam tomorrow at 12:00 PM until 1:00 PM")
-	ask("show event nothing like it", `I couldn't find a single event matching "nothing like it".`)
+	ask("what is on my calendar today", "Today you have Standup at 3 PM.")
+	ask("show my upcoming events", "Coming up: Standup today at 3 PM, Lunch with Sam tomorrow at noon and Review on Friday at 2 PM.")
+	ask("get event lunch", `"Lunch with Sam" is tomorrow at noon until 1 PM.`)
+	ask("show event nothing like it", `I couldn't find "nothing like it" on your calendar.`)
 
-	// Deleting asks first; the Yes button (or typing yes) confirms
-	if response, _ := g.ProcessInput("delete event review", session); RichText(response) != `Should I delete the event "review"?` {
+	// Deleting asks first, naming the event; the Yes button (or typing yes)
+	// confirms
+	if response, _ := g.ProcessInput("delete event review", session); RichText(response) != `Should I remove "Review" on Friday at 2 PM from your calendar?` {
 		t.Errorf("Expected a question before deleting, got %q", response)
 	}
 	if f.lastRequest() == "" || strings.HasPrefix(f.lastRequest(), "DELETE") {
 		t.Errorf("Nothing should be deleted before confirming, got %s", f.lastRequest())
 	}
-	ask("yes", "Event deleted: Review on Fri Nov 20 at 2:00 PM")
+	ask("yes", `Okay, I've removed "Review" on Friday at 2 PM from your calendar.`)
 	if got := f.lastRequest(); !strings.HasPrefix(got, "DELETE /alice/personal/") {
 		t.Errorf("Expected a DELETE, got %s", got)
 	}
-	ask("confirm delete event review", `I couldn't delete that event. Check that exactly one event matches "review".`)
+	ask("confirm delete event review", `I couldn't remove that event. Check that exactly one event matches "review".`)
 
-	ask("create event Lunch with Ana on Friday at 1pm", "Event created: Lunch with Ana on Fri Nov 20 at 1:00 PM")
-	ask("confirm delete event lunch", `I couldn't delete that event. Check that exactly one event matches "lunch".`)
+	ask("create event Lunch with Ana on Friday at 1pm", `Okay, I've added "Lunch with Ana" to your calendar on Friday at 1 PM.`)
+	ask("confirm delete event lunch", `I couldn't remove that event. Check that exactly one event matches "lunch".`)
 
 	ask("use calendar work", "Switched to calendar: work")
-	ask("what is on my calendar", "You have no events in the next seven days.")
+	ask("what is on my calendar", "Nothing's on your calendar in the next seven days.")
 	if got := f.lastRequest(); got != "REPORT /alice/work/" {
 		t.Errorf("Expected a REPORT on the work calendar, got %s", got)
 	}
 	ask("use my default calendar", "Switched to your default calendar.")
-	ask("what is on my calendar", "Here are your upcoming events: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Lunch with Ana on Fri Nov 20 at 1:00 PM")
+	ask("what is on my calendar", "Coming up: Standup today at 3 PM, Lunch with Sam tomorrow at noon and Lunch with Ana on Friday at 1 PM.")
 }
 
 // An event whose title is the input is chosen over one whose title only
@@ -305,7 +309,7 @@ func TestCalDAVFindPrefersExactTitle(t *testing.T) {
 	for _, input := range []string{"create event Standup at 3pm", "create event Standup sync on Friday at 9am"} {
 		g.ProcessInput(input, session)
 	}
-	if response, _ := g.ProcessInput("confirm delete event standup", session); response != "Event deleted: Standup today at 3:00 PM" {
+	if response, _ := g.ProcessInput("confirm delete event standup", session); response != `Okay, I've removed "Standup" today at 3 PM from your calendar.` {
 		t.Errorf("Expected the exact title to be deleted, got %q", response)
 	}
 	f.mu.Lock()

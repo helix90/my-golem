@@ -108,77 +108,109 @@ g.SetKnowledgeBase(kb) // configures the SRAIX services
 
 ## Usage
 
+Recorded against a Radicale server with `TZ=Europe/London`, on a Thursday
+evening. Buttons are in brackets.
+
 ```
-User: Create event Lunch with Sam tomorrow at noon
-Bot:  Event created: Lunch with Sam tomorrow at 12:00 PM
+User: create event Lunch with Sam tomorrow at noon
+Bot:  Okay, I've added "Lunch with Sam" to your calendar tomorrow at noon.
+      [Undo]
+User: create event Review on Monday at 2pm
+Bot:  Okay, I've added "Review" to your calendar on Monday at 2 PM.
+      [Undo]
+User: schedule Standup at 9pm for 15 minutes
+Bot:  Okay, I've added "Standup" to your calendar today at 9 PM.
+      [Undo]
 
-User: Create event called Review on Friday at 2pm
-Bot:  Event created: Review on Fri Nov 20 at 2:00 PM
+User: create event dentist
+Bot:  When should I put "dentist" on your calendar?
+User: Saturday at 10am
+Bot:  Okay, I've added "dentist" to your calendar on Saturday at 10 AM.
+      [Undo]
+User: make it 11am
+Bot:  Okay, "dentist" is now on Saturday at 11 AM.
 
-User: Schedule Standup at 3pm for 15 minutes
-Bot:  Event created: Standup today at 3:00 PM
+User: what is on my calendar today
+Bot:  Today you have Standup at 9 PM.
+User: show my upcoming events
+Bot:  Here's what's coming up:
+      • Today: Standup at 9 PM
+      • Tomorrow: Lunch with Sam at noon
+      • Saturday: dentist at 11 AM
+      • Monday: Review at 2 PM
+User: what do I have on Monday
+Bot:  On Monday, November 30, you have Review at 2 PM.
+User: what's on my calendar next weekend
+Bot:  Your calendar is clear next weekend.
+User: get event lunch
+Bot:  "Lunch with Sam" is tomorrow at noon until 1 PM.
 
-User: What is on my calendar today?
-Bot:  Here are your events for today: Standup at 3:00 PM
+User: move event review to 4pm
+Bot:  Okay, "Review" is now on Monday at 4 PM.
+User: move event lunch to back half an hour
+Bot:  Okay, "Lunch with Sam" is now tomorrow at 12:30 PM.
 
-User: Show my upcoming events
-Bot:  Here are your upcoming events: Standup today at 3:00 PM; Lunch with Sam tomorrow at 12:00 PM; Review on Fri Nov 20 at 2:00 PM
-
-User: What do I have on Friday?
-Bot:  Here's your calendar on Friday, November 20: Review at 2:00 PM
-
-User: What's on my calendar this weekend?
-Bot:  You have nothing on your calendar this weekend.
-
-User: Get event lunch
-Bot:  Event details: Lunch with Sam tomorrow at 12:00 PM until 1:00 PM
-
-User: Delete event review
-Bot:  Should I delete the event "review"?   [Yes, delete it] [No, keep it]
+User: delete event review
+Bot:  Should I remove "Review" on Monday at 4 PM from your calendar?
+      [Yes, remove it] [No, keep it]
 User: yes
-Bot:  Event deleted: Review on Fri Nov 20 at 2:00 PM
+Bot:  Okay, I've removed "Review" on Monday at 4 PM from your calendar.
 
-User: Use calendar work
+User: create event retro on Tuesday at 3pm
+Bot:  Okay, I've added "retro" to your calendar on Tuesday at 3 PM.
+      [Undo]
+User: undo
+Bot:  Okay, I've taken "retro" off your calendar.
+
+User: use calendar work
 Bot:  Switched to calendar: work
 ```
 
-Say "calendar help" for the full list.
+Up to three events read as a sentence; more go one line per day. Say
+"calendar help" for the full list. The my-AIML phrase pack adds everyday
+phrasings on top of these commands: "I have a dentist appointment on Friday
+at 3pm", "move the dentist to 4pm", "push lunch back half an hour", "I can't
+make it to dinner", "when am I seeing Sam".
 
 ### Repeating events
 
-Recorded against a Radicale server with `TZ=Europe/London`, on a Wednesday:
-
 ```
 User: create event yoga every Monday at 6pm
-Bot:  Event created: yoga every Monday at 6:00 PM, starting Mon Nov 30
-
+Bot:  Okay, I've added "yoga" to your calendar every Monday at 6 PM, starting Monday.
 User: schedule standup every weekday at 9am until December 18
-Bot:  Event created: standup every weekday at 9:00 AM, starting tomorrow, until Fri Dec 18
-
-User: add team sync every other Friday at 2pm to my calendar
-Bot:  Event created: team sync every other Friday at 2:00 PM, starting Fri Nov 27
-
+Bot:  Okay, I've added "standup" to your calendar every weekday at 9 AM, starting tomorrow, until December 18.
+User: create event team sync every other Friday at 2pm
+Bot:  Okay, I've added "team sync" to your calendar every other Friday at 2 PM, starting tomorrow.
 User: create event physio every Wednesday at noon for 6 weeks
-Bot:  Event created: physio every Wednesday at 12:00 PM, starting Wed Dec 2, until Tue Jan 12 2027
-
+Bot:  Okay, I've added "physio" to your calendar every Wednesday at noon, starting Wednesday, until January 12, 2027.
 User: create event bins every Thursday
-Bot:  Event created: bins every Thursday, starting tomorrow
-
-User: add Mum's birthday every year on December 3 to my calendar
-Bot:  Event created: Mum's birthday every year on December 3, starting Thu Dec 3
+Bot:  Okay, I've added "bins" to your calendar every Thursday, starting today.
+User: create event Mum's birthday every year on December 3
+Bot:  Okay, I've added "Mum's birthday" to your calendar every year on December 3, starting Thursday, December 3.
 
 User: what do I have next week
-Bot:  Here's your calendar next week: standup on Mon Nov 30 at 9:00 AM; yoga on Mon Nov 30 at 6:00 PM; standup on Tue Dec 1 at 9:00 AM; standup on Wed Dec 2 at 9:00 AM; physio on Wed Dec 2 at 12:00 PM; Mum's birthday on Thu Dec 3 (all day); bins on Thu Dec 3 (all day); standup on Thu Dec 3 at 9:00 AM; standup on Fri Dec 4 at 9:00 AM
+Bot:  Here's your calendar next week:
+      • Monday: standup at 9 AM, yoga at 6 PM
+      • Tuesday: standup at 9 AM
+      • Wednesday: standup at 9 AM, physio at noon
+      • Thursday, December 3: bins (all day), Mum's birthday (all day), standup at 9 AM
+      • Friday, December 4: standup at 9 AM
 
+User: move event yoga to Tuesday
+Bot:  "yoga" repeats, and I can't move a repeating event yet. You can remove it and add it again.
 User: delete event yoga
-Bot:  Should I delete the event "yoga"?   [Yes, delete it] [No, keep it]
+Bot:  "yoga" repeats, so this removes every one. Should I remove "yoga" from your calendar?
+      [Yes, remove it] [No, keep it]
 User: yes
-Bot:  Event deleted: yoga on Mon Nov 30 at 6:00 PM
-```
+Bot:  Okay, I've removed "yoga" and all its repeats from your calendar.
 
-("Add ... to my calendar" comes from the my-AIML phrase pack; "create event",
-"add event" and "schedule" are built in.) Deleting a repeating event deletes
-all its occurrences.
+User: delete event standup
+Bot:  You have 2 events matching "standup":
+      • Standup today at 9 PM
+      • standup tomorrow at 9 AM
+      Which one should I remove?
+      [Standup today at 9 PM] [standup tomorrow at 9 AM]
+```
 
 ### Asking about a day or a period
 
@@ -220,18 +252,42 @@ The text after "create event" (or "add event", "schedule") gives the event's tit
 - Deleting a repeating event deletes all its occurrences.
 - An event with a date but no time lasts all day.
 - An event with a time but no date is today, or tomorrow if that time has passed.
-- An event with neither is an all-day event today.
+- With neither, the bot asks when ("When should I put "dentist" on your calendar?"); the answer ("Saturday at 10am") is added to the text. `calendar_event_when` is then `missing`.
+- A leading "a", "an", "my" or "our" is left out of the title: "a dentist appointment on Friday" is "dentist appointment".
+- The reply has an Undo button (`CALENDAR UNDO <uid>`); "undo", "scratch that" or "delete it" right after works too, and "make it 4pm" moves it.
 - A month and day with no year is the next such date.
 
 ### Finding events
 
-"Get event", "show event", "delete event", "remove event" and "cancel event" look for the event among those from 30 days ago to a year ahead. They choose, in order:
+"Get event", "show event", "delete event", "move event" (and the phrase pack's
+"when is ...", "cancel ...", "move ...") look for the event among those from
+30 days ago to a year ahead. They choose, in order:
 
 1. The event whose UID is the text
 2. The event whose title is the text, ignoring case
 3. The event whose title contains the text
 
-If no event matches, or more than one does at the first step that finds any, the bot says it could not find a single event. Deleting a repeating event deletes all its occurrences.
+and try the text as typed, then without a leading "my", "the" or "next", then
+without a trailing "appointment", "meeting" or "event": "my dentist
+appointment" finds "Dentist". When several events match, the reply lists them
+with a button for each. Deleting asks first, naming the event it found; a
+repeating event is deleted with all its occurrences.
+
+### Moving events
+
+`MOVE EVENT <event> TO <when>` (service `caldav_move`) moves an event to:
+
+| To | Examples | Keeps |
+|----|----------|-------|
+| A day | `Friday`, `tomorrow`, `December 3` | the time |
+| A time | `4pm`, `9:30am`, `noon` | the day |
+| Both | `Friday at 4pm` | |
+| A shift | `back an hour`, `back half an hour`, `30 minutes later`, `forward 2 hours`, `an hour earlier` | |
+
+The event keeps its length, and everything else in it (alarms, attendees,
+notes) is kept: only its start, end and sequence number are rewritten. With
+no day or time ("move event dentist"), the bot asks when. Repeating events
+can't be moved yet.
 
 ### Calendars
 

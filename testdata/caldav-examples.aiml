@@ -8,7 +8,12 @@
       reached, or (for get and delete) when no single event matches.
     -->
 
-    <!-- List Today's Events -->
+    <!-- The today, upcoming and range services set calendar_layout:
+         "inline" for a few events on one day, which read as a sentence
+         ("standup at 9 AM and lunch at noon"), or "lines", one line per
+         day or event, starting with a line break. -->
+
+    <!-- Today's events -->
     <category>
         <pattern>WHAT IS ON MY CALENDAR TODAY</pattern>
         <template>
@@ -16,9 +21,9 @@
                 <set var="events"><sraix service="caldav_today">today</sraix></set>
             </think>
             <condition var="events">
-                <li value="">You have no events scheduled for today.</li>
+                <li value="">Your calendar is clear today.</li>
                 <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
-                <li>Here are your events for today: <get var="events"/></li>
+                <li><condition name="calendar_layout"><li value="lines">Here's your day:<get var="events"/></li><li>Today you have <get var="events"/>.</li></condition></li>
             </condition>
         </template>
     </category>
@@ -37,7 +42,7 @@
         </template>
     </category>
 
-    <!-- List Upcoming Events -->
+    <!-- The coming seven days -->
     <category>
         <pattern>WHAT IS ON MY CALENDAR</pattern>
         <template>
@@ -45,9 +50,9 @@
                 <set var="events"><sraix service="caldav_list">upcoming</sraix></set>
             </think>
             <condition var="events">
-                <li value="">You have no events in the next seven days.</li>
+                <li value="">Nothing's on your calendar in the next seven days.</li>
                 <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
-                <li>Here are your upcoming events: <get var="events"/></li>
+                <li><condition name="calendar_layout"><li value="lines">Here's what's coming up:<get var="events"/></li><li>Coming up: <get var="events"/>.</li></condition></li>
             </condition>
         </template>
     </category>
@@ -62,7 +67,8 @@
     <!-- Events on a day or in a period: "tomorrow", "Friday", "December 3",
          "this week", "next week", "this weekend", "the next 3 days",
          "next month". caldav_range sets calendar_range to a label for the
-         period, or to "unknown" when it can't read it. -->
+         period ("tomorrow", "on Friday, November 20", "next week"), or to
+         "unknown" when it can't read it. -->
     <category>
         <pattern>CALENDAR FOR *</pattern>
         <template>
@@ -73,7 +79,10 @@
             <condition name="calendar_range">
                 <li value="unknown">I'm not sure which day you mean. Try "tomorrow", "Friday", "December 3", "next week" or "this weekend".</li>
                 <li value="">I'm having trouble accessing your calendar right now.</li>
-                <li><condition var="events"><li value="">You have nothing on your calendar <get name="calendar_range"/>.</li><li>Here's your calendar <get name="calendar_range"/>: <get var="events"/></li></condition></li>
+                <li><condition var="events">
+                    <li value="">Your calendar is clear <get name="calendar_range"/>.</li>
+                    <li><condition name="calendar_layout"><li value="lines">Here's your calendar <get name="calendar_range"/>:<get var="events"/></li><li><sentence><get name="calendar_range"/></sentence>, you have <get var="events"/>.</li></condition></li>
+                </condition></li>
             </condition>
         </template>
     </category>
@@ -87,17 +96,25 @@
     <category><pattern>WHAT DO I HAVE NEXT WEEK</pattern><template><srai>CALENDAR FOR NEXT WEEK</srai></template></category>
     <category><pattern>WHAT DO I HAVE THIS WEEKEND</pattern><template><srai>CALENDAR FOR THIS WEEKEND</srai></template></category>
 
-    <!-- Create New Event: the text gives the title, date, time and length,
-         e.g. "Lunch with Sam tomorrow at noon for 90 minutes" -->
+    <!-- ============================================================ -->
+    <!-- Adding events                                                -->
+    <!-- ============================================================ -->
+
+    <!-- The text gives the title, date, time and length, e.g. "Lunch with
+         Sam tomorrow at noon for 90 minutes", or how it repeats ("yoga
+         every Monday at 6pm"). With no day or time it asks when. The reply
+         has an Undo button; "undo" right after works too. -->
     <category>
         <pattern>CREATE EVENT *</pattern>
         <template>
             <think>
+                <set name="calendar_event_when"></set>
                 <set var="created"><sraix service="caldav_create"><star/></sraix></set>
             </think>
             <condition var="created">
-                <li value="Failed to create calendar event">I was unable to create that event. Please try again.</li>
-                <li>Event created: <get var="created"/></li>
+                <li value="Failed to create calendar event">I couldn't add that to your calendar. Please try again.</li>
+                <li value="NEEDS WHEN"><think><set name="pending_event_text"><star/></set><set name="pending_event_title"><get name="calendar_event_title"/></set></think>When should I put "<get name="calendar_event_title"/>" on your calendar?</li>
+                <li><think><set name="calendar_last_uid"><get name="calendar_event_uid"/></set><set name="pending_event_text"></set></think><button><text>Undo</text><postback>CALENDAR UNDO <get name="calendar_event_uid"/></postback></button> Okay, I've added "<get name="calendar_event_title"/>" to your calendar <get name="calendar_event_when"/>.</li>
             </condition>
         </template>
     </category>
@@ -123,16 +140,92 @@
         </template>
     </category>
 
-    <!-- Get Specific Event, by title or UID -->
+    <!-- The answer to "When should I put ... on your calendar?" -->
+    <category>
+        <pattern>CALENDAR CREATE PENDING *</pattern>
+        <template>
+            <think>
+                <set name="calendar_event_when"></set>
+                <set var="created"><sraix service="caldav_create"><get name="pending_event_text"/> <star/></sraix></set>
+            </think>
+            <condition var="created">
+                <li value="Failed to create calendar event"><think><set name="pending_event_text"></set></think>I couldn't add that to your calendar. Please try again.</li>
+                <li value="NEEDS WHEN">I didn't catch a day or time. When should I put "<get name="pending_event_title"/>" on your calendar?</li>
+                <li><think><set name="calendar_last_uid"><get name="calendar_event_uid"/></set><set name="pending_event_text"></set></think><button><text>Undo</text><postback>CALENDAR UNDO <get name="calendar_event_uid"/></postback></button> Okay, I've added "<get name="calendar_event_title"/>" to your calendar <get name="calendar_event_when"/>.</li>
+            </condition>
+        </template>
+    </category>
+    <category><pattern>*</pattern><that>^ WHEN SHOULD I PUT * ON YOUR CALENDAR</that><template><srai>CALENDAR CREATE PENDING <star/></srai></template></category>
+    <category><pattern>NEVER MIND</pattern><that>^ WHEN SHOULD I PUT * ON YOUR CALENDAR</that><template><think><set name="pending_event_text"></set></think>Okay, I won't add it.</template></category>
+    <category><pattern>CANCEL</pattern><that>^ WHEN SHOULD I PUT * ON YOUR CALENDAR</that><template><srai>NEVER MIND</srai></template></category>
+    <category><pattern>NO</pattern><that>^ WHEN SHOULD I PUT * ON YOUR CALENDAR</that><template><srai>NEVER MIND</srai></template></category>
+    <category><pattern>FORGET IT</pattern><that>^ WHEN SHOULD I PUT * ON YOUR CALENDAR</that><template><srai>NEVER MIND</srai></template></category>
+
+    <!-- Undo: deletes the event just added, without asking -->
+    <category>
+        <pattern>CALENDAR UNDO *</pattern>
+        <template>
+            <think>
+                <set name="calendar_last_uid"></set>
+                <set var="deleted"><sraix service="caldav_delete"><star/></sraix></set>
+            </think>
+            <condition var="deleted">
+                <li value="Failed to delete event">I couldn't undo that; the event may already be gone.</li>
+                <li>Okay, I've taken "<get name="calendar_event_title"/>" off your calendar.</li>
+            </condition>
+        </template>
+    </category>
+    <category>
+        <pattern>CALENDAR UNDO</pattern>
+        <template>
+            <condition name="calendar_last_uid">
+                <li value="">There's nothing to undo.</li>
+                <li><srai>CALENDAR UNDO <get name="calendar_last_uid"/></srai></li>
+            </condition>
+        </template>
+    </category>
+    <category><pattern>UNDO</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>UNDO THAT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>UNDO IT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>TAKE THAT BACK</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>SCRATCH THAT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>DELETE THAT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>DELETE IT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>REMOVE THAT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>REMOVE IT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>THAT IS WRONG</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>NO THAT IS WRONG</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+    <category><pattern>NO UNDO THAT</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>CALENDAR UNDO</srai></template></category>
+
+    <!-- "Make it 4pm" right after adding or moving an event moves it -->
+    <category><pattern>MAKE IT *</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>CHANGE IT TO *</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>MOVE IT TO *</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>NO MAKE IT *</pattern><that>^ ADDED * TO YOUR CALENDAR ^</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>MAKE IT *</pattern><that>OKAY * IS NOW *</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>CHANGE IT TO *</pattern><that>OKAY * IS NOW *</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>MOVE IT TO *</pattern><that>OKAY * IS NOW *</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+    <category><pattern>NO MAKE IT *</pattern><that>OKAY * IS NOW *</that><template><srai>MOVE EVENT <get name="calendar_last_uid"/> TO <star/></srai></template></category>
+
+    <!-- ============================================================ -->
+    <!-- Finding an event, by title or UID                            -->
+    <!-- ============================================================ -->
+
+    <!-- "dentist", "my dentist appointment" and "the dentist" all find an
+         event called "Dentist". When several match, the reply lists them
+         with a button for each. -->
     <category>
         <pattern>GET EVENT *</pattern>
         <template>
             <think>
+                <set name="calendar_match_action">GET EVENT</set>
                 <set var="event"><sraix service="caldav_get"><star/></sraix></set>
             </think>
             <condition var="event">
-                <li value="Event not found">I couldn't find a single event matching "<star/>".</li>
-                <li>Event details: <get var="event"/></li>
+                <li value="Event not found">I couldn't find "<star/>" on your calendar.</li>
+                <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
+                <li value="SEVERAL EVENTS">You have <get name="calendar_match_count"/> events matching "<star/>":<get name="calendar_matches"/><get name="calendar_match_buttons"/></li>
+                <li><get var="event"/></li>
             </condition>
         </template>
     </category>
@@ -144,17 +237,27 @@
         </template>
     </category>
 
-    <!-- Delete Event, by title or UID. A repeating event is deleted with all
-         its occurrences. -->
-    <!-- Deleting asks first. The buttons send CONFIRM DELETE EVENT or KEEP
-         THE EVENT; typing yes or no works too. -->
+    <!-- ============================================================ -->
+    <!-- Deleting events                                              -->
+    <!-- ============================================================ -->
+
+    <!-- Deleting asks first, naming the event it found. The buttons send
+         CONFIRM DELETE EVENT <uid> or KEEP THE EVENT; typing yes or no
+         works too. A repeating event is deleted with all its occurrences. -->
     <category>
         <pattern>DELETE EVENT *</pattern>
         <template>
-            <think><set name="pending_delete_event"><star/></set></think>
-            Should I delete the event "<star/>"?
-            <button><text>Yes, delete it</text><postback>CONFIRM DELETE EVENT <star/></postback></button>
-            <button><text>No, keep it</text><postback>KEEP THE EVENT</postback></button>
+            <think>
+                <set name="calendar_match_action">DELETE EVENT</set>
+                <set var="event"><sraix service="caldav_get"><star/></sraix></set>
+            </think>
+            <condition var="event">
+                <li value="Event not found">I couldn't find "<star/>" on your calendar.</li>
+                <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
+                <li value="SEVERAL EVENTS"><get name="calendar_match_buttons"/> You have <get name="calendar_match_count"/> events matching "<star/>":<get name="calendar_matches"/>
+Which one should I remove?</li>
+                <li><think><set name="pending_delete_event"><get name="calendar_event_uid"/></set></think><button><text>Yes, remove it</text><postback>CONFIRM DELETE EVENT <get name="calendar_event_uid"/></postback></button><button><text>No, keep it</text><postback>KEEP THE EVENT</postback></button> <condition name="calendar_event_repeats"><li value="yes">"<get name="calendar_event_title"/>" repeats, so this removes every one. Should I remove "<get name="calendar_event_title"/>" from your calendar?</li><li>Should I remove "<get name="calendar_event_title"/>" <get name="calendar_event_when"/> from your calendar?</li></condition></li>
+            </condition>
         </template>
     </category>
 
@@ -166,8 +269,8 @@
                 <set var="deleted"><sraix service="caldav_delete"><star/></sraix></set>
             </think>
             <condition var="deleted">
-                <li value="Failed to delete event">I couldn't delete that event. Check that exactly one event matches "<star/>".</li>
-                <li>Event deleted: <get var="deleted"/></li>
+                <li value="Failed to delete event">I couldn't remove that event. Check that exactly one event matches "<star/>".</li>
+                <li><condition name="calendar_event_repeats"><li value="yes">Okay, I've removed "<get name="calendar_event_title"/>" and all its repeats from your calendar.</li><li>Okay, I've removed "<get name="calendar_event_title"/>" <get name="calendar_event_when"/> from your calendar.</li></condition></li>
             </condition>
         </template>
     </category>
@@ -177,15 +280,19 @@
         <template><think><set name="pending_delete_event"></set></think>Okay, I'll leave it on your calendar.</template>
     </category>
 
-    <category><pattern>YES</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
-    <category><pattern>YES PLEASE</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
-    <category><pattern>YEAH</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
-    <category><pattern>SURE</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
-    <category><pattern>DELETE IT</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
-    <category><pattern>NO</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
-    <category><pattern>NOPE</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
-    <category><pattern>CANCEL</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
-    <category><pattern>KEEP IT</pattern><that>SHOULD I DELETE THE EVENT *</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>YES</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>YES PLEASE</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>YEAH</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>YEP</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>SURE</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>OK</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>DELETE IT</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>REMOVE IT</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>CONFIRM DELETE EVENT <get name="pending_delete_event"/></srai></template></category>
+    <category><pattern>NO</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>NOPE</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>NO THANKS</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>CANCEL</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>KEEP THE EVENT</srai></template></category>
+    <category><pattern>KEEP IT</pattern><that>^ SHOULD I REMOVE * FROM YOUR CALENDAR</that><template><srai>KEEP THE EVENT</srai></template></category>
 
     <category>
         <pattern>REMOVE EVENT *</pattern>
@@ -200,6 +307,58 @@
             <srai>DELETE EVENT <star/></srai>
         </template>
     </category>
+
+    <!-- ============================================================ -->
+    <!-- Moving events                                                -->
+    <!-- ============================================================ -->
+
+    <!-- MOVE EVENT <event> TO <when>: a new day ("Friday", keeping the
+         time), a new time ("4pm", keeping the day), both, or a shift
+         ("back an hour", "30 minutes earlier"). The event keeps its length
+         and everything else about it. Repeating events can't be moved. -->
+    <category>
+        <pattern>MOVE EVENT * TO *</pattern>
+        <template>
+            <think>
+                <set name="calendar_move_event"><star/></set>
+                <set name="pending_move_when"><star index="2"/></set>
+                <set name="calendar_match_action">CALENDAR MOVE PENDING</set>
+                <set var="moved"><sraix service="caldav_move"><star index="2"/></sraix></set>
+            </think>
+            <condition var="moved">
+                <li value="NOT FOUND">I couldn't find "<star/>" on your calendar.</li>
+                <li value="SEVERAL EVENTS"><get name="calendar_match_buttons"/> You have <get name="calendar_match_count"/> events matching "<star/>":<get name="calendar_matches"/>
+Which one should I move?</li>
+                <li value="REPEATING">"<get name="calendar_event_title"/>" repeats, and I can't move a repeating event yet. You can remove it and add it again.</li>
+                <li value="NO WHEN"><think><set name="pending_move_event"><get name="calendar_event_uid"/></set></think>When should I move "<get name="calendar_event_title"/>" to?</li>
+                <li value="Failed to move event">I couldn't move that event. Please try again.</li>
+                <li><think><set name="calendar_last_uid"><get name="calendar_event_uid"/></set></think>Okay, "<get name="calendar_event_title"/>" is now <get name="calendar_event_when"/>.</li>
+            </condition>
+        </template>
+    </category>
+    <!-- From the buttons when several events matched -->
+    <category><pattern>CALENDAR MOVE PENDING *</pattern><template><srai>MOVE EVENT <star/> TO <get name="pending_move_when"/></srai></template></category>
+    <!-- "Move the dentist" with no day or time: asks -->
+    <category>
+        <pattern>MOVE EVENT *</pattern>
+        <template>
+            <think>
+                <set name="calendar_match_action">GET EVENT</set>
+                <set var="event"><sraix service="caldav_get"><star/></sraix></set>
+            </think>
+            <condition var="event">
+                <li value="Event not found">I couldn't find "<star/>" on your calendar.</li>
+                <li value="Unable to retrieve calendar events">I'm having trouble accessing your calendar right now.</li>
+                <li value="SEVERAL EVENTS">You have <get name="calendar_match_count"/> events matching "<star/>":<get name="calendar_matches"/></li>
+                <li><think><set name="pending_move_event"><get name="calendar_event_uid"/></set></think>When should I move "<get name="calendar_event_title"/>" to?</li>
+            </condition>
+        </template>
+    </category>
+    <category><pattern>*</pattern><that>^ WHEN SHOULD I MOVE * TO</that><template><srai>MOVE EVENT <get name="pending_move_event"/> TO <star/></srai></template></category>
+    <category><pattern>TO *</pattern><that>^ WHEN SHOULD I MOVE * TO</that><template><srai>MOVE EVENT <get name="pending_move_event"/> TO <star/></srai></template></category>
+    <category><pattern>NEVER MIND</pattern><that>^ WHEN SHOULD I MOVE * TO</that><template>Okay, I'll leave it where it is.</template></category>
+    <category><pattern>CANCEL</pattern><that>^ WHEN SHOULD I MOVE * TO</that><template>Okay, I'll leave it where it is.</template></category>
+    <category><pattern>NO</pattern><that>^ WHEN SHOULD I MOVE * TO</that><template>Okay, I'll leave it where it is.</template></category>
 
     <!-- Calendar Management: the calendar predicate picks the calendar the
          services use; without it they use RADICALE_CALENDAR -->
@@ -282,19 +441,7 @@
     <!-- Help -->
     <category>
         <pattern>CALENDAR HELP</pattern>
-        <template>
-            I can help you manage your calendar. Try these commands:
-            - "What is on my calendar today"
-            - "What is on my calendar tomorrow", "...on Friday", "...next week", "...this weekend"
-            - "Show my upcoming events"
-            - "Create event Lunch with Sam tomorrow at noon"
-            - "Create event called Review on Friday at 2pm"
-            - "Show event Lunch with Sam"
-            - "Delete event Lunch with Sam"
-            - "Use calendar [name]" - Switch to a different calendar
-            - "What calendar am I using" - Show current calendar
-            - "Calendar status"
-        </template>
+        <template>Calendar: "what's on my calendar today", "what do I have on Friday", "what's on next week", "create event lunch with Sam tomorrow at noon", "create event yoga every Monday at 6pm", "show event lunch", "move event lunch to 1pm", "move event dentist to Friday", "delete event lunch", "use calendar work", "what calendar am I using".</template>
     </category>
 
     <category>
