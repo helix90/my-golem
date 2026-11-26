@@ -175,8 +175,10 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		}
 		return sraixResponse{text: event.summary + " " + eventWhen(event, now, true), set: eventPredicates(event, now)}, nil
 	case "move":
-		// The event is the param "event"; the input says when to
-		event, err := c.find(strings.TrimSpace(params["event"]), now)
+		// The event is the param "event", which may name one occurrence
+		// ("yoga on Monday"); the input says when to. scope is "one" or
+		// "all" for a repeating event, or "" to ask.
+		event, named, err := c.findOccurrence(strings.TrimSpace(params["event"]), now)
 		if several, ok := err.(severalEventsError); ok {
 			return several.response(now, params["match_action"]), nil
 		}
@@ -187,8 +189,21 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 			return sraixResponse{}, err
 		}
 		set := eventPredicates(event, now)
-		if event.repeats {
+		scope := strings.ToLower(strings.TrimSpace(params["scope"]))
+		if event.repeats && scope == "" && named {
+			scope = "one"
+		}
+		if event.repeats && scope != "one" && scope != "all" {
 			return sraixResponse{text: "REPEATING", set: set}, nil
+		}
+		// Moving every one is measured from an occurrence where the series
+		// puts it, not one that was moved on its own
+		if event.repeats && scope == "all" && !event.recurrenceID.IsZero() {
+			if regular, found, err := c.nextRegularOccurrence(event, now); err != nil {
+				return sraixResponse{}, err
+			} else if found {
+				event = regular
+			}
 		}
 		moved, ok, err := moveEvent(event, input, now)
 		if err != nil {
@@ -197,10 +212,19 @@ func (sm *SRAIXManager) sendCalDAV(config *SRAIXConfig, input string, params map
 		if !ok {
 			return sraixResponse{text: "NO WHEN", set: set}, nil
 		}
-		if err := c.update(event, moved, now); err != nil {
+		if event.repeats {
+			err = c.updateSeries(event, moved, scope, now)
+			if err == errCantMoveSeries {
+				return sraixResponse{text: "CANT MOVE ALL", set: set}, nil
+			}
+		} else {
+			err = c.update(event, moved, now)
+		}
+		if err != nil {
 			return sraixResponse{}, err
 		}
 		set = eventPredicates(moved, now)
+		set["calendar_moved_scope"] = scope
 		return sraixResponse{text: moved.summary + " " + set["calendar_event_when"], set: set}, nil
 	}
 	return sraixResponse{}, fmt.Errorf("unknown caldav operation %q", config.Operation)
@@ -321,6 +345,16 @@ func (c *caldavClient) find(input string, now time.Time) (calendarEvent, error) 
 		}
 	}
 
+	var candidates []calendarEvent
+	for _, href := range hrefs {
+		candidates = append(candidates, byHref[href])
+	}
+	return matchEvent(candidates, input)
+}
+
+// matchEvent chooses the one event input names: by UID, then title, then
+// part of the title, trying each of eventQueries in turn
+func matchEvent(candidates []calendarEvent, input string) (calendarEvent, error) {
 	for _, query := range eventQueries(input) {
 		lowered := strings.ToLower(query)
 		for _, match := range []func(calendarEvent) bool{
@@ -329,9 +363,9 @@ func (c *caldavClient) find(input string, now time.Time) (calendarEvent, error) 
 			func(e calendarEvent) bool { return strings.Contains(strings.ToLower(e.summary), lowered) },
 		} {
 			var found []calendarEvent
-			for _, href := range hrefs {
-				if match(byHref[href]) {
-					found = append(found, byHref[href])
+			for _, e := range candidates {
+				if match(e) {
+					found = append(found, e)
 				}
 			}
 			switch len(found) {

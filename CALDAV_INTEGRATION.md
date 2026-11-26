@@ -284,10 +284,50 @@ repeating event is deleted with all its occurrences.
 | Both | `Friday at 4pm` | |
 | A shift | `back an hour`, `back half an hour`, `30 minutes later`, `forward 2 hours`, `an hour earlier` | |
 
-The event keeps its length, and everything else in it (alarms, attendees,
-notes) is kept: only its start, end and sequence number are rewritten. With
-no day or time ("move event dentist"), the bot asks when. Repeating events
-can't be moved yet.
+A bare weekday is that day of the event's own week (Monday to Sunday): a
+Monday event moved "to Wednesday" goes to the Wednesday after it, even weeks
+ahead. The event keeps its length, and everything else in it (alarms,
+attendees, notes) is kept: only its start, end and sequence number are
+rewritten. With no day or time ("move event dentist"), the bot asks when.
+
+#### Repeating events
+
+A repeating event can move just one occurrence or all of them. "Move event
+yoga on December 14 to Wednesday" (the event with a day) moves that day's
+one; otherwise the bot asks:
+
+```
+User: move event yoga to Tuesday
+Bot:  "yoga" repeats. Should I move just the next one, on Monday at 6 PM, or every one?
+      [Just that one] [Every one]
+User: just that one
+Bot:  Okay, just that once: "yoga" is now on Tuesday at 6 PM.
+
+User: move event yoga to 7pm
+Bot:  "yoga" repeats. Should I move just the next one, on Tuesday at 6 PM, or every one?
+      [Just that one] [Every one]
+User: every one
+Bot:  Okay, every "yoga" has moved: the next one is now on Monday, December 7 at 7 PM.
+```
+
+`MOVE ONE EVENT <event> TO <when>` and `MOVE EVERY EVENT <event> TO <when>`
+don't ask (they set `calendar_move_scope` to `one` or `all`, the service's
+`scope` param).
+
+- **One** writes the occurrence as its own VEVENT in the event (with a
+  `RECURRENCE-ID`), as calendar apps do, so Thunderbird and phones show it
+  moved too. Moving it again changes that VEVENT.
+- **Every one** moves the series by the same days and time, in its own time
+  zone, so it keeps its local time across daylight saving changes: every
+  Monday at 6 PM moved to Tuesday at 7 PM is every Tuesday at 7 PM. The rule's
+  weekdays (`BYDAY`) and days of the month move with it, and so do its
+  left-out dates and `UNTIL`. Occurrences moved on their own stay moved; those
+  moved only to another day take the new time, and those given a time of
+  their own keep it. The change is measured from an occurrence where the
+  series puts it.
+- Rules that can't move that way to another day, such as "the first Monday
+  of the month" (`BYDAY=1MO`) or `BYSETPOS`, can still move one occurrence
+  or change the time; the bot offers just the one.
 
 ### Calendars
 

@@ -149,7 +149,7 @@ func TestCalendarMove(t *testing.T) {
 
 	expectReply(t, ask, "move event unicorns to Friday", `I couldn't find "unicorns" on your calendar.`)
 	ask("create event yoga every Monday at 6pm")
-	expectReply(t, ask, "move event yoga to Tuesday", `"yoga" repeats, and I can't move a repeating event yet. You can remove it and add it again.`)
+	expectReply(t, ask, "move event yoga to Tuesday", `"yoga" repeats. Should I move just the next one, on Monday at 6 PM, or every one?`)
 }
 
 func TestMoveEventKeepsTheRest(t *testing.T) {
@@ -203,5 +203,172 @@ func TestEventQueries(t *testing.T) {
 	}
 	if got := strings.Join(eventQueries("Bob"), "|"); got != "Bob" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestCalendarMoveOneOccurrence(t *testing.T) {
+	f, ask := talkToCalendar(t)
+	ask("create event yoga every Monday at 6pm")
+	expectReply(t, ask, "move event yoga to Tuesday", `"yoga" repeats. Should I move just the next one, on Monday at 6 PM, or every one?`)
+	expectReply(t, ask, "just that one", `Okay, just that once: "yoga" is now on Tuesday, November 24 at 6 PM.`)
+	expectReply(t, ask, "what do I have next week", "Next week, you have yoga on Tuesday, November 24 at 6 PM.")
+	expectReply(t, ask, "what is on my calendar for November 30", "On Monday, November 30, you have yoga at 6 PM.")
+
+	// Moving the moved one again changes it, not the series
+	expectReply(t, ask, "move event yoga to 8pm", `"yoga" repeats. Should I move just the next one, on Tuesday, November 24 at 6 PM, or every one?`)
+	expectReply(t, ask, "this one", `Okay, just that once: "yoga" is now on Tuesday, November 24 at 8 PM.`)
+
+	// An event with a day names that day's one
+	expectReply(t, ask, "move event yoga on November 30 to 7pm", `Okay, just that once: "yoga" is now on Monday, November 30 at 7 PM.`)
+	expectReply(t, ask, "what is on my calendar for December 7", "On Monday, December 7, you have yoga at 6 PM.")
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.events) != 1 {
+		t.Fatalf("events: %d", len(f.events))
+	}
+	for _, data := range f.events {
+		if n := strings.Count(data, "BEGIN:VEVENT"); n != 3 {
+			t.Errorf("want the series and 2 moved occurrences, got %d VEVENTs:\n%s", n, data)
+		}
+	}
+}
+
+func TestCalendarMoveEveryOccurrence(t *testing.T) {
+	_, ask := talkToCalendar(t)
+	ask("create event yoga every Monday at 6pm")
+	// Wednesday is that of the next one's week
+	expectReply(t, ask, "move event yoga to Wednesday at 7pm", `"yoga" repeats. Should I move just the next one, on Monday at 6 PM, or every one?`)
+	expectReply(t, ask, "every one", `Okay, every "yoga" has moved: the next one is now on Wednesday, November 25 at 7 PM.`)
+	expectReply(t, ask, "what do I have next week", "Next week, you have yoga on Wednesday, November 25 at 7 PM.")
+	expectReply(t, ask, "what is on my calendar for December 2", "On Wednesday, December 2, you have yoga at 7 PM.")
+	expectReply(t, ask, "what is on my calendar for November 30", "Your calendar is clear on Monday, November 30.")
+
+	// With the scope given, it doesn't ask; a shift moves the time
+	expectReply(t, ask, "move every event yoga to back half an hour", `Okay, every "yoga" has moved: the next one is now on Wednesday, November 25 at 7:30 PM.`)
+	expectReply(t, ask, "move event yoga to Thursday", `"yoga" repeats. Should I move just the next one, on Wednesday, November 25 at 7:30 PM, or every one?`)
+	expectReply(t, ask, "never mind", "Okay, I'll leave it where it is.")
+	expectReply(t, ask, "CALENDAR MOVE ALL", `Okay, every "yoga" has moved: the next one is now on Thursday, November 26 at 7:30 PM.`)
+}
+
+func TestCalendarMoveEveryOccurrenceKeepsMovedOnes(t *testing.T) {
+	_, ask := talkToCalendar(t)
+	ask("create event standup every weekday at 9am")
+	expectReply(t, ask, "move one event standup to 10am", `Okay, just that once: "standup" is now tomorrow at 10 AM.`)
+	// The next one is the moved one; every one moves from where the series
+	// puts them
+	expectReply(t, ask, "move every event standup to 8:30am", `Okay, every "standup" has moved: the next one is now on Thursday at 8:30 AM.`)
+	expectReply(t, ask, "what is on my calendar tomorrow", "Tomorrow, you have standup at 10 AM.")
+	expectReply(t, ask, "what is on my calendar for Friday", "On Friday, November 20, you have standup at 8:30 AM.")
+}
+
+func TestShiftRRule(t *testing.T) {
+	for _, tt := range []struct {
+		rule string
+		days int
+		want string
+	}{
+		{"FREQ=WEEKLY;BYDAY=MO", 1, "FREQ=WEEKLY;BYDAY=TU"},
+		{"FREQ=WEEKLY;BYDAY=SA,SU", 1, "FREQ=WEEKLY;BYDAY=SU,MO"},
+		{"FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20261218T235959Z", -1, "FREQ=WEEKLY;BYDAY=SU,TU,TH;UNTIL=20261217T235959Z"},
+		{"FREQ=MONTHLY;BYMONTHDAY=3", 2, "FREQ=MONTHLY;BYMONTHDAY=5"},
+		{"FREQ=DAILY;UNTIL=20261218", 3, "FREQ=DAILY;UNTIL=20261221"},
+		{"FREQ=WEEKLY;BYDAY=MO", 0, "FREQ=WEEKLY;BYDAY=MO"},
+	} {
+		if got, err := shiftRRule(tt.rule, tt.days); err != nil || got != tt.want {
+			t.Errorf("%s by %d = %q, %v; want %q", tt.rule, tt.days, got, err, tt.want)
+		}
+	}
+	for _, rule := range []string{"FREQ=MONTHLY;BYDAY=1MO", "FREQ=MONTHLY;BYDAY=MO;BYSETPOS=-1", "FREQ=MONTHLY;BYMONTHDAY=30"} {
+		if _, err := shiftRRule(rule, 1); err != errCantMoveSeries {
+			t.Errorf("%s: err = %v", rule, err)
+		}
+	}
+}
+
+// A series written in its time zone moves in wall-clock time, so it keeps
+// its local time across a daylight saving change; its alarms, left-out
+// dates and moved occurrences come along
+func TestMoveSeriesInItsTimeZone(t *testing.T) {
+	london, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		t.Skip("no time zone data")
+	}
+	now := time.Date(2026, 10, 20, 9, 0, 0, 0, london) // a Tuesday, before the clocks go back
+	const data = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:yoga@x\r\nDTSTAMP:20261001T000000Z\r\n" +
+		"DTSTART;TZID=Europe/London:20261019T180000\r\nDTEND;TZID=Europe/London:20261019T190000\r\n" +
+		"RRULE:FREQ=WEEKLY;BYDAY=MO\r\nEXDATE;TZID=Europe/London:20261102T180000\r\nSEQUENCE:4\r\nSUMMARY:yoga\r\n" +
+		"BEGIN:VALARM\r\nTRIGGER:-PT15M\r\nACTION:DISPLAY\r\nEND:VALARM\r\nEND:VEVENT\r\n" +
+		"BEGIN:VEVENT\r\nUID:yoga@x\r\nRECURRENCE-ID;TZID=Europe/London:20261109T180000\r\n" +
+		"DTSTART;TZID=Europe/London:20261110T180000\r\nDTEND;TZID=Europe/London:20261110T190000\r\nSUMMARY:yoga\r\nEND:VEVENT\r\n" +
+		"END:VCALENDAR\r\n"
+	events := parseICalendar(data, london)
+	occurrence := expandEvents(events, now, now.AddDate(0, 0, 7))[0] // Monday October 26, after the change
+	if occurrence.start.Hour() != 18 {
+		t.Fatalf("occurrence: %v", occurrence.start)
+	}
+	moved, ok, err := moveEvent(occurrence, "Tuesday at 7pm", now)
+	if err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	out, err := moveSeries(data, occurrence, moved, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"DTSTART;TZID=Europe/London:20261020T190000\r\n", "DTEND;TZID=Europe/London:20261020T200000\r\n",
+		"RRULE:FREQ=WEEKLY;BYDAY=TU\r\n", "EXDATE;TZID=Europe/London:20261103T190000\r\n", "SEQUENCE:5\r\n",
+		"TRIGGER:-PT15M\r\n", "RECURRENCE-ID;TZID=Europe/London:20261110T190000\r\n",
+		"DTSTART;TZID=Europe/London:20261110T190000\r\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in\n%s", want, out)
+		}
+	}
+	// Every Tuesday at 7 PM London time, on both sides of the change (the
+	// clocks go back on October 25), except the left-out November 3, with
+	// the moved one on its own day at the new time
+	var got []string
+	for _, e := range expandEvents(parseICalendar(out, london), now, now.AddDate(0, 0, 28)) {
+		got = append(got, e.start.In(london).Format("Mon Jan 2 15:04"))
+	}
+	if want := "Tue Oct 20 19:00|Tue Oct 27 19:00|Tue Nov 10 19:00"; strings.Join(got, "|") != want {
+		t.Errorf("occurrences %v, want %s", got, want)
+	}
+}
+
+func TestMoveToAWeekdayOfTheEventsWeek(t *testing.T) {
+	at := func(month time.Month, day, hour int) time.Time {
+		return time.Date(2026, month, day, hour, 0, 0, 0, time.UTC)
+	}
+	event := calendarEvent{summary: "dentist", start: at(12, 14, 15), end: at(12, 14, 16)} // a Monday
+	for text, want := range map[string]time.Time{
+		"Wednesday":         at(12, 16, 15),
+		"on Sunday at 10am": at(12, 20, 10),
+		"next Wednesday":    at(11, 18, 15), // "next" counts from today, as for new events
+		"Friday the 4th":    at(12, 18, 15),
+	} {
+		moved, ok, err := moveEvent(event, text, caldavNow)
+		if err != nil || !ok || !moved.start.Equal(want) {
+			t.Errorf("%q: %v %v %v, want %v", text, moved.start, ok, err, want)
+		}
+	}
+	// This week's has passed: the next one
+	soon := calendarEvent{summary: "lunch", start: at(11, 18, 12), end: at(11, 18, 13)} // Wednesday, tomorrow
+	if moved, _, _ := moveEvent(soon, "Monday", caldavNow); !moved.start.Equal(at(11, 23, 12)) {
+		t.Errorf("Monday: %v", moved.start)
+	}
+}
+
+func TestEventQueriesSingular(t *testing.T) {
+	for input, want := range map[string]string{
+		"standups":     "standups|standup",
+		"yoga classes": "yoga classes|yoga class",
+		"my parties":   "my parties|parties|party",
+		"Boss":         "Boss",
+	} {
+		if got := strings.Join(eventQueries(input), "|"); got != want {
+			t.Errorf("%q: %q, want %q", input, got, want)
+		}
 	}
 }

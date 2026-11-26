@@ -315,7 +315,14 @@ Which one should I remove?</li>
     <!-- MOVE EVENT <event> TO <when>: a new day ("Friday", keeping the
          time), a new time ("4pm", keeping the day), both, or a shift
          ("back an hour", "30 minutes earlier"). The event keeps its length
-         and everything else about it. Repeating events can't be moved. -->
+         and everything else about it.
+
+         A repeating event: "yoga on Monday" (an event with a day) moves
+         that day's one; otherwise the bot asks whether to move just the
+         next one or every one. MOVE ONE EVENT and MOVE EVERY EVENT say
+         which (the predicate calendar_move_scope, "one" or "all"). Moving
+         every one keeps them on the same pattern: every Monday at 6 PM
+         moved to Tuesday at 7 PM is every Tuesday at 7 PM. -->
     <category>
         <pattern>MOVE EVENT * TO *</pattern>
         <template>
@@ -329,13 +336,48 @@ Which one should I remove?</li>
                 <li value="NOT FOUND">I couldn't find "<star/>" on your calendar.</li>
                 <li value="SEVERAL EVENTS"><get name="calendar_match_buttons"/> You have <get name="calendar_match_count"/> events matching "<star/>":<get name="calendar_matches"/>
 Which one should I move?</li>
-                <li value="REPEATING">"<get name="calendar_event_title"/>" repeats, and I can't move a repeating event yet. You can remove it and add it again.</li>
+                <li value="REPEATING"><think><set name="pending_move_event"><get name="calendar_event_uid"/></set></think><button><text>Just that one</text><postback>CALENDAR MOVE ONE</postback></button><button><text>Every one</text><postback>CALENDAR MOVE ALL</postback></button> "<get name="calendar_event_title"/>" repeats. Should I move just the next one, <get name="calendar_event_when"/>, or every one?</li>
+                <li value="CANT MOVE ALL"><think><set name="pending_move_event"><get name="calendar_event_uid"/></set></think><button><text>Just that one</text><postback>CALENDAR MOVE ONE</postback></button> I can't move every "<get name="calendar_event_title"/>" that way, because of how it repeats. I can move just the next one, <get name="calendar_event_when"/>.</li>
                 <li value="NO WHEN"><think><set name="pending_move_event"><get name="calendar_event_uid"/></set></think>When should I move "<get name="calendar_event_title"/>" to?</li>
                 <li value="Failed to move event">I couldn't move that event. Please try again.</li>
-                <li><think><set name="calendar_last_uid"><get name="calendar_event_uid"/></set></think>Okay, "<get name="calendar_event_title"/>" is now <get name="calendar_event_when"/>.</li>
+                <li><think><set name="calendar_last_uid"><get name="calendar_event_uid"/></set></think><condition name="calendar_moved_scope"><li value="one">Okay, just that once: "<get name="calendar_event_title"/>" is now <get name="calendar_event_when"/>.</li><li value="all">Okay, every "<get name="calendar_event_title"/>" has moved: the next one is now <get name="calendar_event_when"/>.</li><li>Okay, "<get name="calendar_event_title"/>" is now <get name="calendar_event_when"/>.</li></condition></li>
             </condition>
+            <think><set name="calendar_move_scope"></set></think>
         </template>
     </category>
+
+    <!-- Moving just one, or every one, of a repeating event -->
+    <category><pattern>MOVE ONE EVENT * TO *</pattern><template><think><set name="calendar_move_scope">one</set></think><srai>MOVE EVENT <star/> TO <star index="2"/></srai></template></category>
+    <category><pattern>MOVE EVERY EVENT * TO *</pattern><template><think><set name="calendar_move_scope">all</set></think><srai>MOVE EVENT <star/> TO <star index="2"/></srai></template></category>
+    <category><pattern>CALENDAR MOVE ONE</pattern><template><srai>MOVE ONE EVENT <get name="pending_move_event"/> TO <get name="pending_move_when"/></srai></template></category>
+    <category><pattern>CALENDAR MOVE ALL</pattern><template><srai>MOVE EVERY EVENT <get name="pending_move_event"/> TO <get name="pending_move_when"/></srai></template></category>
+    <category><pattern>JUST THAT ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST THIS ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST THE NEXT ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST THE ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST ONCE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST THAT</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>JUST THIS WEEK</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>ONLY THAT ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>THAT ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>THIS ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>THE NEXT ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>NEXT ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ONE</srai></template></category>
+    <category><pattern>EVERY ONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>EVERYONE</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>ALL</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>ALL OF THEM</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>EVERY TIME</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>EVERY WEEK</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>FROM NOW ON</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>ALWAYS</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>THE WHOLE SERIES</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>THE LOT</pattern><that>^ OR EVERY ONE</that><template><srai>CALENDAR MOVE ALL</srai></template></category>
+    <category><pattern>NEVER MIND</pattern><that>^ OR EVERY ONE</that><template>Okay, I'll leave it where it is.</template></category>
+    <category><pattern>NO</pattern><that>^ OR EVERY ONE</that><template>Okay, I'll leave it where it is.</template></category>
+    <category><pattern>CANCEL</pattern><that>^ OR EVERY ONE</that><template>Okay, I'll leave it where it is.</template></category>
     <!-- From the buttons when several events matched -->
     <category><pattern>CALENDAR MOVE PENDING *</pattern><template><srai>MOVE EVENT <star/> TO <get name="pending_move_when"/></srai></template></category>
     <!-- "Move the dentist" with no day or time: asks -->
