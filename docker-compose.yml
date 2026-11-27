@@ -42,6 +42,8 @@ services:
       # Wikipedia lookups ("what is ..."); see env.example
       - WIKIPEDIA_USER_AGENT=${WIKIPEDIA_USER_AGENT:-}
       - WIKIPEDIA_URL=${WIKIPEDIA_URL:-}
+      # SearXNG: sums, conversions and web searches; see env.example
+      - SEARX_URL=${SEARX_URL:-}
     volumes:
       - golem-learned:/app/learned_categories
       # The user store (users.json) and reminders (reminders.json)

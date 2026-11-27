@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+  Sums, conversions and web searches with a SearXNG instance: the
+  searx_answer and searx_search services of searx-config.properties (the
+  searx handler, pkg/golem/searx.go).
+
+  CALCULATE <sum> answers "2 + 2", "7 times 6", "15% of 80",
+  "5 miles in km" or "100 usd in eur".
+  LOOK UP ANSWER <question> is for "what is ...": a sum or a conversion goes
+  to SearXNG, anything else to Wikipedia (so "what is 2 + 2" never gets the
+  article on "2 + 2 = 5").
+  SEARCH FOR <words> gives the top web result and links to the first three.
+-->
+
+<category>
+<pattern>CALCULATE *</pattern>
+<template>
+  <think>
+    <set name="searx_status"></set>
+    <set var="answer"><sraix service="searx_answer"><star/></sraix></set>
+  </think>
+  <condition name="searx_status">
+    <li value="found"><get name="searx_answer"/></li>
+    <li value="skip">That doesn't look like a sum I can work out. Try something like "calculate 15% of 80".</li>
+    <li value="none">I couldn't work that out.</li>
+    <li>I can't reach the calculator right now. Is SEARX_URL set?</li>
+  </condition>
+</template>
+</category>
+<category><pattern>COMPUTE *</pattern><template><srai>CALCULATE <star/></srai></template></category>
+<category><pattern>CONVERT *</pattern><template><srai>CALCULATE <star/></srai></template></category>
+<category><pattern>HOW MUCH IS *</pattern><template><srai>CALCULATE <star/></srai></template></category>
+
+<!-- "What is ...": a sum's answer, else Wikipedia's -->
+<category>
+<pattern>LOOK UP ANSWER *</pattern>
+<template>
+  <think>
+    <set name="searx_status"></set>
+    <set var="answer"><sraix service="searx_answer"><star/></sraix></set>
+  </think>
+  <condition name="searx_status">
+    <li value="found"><get name="searx_answer"/></li>
+    <li value="skip"><srai>WIKIPEDIA <star/></srai></li>
+    <li value="none">I couldn't work that out.</li>
+    <li>I can't reach the calculator right now. Is SEARX_URL set?</li>
+  </condition>
+</template>
+</category>
+
+<category>
+<pattern>SEARCH FOR *</pattern>
+<template>
+  <think>
+    <set name="searx_status"></set>
+    <set var="result"><sraix service="searx_search"><star/></sraix></set>
+  </think>
+  <condition name="searx_status">
+    <li value="found"><get name="searx_answer"/><get name="searx_links"/></li>
+    <li value="none">I didn't find anything for "<star/>".</li>
+    <li>I can't search the web right now. Is SEARX_URL set?</li>
+  </condition>
+</template>
+</category>
+<category><pattern>SEARCH THE WEB FOR *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+<category><pattern>SEARCH THE INTERNET FOR *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+<category><pattern>WEB SEARCH *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+<category><pattern>WEB SEARCH FOR *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+<category><pattern>SEARX *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+<category><pattern>GOOGLE *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+<category><pattern>SEARCH *</pattern><template><srai>SEARCH FOR <star/></srai></template></category>
+
+</aiml>

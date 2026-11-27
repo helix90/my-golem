@@ -191,6 +191,7 @@ All `.properties` files must use JSON array format:
   - `{name}` - A predicate the service names with `param.<name>`, e.g. `["sraix.list_get.param.access_token", "list_access_token"]`; the engine passes no session values otherwise
 - `default.<placeholder>` gives a placeholder a value when nothing else does; `${ENV_VAR:-fallback}` works in templates, defaults and credentials
 - `username`/`password` send basic auth (they can use `${ENV_VAR}`)
+- `handler` = `searx` with `operation` = `answer` (sums and conversions only: SearXNG's instant answer, else `searx_status` `skip`/`none`) or `search` (top results) asks a SearXNG instance's JSON API (`searx.go`, `testdata/searx*`)
 - `handler` = `wikipedia` with `operation` = `summary`/`page` searches Wikipedia's API (the URL template) and returns the start of the best article, setting `wiki_status`, `wiki_summary`, `wiki_title`, `wiki_url` and `wiki_options` (`wikipedia.go`, `testdata/wikipedia*`)
 - `handler` = `caldav` with `operation` = `today`/`upcoming`/`range`/`create`/`get`/`delete`/`move` talks to a CalDAV calendar instead of making one HTTP request (`caldav.go`; see `CALDAV_INTEGRATION.md` and `testdata/caldav-*`)
 - `reauth` = an input the bot answers when the service replies 401 Unauthorized (e.g. `LIST RELOGIN`, which logs in again); `<sraix>` then re-reads the service's `param.*` predicates and, if one changed, retries once

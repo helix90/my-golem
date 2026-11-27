@@ -1,7 +1,7 @@
 # Assistant features
 
 Who can use the Telegram bot, what it remembers about each user, reminders
-and the daily briefing, buttons, and Wikipedia lookups.
+and the daily briefing, buttons, Wikipedia lookups, and sums and searches with SearXNG.
 
 ## Who can use the bot
 
@@ -272,3 +272,51 @@ Bot:  I couldn't find anything on Wikipedia about "xqzzvbn florp".
 - Questions with their own answers ("what is your name", "what is the
   weather", "what's on my list") still get them; only the rest go to
   Wikipedia.
+
+## Sums, conversions and web searches with SearXNG
+
+`testdata/searx.aiml` and `testdata/searx-config.properties`, for your own
+[SearXNG](https://docs.searxng.org/) instance. Set `SEARX_URL` (e.g.
+`http://192.168.1.10:8888`) and allow its JSON API in its `settings.yml`:
+
+```yaml
+search:
+  formats:
+    - html
+    - json
+```
+
+Without that, SearXNG answers 403 and the bot says it can't reach the
+calculator.
+
+```
+User: what is 2 + 2
+Bot:  2 + 2 is 4.
+User: what's 15 percent of 80
+Bot:  15 percent of 80 is 12.
+User: what is 5 miles in km
+Bot:  5 miles in km is 8.04672 km.
+User: calculate 1,234 * 5,678
+Bot:  1,234 * 5,678 is 7006652.
+User: search for best pizza in Lisbon
+Bot:  The 10 best pizza places in Lisbon: Our pick of the best pizza in Lisbon.
+      [The 10 best pizza places in Lisbon] [Pizza – Lisbon forum] [Lisbon food guide]
+```
+
+- **Sums** (`calculate ...`, `how much is ...`, and with the my-AIML pack
+  "what is ..."): numbers with `+ - * / ^ %` and parentheses, or the words
+  plus, minus, times, multiplied by, divided by, over, squared, cubed, to
+  the power of, and "15% of 80" / "20 percent of 45". They go to SearXNG's
+  Calculator plugin, which must be enabled (it is by default).
+- **Conversions**: "5 miles in km", "72 fahrenheit to celsius", "100 usd in
+  eur", "how many ounces in a pound", from SearXNG's unit converter and
+  currency engine.
+- Only sums and conversions are sent: "what is a quasar" goes straight to
+  Wikipedia, so everyday questions don't reach the search engines behind
+  SearXNG. A sum never goes to Wikipedia (whose top hit for "2 + 2" is the
+  article on *2 + 2 = 5*): without SearXNG the bot says it can't reach the
+  calculator.
+- **Web searches**: `search for ...`, `search the web for ...`, `google ...`
+  reply with the top result and buttons linking to the first three.
+- Behind basic auth? Add `username` and `password` lines to the two
+  services in `searx-config.properties` (they can use `${ENV_VAR}`).
