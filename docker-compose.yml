@@ -39,6 +39,9 @@ services:
       - RADICALE_USER=${RADICALE_USER:-}
       - RADICALE_PASSWORD=${RADICALE_PASSWORD:-}
       - RADICALE_CALENDAR=${RADICALE_CALENDAR:-}
+      # Wikipedia lookups ("what is ..."); see env.example
+      - WIKIPEDIA_USER_AGENT=${WIKIPEDIA_USER_AGENT:-}
+      - WIKIPEDIA_URL=${WIKIPEDIA_URL:-}
     volumes:
       - golem-learned:/app/learned_categories
       # The user store (users.json) and reminders (reminders.json)

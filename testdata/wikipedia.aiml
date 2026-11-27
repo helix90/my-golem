@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+  Wikipedia lookups: the wiki_summary and wiki_page services of
+  wikipedia-config.properties (the wikipedia handler, pkg/golem/wikipedia.go).
+
+  WIKIPEDIA <topic> gives the first sentences of the article that best
+  matches, with a button to read the rest. An ambiguous topic ("mercury")
+  offers the likely articles as buttons, which send WIKIPEDIA PAGE <title>.
+  The my-AIML phrase pack maps "what is ...", "who is ..." and "tell me
+  about ..." onto WIKIPEDIA.
+-->
+
+<category>
+<pattern>WIKIPEDIA *</pattern>
+<template>
+  <think>
+    <set name="wiki_status"></set>
+    <set var="summary"><sraix service="wiki_summary"><star/></sraix></set>
+  </think>
+  <srai>WIKIPEDIA REPLY <star/></srai>
+</template>
+</category>
+
+<category>
+<pattern>WIKIPEDIA PAGE *</pattern>
+<template>
+  <think>
+    <set name="wiki_status"></set>
+    <set var="summary"><sraix service="wiki_page"><star/></sraix></set>
+  </think>
+  <srai>WIKIPEDIA REPLY <star/></srai>
+</template>
+</category>
+
+<!-- The reply, from wiki_status and the summary (wiki_summary) -->
+<category>
+<pattern>WIKIPEDIA REPLY *</pattern>
+<template>
+  <condition name="wiki_status">
+    <li value="found"><get name="wiki_summary"/><button><text>📖 Read more on Wikipedia</text><url><get name="wiki_url"/></url></button></li>
+    <li value="several"><get name="wiki_options"/> "<star/>" could mean a few things. Which one?</li>
+    <li value="none">I couldn't find anything on Wikipedia about "<star/>".</li>
+    <li>I can't reach Wikipedia right now. Please try again in a minute.</li>
+  </condition>
+</template>
+</category>
+
+<category><pattern>LOOK UP *</pattern><template><srai>WIKIPEDIA <star/></srai></template></category>
+<category><pattern>LOOK UP * ON WIKIPEDIA</pattern><template><srai>WIKIPEDIA <star/></srai></template></category>
+<category><pattern>SEARCH WIKIPEDIA FOR *</pattern><template><srai>WIKIPEDIA <star/></srai></template></category>
+<category><pattern>WIKIPEDIA SEARCH *</pattern><template><srai>WIKIPEDIA <star/></srai></template></category>
+<category><pattern>WIKI *</pattern><template><srai>WIKIPEDIA <star/></srai></template></category>
+
+</aiml>

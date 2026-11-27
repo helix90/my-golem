@@ -1,7 +1,7 @@
 # Assistant features
 
 Who can use the Telegram bot, what it remembers about each user, reminders
-and the daily briefing, and buttons.
+and the daily briefing, buttons, and Wikipedia lookups.
 
 ## Who can use the bot
 
@@ -231,3 +231,44 @@ The bundled AIML uses buttons for:
   button="LIST {list} TOGGLE ITEM {id}">` adds them; `{list}`, `{id}` and
   `{content}` are filled in per item.
 - **Weather** without a location, which offers to share one.
+
+## Looking things up in Wikipedia
+
+`testdata/wikipedia.aiml` and `testdata/wikipedia-config.properties`. With
+the my-AIML phrase pack, "what is ...", "who was ...", "tell me about ..."
+and "what does ... mean" all look the topic up; without it, say
+`wikipedia <topic>` or `look up <topic>`. No key is needed.
+
+```
+User: who was Ada Lovelace
+Bot:  Augusta Ada King, Countess of Lovelace (née Byron; 10 December 1815 – 27 November 1852), also known as Ada Lovelace, was an English mathematician and writer chiefly known for work on Charles Babbage's proposed mechanical general-purpose computer, the analytical engine. She was the first to recognise the machine had applications beyond pure calculation.
+      [📖 Read more on Wikipedia]
+
+User: tell me about Lisbon
+Bot:  Lisbon is the capital and most populous city of Portugal, with an estimated population of 658,236 as of 2025, within its administrative limits and 3,353,000 within the metropolis, as of 2025. The city lies in the western part of the Iberian Peninsula, fronting the northern shore of the River Tagus.
+      [📖 Read more on Wikipedia]
+
+User: what is mercury
+Bot:  "mercury" could mean a few things. Which one?
+      [Freddie Mercury – British rock singer and songwriter (1946–1991)] [Mercury (element)]
+      [Mercury (planet)] [Mercury Records – American record label]
+
+User: what is xqzzvbn florp
+Bot:  I couldn't find anything on Wikipedia about "xqzzvbn florp".
+```
+
+- The reply is the first one or two sentences of the article's introduction
+  (about 400 characters at most), without pronunciations, and a button
+  linking to the article.
+- The article is the one whose title is the topic, else Wikipedia's top
+  search result. A disambiguation page ("Mercury") offers the other results
+  as buttons, which send `WIKIPEDIA PAGE <title>`.
+- **Set `WIKIPEDIA_USER_AGENT`** to something with your contact details, e.g.
+  `my-assistant/1.0 (you@example.com)`. Wikimedia throttles clients without
+  one; when it says "too many requests" the bot waits a moment and tries once
+  more, then says it can't reach Wikipedia.
+- `WIKIPEDIA_URL` picks another language, e.g.
+  `https://de.wikipedia.org/w/api.php`.
+- Questions with their own answers ("what is your name", "what is the
+  weather", "what's on my list") still get them; only the rest go to
+  Wikipedia.

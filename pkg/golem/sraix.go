@@ -282,6 +282,14 @@ func validateHandler(config *SRAIXConfig) error {
 			return fmt.Errorf("SRAIX service '%s': unknown reminders operation %q", config.Name, config.Operation)
 		}
 		return nil
+	case "wikipedia":
+		if config.URLTemplate == "" {
+			return fmt.Errorf("SRAIX service '%s': the wikipedia handler needs a URL template for the API (…/w/api.php)", config.Name)
+		}
+		if !wikipediaOperations[config.Operation] {
+			return fmt.Errorf("SRAIX service '%s': unknown wikipedia operation %q", config.Name, config.Operation)
+		}
+		return nil
 	}
 	return fmt.Errorf("SRAIX service '%s': unknown handler %q", config.Name, config.Handler)
 }
@@ -337,6 +345,9 @@ func (sm *SRAIXManager) send(config *SRAIXConfig, input string, wildcards, given
 	}
 	if config.Handler == "reminders" {
 		return sm.sendReminders(config, input, params)
+	}
+	if config.Handler == "wikipedia" {
+		return sm.sendWikipedia(config, input, params)
 	}
 
 	var requestURL, logURL string
